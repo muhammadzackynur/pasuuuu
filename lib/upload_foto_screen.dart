@@ -5,17 +5,23 @@ import 'konfirmasi_laporan_screen.dart';
 
 class UploadFotoScreen extends StatefulWidget {
   final String lokasi;
+  final double? lat;
+  final double? lng;
   final String jenisMaintenance;
   final String deskripsi;
   final String durasi;
+  final String tanggal;
   final List<String> teknisi;
 
   const UploadFotoScreen({
     super.key,
     required this.lokasi,
+    this.lat,
+    this.lng,
     required this.jenisMaintenance,
     required this.deskripsi,
     required this.durasi,
+    required this.tanggal,
     required this.teknisi,
   });
 
@@ -46,7 +52,14 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
       backgroundColor: const Color(0xFF0D1424),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text('Upload Dokumentasi'),
+        title: const Text(
+          'Upload Dokumentasi',
+          style: TextStyle(color: Colors.white),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -82,9 +95,12 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
                       MaterialPageRoute(
                         builder: (context) => KonfirmasiLaporanScreen(
                           lokasi: widget.lokasi,
+                          lat: widget.lat,
+                          lng: widget.lng,
                           jenisMaintenance: widget.jenisMaintenance,
                           deskripsi: widget.deskripsi,
                           durasi: widget.durasi,
+                          tanggal: widget.tanggal,
                           teknisi: widget.teknisi,
                           fotoDokumentasi: _selectedImages,
                         ),

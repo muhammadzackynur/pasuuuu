@@ -1,23 +1,70 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
 
-class KonfirmasiLaporanScreen extends StatelessWidget {
+class KonfirmasiLaporanScreen extends StatefulWidget {
   final String lokasi;
+  final double? lat;
+  final double? lng;
   final String jenisMaintenance;
   final String deskripsi;
   final String durasi;
+  final String tanggal;
   final List<String> teknisi;
   final List<File> fotoDokumentasi;
 
   const KonfirmasiLaporanScreen({
     super.key,
     required this.lokasi,
+    this.lat,
+    this.lng,
     required this.jenisMaintenance,
     required this.deskripsi,
     required this.durasi,
+    required this.tanggal,
     required this.teknisi,
     required this.fotoDokumentasi,
   });
+
+  @override
+  State<KonfirmasiLaporanScreen> createState() =>
+      _KonfirmasiLaporanScreenState();
+}
+
+class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
+  String _detailAlamat = "Mengambil data wilayah...";
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.lat != null && widget.lng != null) {
+      _getAddressFromLatLng();
+    } else {
+      _detailAlamat = "Koordinat GPS tidak tersedia.";
+    }
+  }
+
+  // Fungsi Reverse Geocoding untuk mendapatkan Kota, Kec, Kel
+  Future<void> _getAddressFromLatLng() async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        widget.lat!,
+        widget.lng!,
+      );
+      Placemark place = placemarks[0];
+      setState(() {
+        _detailAlamat =
+            "Kota: ${place.subAdministrativeArea ?? '-'}\n"
+            "Kecamatan: ${place.locality ?? '-'}\n"
+            "Kelurahan/Desa: ${place.subLocality ?? '-'}";
+      });
+    } catch (e) {
+      setState(() {
+        _detailAlamat = "Gagal memproses detail wilayah: $e";
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,22 +100,90 @@ class KonfirmasiLaporanScreen extends StatelessWidget {
             _buildInfoCard(
               icon: Icons.location_on,
               title: "LOKASI PEKERJAAN",
-              value: lokasi,
+              value: widget.lokasi,
+            ),
+            const SizedBox(height: 12),
+            _buildInfoCard(
+              icon: Icons.calendar_month,
+              title: "TIME PLAN / TANGGAL",
+              value: widget.tanggal,
+              iconColor: Colors.green,
             ),
             const SizedBox(height: 12),
             _buildInfoCard(
               icon: Icons.settings,
               title: "JENIS & DURASI",
-              value: "$jenisMaintenance • $durasi",
+              value: "${widget.jenisMaintenance} • ${widget.durasi}",
               iconColor: Colors.orange,
             ),
             const SizedBox(height: 12),
+
+            // WIDGET TAMPILAN PETA (Google Maps)
+            if (widget.lat != null && widget.lng != null)
+              Container(
+                height: 200,
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(widget.lat!, widget.lng!),
+                      zoom: 15,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('currentLocation'),
+                        position: LatLng(widget.lat!, widget.lng!),
+                      ),
+                    },
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                  ),
+                ),
+              ),
+
+            // KETERANGAN WILAYAH (Reverse Geocoding Result)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "KETERANGAN WILAYAH",
+                    style: TextStyle(color: Colors.grey, fontSize: 10),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _detailAlamat,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
             _buildDescriptionCard(
               title: "DESKRIPSI MASALAH",
-              content: deskripsi.isEmpty ? "Tidak ada deskripsi" : deskripsi,
+              content: widget.deskripsi.isEmpty
+                  ? "Tidak ada deskripsi"
+                  : widget.deskripsi,
             ),
             const SizedBox(height: 12),
-            _buildTechnicianCard(teknisi),
+            _buildTechnicianCard(widget.teknisi),
             const SizedBox(height: 24),
             _buildPhotoGrid(),
             const SizedBox(height: 30),
@@ -158,7 +273,7 @@ class KonfirmasiLaporanScreen extends StatelessWidget {
   Widget _buildPhotoGrid() => GridView.builder(
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
-    itemCount: fotoDokumentasi.length,
+    itemCount: widget.fotoDokumentasi.length,
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
@@ -166,7 +281,7 @@ class KonfirmasiLaporanScreen extends StatelessWidget {
     ),
     itemBuilder: (context, index) => ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: Image.file(fotoDokumentasi[index], fit: BoxFit.cover),
+      child: Image.file(widget.fotoDokumentasi[index], fit: BoxFit.cover),
     ),
   );
 

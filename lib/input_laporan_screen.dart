@@ -15,9 +15,16 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     text: "Gedung Parkir Lt. 3",
   );
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+
   bool _isGettingLocation = false;
   String? _selectedMaintenance;
   String _selectedDuration = "2 Jam";
+  DateTime? _selectedDate;
+
+  // Variabel untuk menyimpan koordinat murni
+  double? _currentLat;
+  double? _currentLng;
 
   final List<String> _maintenanceOptions = [
     "DISMALTING TIANG",
@@ -42,6 +49,21 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     "TAMBAH TIANG",
   ];
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = "${picked.day}/${picked.month}/${picked.year}";
+      });
+    }
+  }
+
   Future<void> _getCurrentLocation() async {
     setState(() => _isGettingLocation = true);
     try {
@@ -49,12 +71,18 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever)
+      if (permission == LocationPermission.deniedForever) {
         throw 'Izin lokasi ditolak permanen.';
+      }
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
+      // Simpan koordinat murni
+      _currentLat = position.latitude;
+      _currentLng = position.longitude;
+
       String mapUrl =
           "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}";
 
@@ -115,6 +143,9 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
             _buildFieldLabel("Jenis Maintenance"),
             _buildMaintenanceDropdown(),
             const SizedBox(height: 20),
+            _buildFieldLabel("Time Plan (Tanggal Pekerjaan)"),
+            _buildDateInput(),
+            const SizedBox(height: 20),
             _buildFieldLabel("Deskripsi Masalah"),
             _buildTextArea(
               hint: "Jelaskan detail masalah di sini...",
@@ -140,9 +171,14 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                   MaterialPageRoute(
                     builder: (context) => UploadFotoScreen(
                       lokasi: _locationController.text,
+                      lat: _currentLat,
+                      lng: _currentLng,
                       jenisMaintenance: _selectedMaintenance ?? "Belum Dipilih",
                       deskripsi: _descriptionController.text,
                       durasi: _selectedDuration,
+                      tanggal: _dateController.text.isEmpty
+                          ? "-"
+                          : _dateController.text,
                       teknisi: const ["Budi Santoso", "Ahmad Yani"],
                     ),
                   ),
@@ -214,6 +250,26 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     ),
   );
 
+  Widget _buildDateInput() => Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(15),
+    ),
+    child: TextField(
+      controller: _dateController,
+      readOnly: true,
+      onTap: () => _selectDate(context),
+      style: const TextStyle(color: Colors.white),
+      decoration: const InputDecoration(
+        hintText: "Pilih Tanggal Pekerjaan",
+        hintStyle: TextStyle(color: Colors.grey),
+        prefixIcon: Icon(Icons.calendar_today, color: Colors.blue),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(vertical: 15),
+      ),
+    ),
+  );
+
   Widget _buildMaintenanceDropdown() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12),
     decoration: BoxDecoration(
@@ -276,6 +332,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       side: const BorderSide(color: Colors.blue),
     ),
   );
+
   Widget _buildAddChip() => ActionChip(
     backgroundColor: Colors.transparent,
     label: const Text(
