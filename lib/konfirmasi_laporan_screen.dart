@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // Library Peta
+import 'package:geocoding/geocoding.dart'; // Library Alamat
 
 class KonfirmasiLaporanScreen extends StatefulWidget {
   final String lokasi;
@@ -33,19 +33,17 @@ class KonfirmasiLaporanScreen extends StatefulWidget {
 }
 
 class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
-  String _detailAlamat = "Mengambil data wilayah...";
+  String _detailAlamat = "Sedang mengambil data alamat...";
 
   @override
   void initState() {
     super.initState();
     if (widget.lat != null && widget.lng != null) {
-      _getAddressFromLatLng();
-    } else {
-      _detailAlamat = "Koordinat GPS tidak tersedia.";
+      _getAddressFromLatLng(); // Jalankan pencarian alamat
     }
   }
 
-  // Fungsi Reverse Geocoding untuk mendapatkan Kota, Kec, Kel
+  // Fungsi mengubah koordinat menjadi Nama Kota/Kecamatan
   Future<void> _getAddressFromLatLng() async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
@@ -55,14 +53,12 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       Placemark place = placemarks[0];
       setState(() {
         _detailAlamat =
-            "Kota: ${place.subAdministrativeArea ?? '-'}\n"
-            "Kecamatan: ${place.locality ?? '-'}\n"
-            "Kelurahan/Desa: ${place.subLocality ?? '-'}";
+            "Kota: ${place.subAdministrativeArea}\n"
+            "Kecamatan: ${place.locality}\n"
+            "Kelurahan/Desa: ${place.subLocality}";
       });
     } catch (e) {
-      setState(() {
-        _detailAlamat = "Gagal memproses detail wilayah: $e";
-      });
+      setState(() => _detailAlamat = "Gagal memuat detail wilayah.");
     }
   }
 
@@ -72,64 +68,49 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       backgroundColor: const Color(0xFF0D1424),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Konfirmasi Laporan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
+        title: const Text('Konfirmasi Laporan'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildInfoCard(
+              Icons.calendar_month,
+              "TIME PLAN / TANGGAL",
+              widget.tanggal,
+              Colors.green,
+            ),
+            const SizedBox(height: 12),
+            _buildInfoCard(
+              Icons.settings,
+              "JENIS & DURASI",
+              "${widget.jenisMaintenance} • ${widget.durasi}",
+              Colors.orange,
+            ),
+
+            const SizedBox(height: 20),
             const Text(
-              "RINGKASAN LAPORAN",
+              "LOKASI PEKERJAAN (PETA)",
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            _buildInfoCard(
-              icon: Icons.location_on,
-              title: "LOKASI PEKERJAAN",
-              value: widget.lokasi,
-            ),
-            const SizedBox(height: 12),
-            _buildInfoCard(
-              icon: Icons.calendar_month,
-              title: "TIME PLAN / TANGGAL",
-              value: widget.tanggal,
-              iconColor: Colors.green,
-            ),
-            const SizedBox(height: 12),
-            _buildInfoCard(
-              icon: Icons.settings,
-              title: "JENIS & DURASI",
-              value: "${widget.jenisMaintenance} • ${widget.durasi}",
-              iconColor: Colors.orange,
-            ),
-            const SizedBox(height: 12),
 
-            // WIDGET TAMPILAN PETA (Google Maps)
+            // WIDGET PETA
             if (widget.lat != null && widget.lng != null)
               Container(
                 height: 200,
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(vertical: 8),
+                margin: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                  border: Border.all(color: Colors.blue, width: 2),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(13),
                   child: GoogleMap(
                     initialCameraPosition: CameraPosition(
                       target: LatLng(widget.lat!, widget.lng!),
@@ -137,17 +118,16 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                     ),
                     markers: {
                       Marker(
-                        markerId: const MarkerId('currentLocation'),
+                        markerId: const MarkerId("lokasi"),
                         position: LatLng(widget.lat!, widget.lng!),
                       ),
                     },
-                    myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
                   ),
                 ),
               ),
 
-            // KETERANGAN WILAYAH (Reverse Geocoding Result)
+            // KETERANGAN ALAMAT
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -159,7 +139,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "KETERANGAN WILAYAH",
+                    "DETAIL WILAYAH",
                     style: TextStyle(color: Colors.grey, fontSize: 10),
                   ),
                   const SizedBox(height: 8),
@@ -175,16 +155,16 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
               ),
             ),
 
-            const SizedBox(height: 12),
-            _buildDescriptionCard(
-              title: "DESKRIPSI MASALAH",
-              content: widget.deskripsi.isEmpty
-                  ? "Tidak ada deskripsi"
-                  : widget.deskripsi,
+            const SizedBox(height: 24),
+            const Text(
+              "DOKUMENTASI FOTO",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            _buildTechnicianCard(widget.teknisi),
-            const SizedBox(height: 24),
             _buildPhotoGrid(),
             const SizedBox(height: 30),
             _buildSubmitButton(context),
@@ -194,12 +174,12 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     );
   }
 
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    Color iconColor = Colors.blue,
-  }) => Container(
+  Widget _buildInfoCard(
+    IconData icon,
+    String title,
+    String value,
+    Color color,
+  ) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: const Color(0xFF1E293B),
@@ -207,8 +187,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     ),
     child: Row(
       children: [
-        Icon(icon, color: iconColor),
-        const SizedBox(width: 16),
+        Icon(icon, color: color),
+        const SizedBox(width: 15),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,7 +202,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -230,44 +209,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
         ),
       ],
     ),
-  );
-
-  Widget _buildDescriptionCard({
-    required String title,
-    required String content,
-  }) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(15),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-        const SizedBox(height: 8),
-        Text(
-          content,
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildTechnicianCard(List<String> names) => Wrap(
-    spacing: 8,
-    children: names
-        .map(
-          (n) => Chip(
-            label: Text(
-              n,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
-            backgroundColor: Colors.blue.withOpacity(0.1),
-          ),
-        )
-        .toList(),
   );
 
   Widget _buildPhotoGrid() => GridView.builder(

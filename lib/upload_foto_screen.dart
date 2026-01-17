@@ -5,8 +5,8 @@ import 'konfirmasi_laporan_screen.dart';
 
 class UploadFotoScreen extends StatefulWidget {
   final String lokasi;
-  final double? lat;
-  final double? lng;
+  final double? lat; // Parameter lat
+  final double? lng; // Parameter lng
   final String jenisMaintenance;
   final String deskripsi;
   final String durasi;
@@ -32,10 +32,8 @@ class UploadFotoScreen extends StatefulWidget {
 class _UploadFotoScreenState extends State<UploadFotoScreen> {
   final List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
-  final int _maxPhotos = 6;
 
   Future<void> _pickImage() async {
-    if (_selectedImages.length >= _maxPhotos) return;
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 50,
@@ -43,29 +41,18 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
     if (image != null) setState(() => _selectedImages.add(File(image.path)));
   }
 
-  void _removeImage(int index) =>
-      setState(() => _selectedImages.removeAt(index));
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1424),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text(
-          'Upload Dokumentasi',
-          style: TextStyle(color: Colors.white),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Upload Dokumentasi'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const SizedBox(height: 16),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -76,8 +63,26 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
                 mainAxisSpacing: 12,
               ),
               itemBuilder: (context, index) => index < _selectedImages.length
-                  ? _uploadedPhoto(index)
-                  : _addPhotoButton(),
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.file(
+                        _selectedImages[index],
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : InkWell(
+                      onTap: _pickImage,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Icon(
+                          Icons.add_a_photo,
+                          color: Colors.cyan,
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -96,7 +101,7 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
                         builder: (context) => KonfirmasiLaporanScreen(
                           lokasi: widget.lokasi,
                           lat: widget.lat,
-                          lng: widget.lng,
+                          lng: widget.lng, // Teruskan koordinat
                           jenisMaintenance: widget.jenisMaintenance,
                           deskripsi: widget.deskripsi,
                           durasi: widget.durasi,
@@ -128,51 +133,4 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
       ),
     );
   }
-
-  Widget _uploadedPhoto(int index) => Stack(
-    children: [
-      Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          image: DecorationImage(
-            image: FileImage(_selectedImages[index]),
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-      Positioned(
-        top: 5,
-        right: 5,
-        child: GestureDetector(
-          onTap: () => _removeImage(index),
-          child: const CircleAvatar(
-            radius: 12,
-            backgroundColor: Colors.red,
-            child: Icon(Icons.close, color: Colors.white, size: 16),
-          ),
-        ),
-      ),
-    ],
-  );
-
-  Widget _addPhotoButton() => InkWell(
-    onTap: _pickImage,
-    child: Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.cyan.withOpacity(0.5)),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.add_a_photo, color: Colors.cyan, size: 30),
-          Text(
-            "Tambah Foto",
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ],
-      ),
-    ),
-  );
 }
