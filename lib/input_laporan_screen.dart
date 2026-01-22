@@ -68,20 +68,21 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     setState(() => _isGettingLocation = true);
     try {
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied)
+      if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+      }
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Simpan koordinat murni
+      // Simpan koordinat murni agar bisa diproses di Step Konfirmasi
       _currentLat = position.latitude;
       _currentLng = position.longitude;
 
       setState(
         () => _locationController.text =
-            "https://www.google.com/maps?q=${position.latitude},${position.longitude}",
+            "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}",
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -96,6 +97,23 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     }
   }
 
+  Future<void> _openGoogleMaps() async {
+    final String currentText = _locationController.text;
+    Uri url = currentText.startsWith('http')
+        ? Uri.parse(currentText)
+        : Uri.parse(
+            "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(currentText)}",
+          );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Tidak dapat membuka Google Maps.")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,6 +121,10 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'Input Laporan',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -124,8 +146,18 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
             const SizedBox(height: 20),
             _buildFieldLabel("Deskripsi Masalah"),
             _buildTextArea(
-              hint: "Jelaskan detail masalah...",
+              hint: "Jelaskan detail masalah di sini...",
               controller: _descriptionController,
+            ),
+            const SizedBox(height: 20),
+            _buildFieldLabel("Teknisi"),
+            Wrap(
+              spacing: 8,
+              children: [
+                _buildTechChip("Budi Santoso"),
+                _buildTechChip("Ahmad Yani"),
+                _buildAddChip(),
+              ],
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -137,8 +169,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                   MaterialPageRoute(
                     builder: (context) => UploadFotoScreen(
                       lokasi: _locationController.text,
-                      lat: _currentLat, // Kirim lat
-                      lng: _currentLng, // Kirim lng
+                      lat: _currentLat,
+                      lng: _currentLng,
                       jenisMaintenance: _selectedMaintenance ?? "Belum Dipilih",
                       deskripsi: _descriptionController.text,
                       durasi: _selectedDuration,
@@ -155,12 +187,21 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: const Text(
-                  "Lanjut ke Upload Foto",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.camera_alt, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text(
+                      "Lanjut ke Upload Foto",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward, color: Colors.white),
+                  ],
                 ),
               ),
             ),
@@ -187,7 +228,12 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       controller: _locationController,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.location_on, color: Colors.blue),
+        prefixIcon: IconButton(
+          icon: const Icon(Icons.location_on, color: Colors.blue),
+          onPressed: _openGoogleMaps,
+        ),
+        hintText: "Lokasi atau Link Maps",
+        border: InputBorder.none,
         suffixIcon: IconButton(
           icon: _isGettingLocation
               ? const SizedBox(
@@ -198,7 +244,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               : const Icon(Icons.gps_fixed, color: Colors.blue),
           onPressed: _getCurrentLocation,
         ),
-        border: InputBorder.none,
       ),
     ),
   );
@@ -218,6 +263,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
         hintStyle: TextStyle(color: Colors.grey),
         prefixIcon: Icon(Icons.calendar_today, color: Colors.blue),
         border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(vertical: 15),
       ),
     ),
   );
@@ -231,6 +277,10 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     child: DropdownButtonFormField<String>(
       dropdownColor: const Color(0xFF1E293B),
       value: _selectedMaintenance,
+      hint: const Text(
+        "Pilih Jenis Maintenance",
+        style: TextStyle(color: Colors.grey, fontSize: 14),
+      ),
       style: const TextStyle(color: Colors.white),
       decoration: const InputDecoration(
         icon: Icon(Icons.build, color: Colors.blue),
@@ -280,6 +330,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       side: const BorderSide(color: Colors.blue),
     ),
   );
+
   Widget _buildAddChip() => ActionChip(
     backgroundColor: Colors.transparent,
     label: const Text(
