@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // GANTI IP INI dengan IP Laptop Anda atau gunakan 10.0.2.2 untuk Emulator Android
       // Jika menggunakan Chrome/Web gunakan 127.0.0.1
-      final url = Uri.parse('http://192.168.1.81:8000/api/login');
+      final url = Uri.parse('http://192.168.100.192:8000/api/login');
 
       final response = await http.post(
         url,
