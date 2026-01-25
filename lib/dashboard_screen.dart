@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'input_laporan_screen.dart'; // Pastikan file ini sudah di-import
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'input_laporan_screen.dart';
+import 'profile_screen.dart'; // Pastikan file ini sudah dibuat
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final String userName;
   final String role;
 
@@ -12,19 +15,106 @@ class DashboardScreen extends StatelessWidget {
   });
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _selectedIndex = 0; // 0: Home, 1: Add (Action), 2: Status, 3: Profile
+  List<dynamic> _reports = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchReports();
+  }
+
+  // --- FUNGSI AMBIL DATA DARI BACKEND ---
+  Future<void> _fetchReports() async {
+    setState(() => _isLoading = true);
+    try {
+      // GANTI IP INI dengan IP Laptop/Server Backend Anda yang aktif
+      // Contoh: 192.168.1.15 atau 192.168.100.192
+      final url = Uri.parse('http://192.168.1.15:8000/api/maintenance/reports');
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _reports = data['data']; // Pastikan key 'data' sesuai format JSON API
+          _isLoading = false;
+        });
+      } else {
+        print("Gagal mengambil data: ${response.statusCode}");
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print("Error koneksi: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // --- LOGIKA NAVIGASI ---
+  void _onItemTapped(int index) {
+    if (index == 1) {
+      // Navigasi ke Input Laporan (Tab Tambah Data)
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const InputLaporanScreen()),
+      ).then((_) {
+        // Refresh data saat kembali dari halaman input agar laporan baru muncul
+        _fetchReports();
+      });
+    } else {
+      // Pindah Tab biasa
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Menentukan konten Body berdasarkan Tab yang dipilih
+    Widget bodyContent;
+    switch (_selectedIndex) {
+      case 0:
+        bodyContent = _buildHomeContent();
+        break;
+      case 2:
+        bodyContent = _buildStatusContent();
+        break;
+      case 3:
+        // PERBAIKAN DI SINI: Memanggil Widget ProfileScreen
+        bodyContent = ProfileScreen(
+          userName: widget.userName,
+          role: widget.role,
+          // Simulasi ID User (Bisa disesuaikan jika API login mengembalikan ID)
+          userId: "TEK-${widget.userName.length.toString().padLeft(3, '0')}",
+        );
+        break;
+      default:
+        bodyContent = _buildHomeContent();
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424), // Background navy gelap
+      backgroundColor: const Color(0xFF0D1424), // Background Navy Gelap
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const Icon(Icons.menu, color: Colors.white),
-        title: const Text(
-          'Tim Lapangan',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          _selectedIndex == 2 ? 'Status Laporan' : 'Tim Lapangan',
+          style: const TextStyle(color: Colors.white),
         ),
         centerTitle: true,
         actions: [
+          // Tombol Refresh Manual
+          IconButton(
+            onPressed: _fetchReports,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+          ),
           Stack(
             children: [
               IconButton(
@@ -62,80 +152,18 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- HEADER CARD (GREETING) ---
-            _buildGreetingCard(),
-            const SizedBox(height: 24),
 
-            // --- SECTION TITLE ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Laporan Terbaru',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'Lihat Semua',
-                    style: TextStyle(color: Colors.cyan),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(onRefresh: _fetchReports, child: bodyContent),
 
-            // --- LIST LAPORAN ---
-            _buildReportItem(
-              id: 'MAINT-003',
-              location: 'Tower BTS A3',
-              date: '24 Des 2024, 10:30',
-              status: 'PENDING',
-              statusColor: Colors.orange,
-            ),
-            const SizedBox(height: 12),
-            _buildReportItem(
-              id: 'MAINT-002',
-              location: 'Tower BTS B1',
-              date: '23 Des 2024, 15:45',
-              status: 'VERIFIED',
-              statusColor: Colors.green,
-            ),
-            const SizedBox(height: 24),
-
-            // --- TIP CARD ---
-            _buildTipCard(),
-          ],
-        ),
-      ),
-      // --- BOTTOM NAVIGATION BAR ---
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0D1424),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.cyan,
         unselectedItemColor: Colors.grey,
-        currentIndex: 0,
-        // FUNGSI NAVIGASI DITAMBAHKAN DI SINI
-        onTap: (index) {
-          if (index == 1) {
-            // Index 1 adalah tombol 'Tambah Data'
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const InputLaporanScreen(),
-              ),
-            );
-          }
-        },
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
@@ -152,6 +180,94 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  // --- TAMPILAN HOME (Dashboard) ---
+  Widget _buildHomeContent() {
+    // Mengambil maksimal 4 data terbaru
+    final recentReports = _reports.take(4).toList();
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildGreetingCard(),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Laporan Terbaru',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Pindah ke Tab Status saat klik "Lihat Semua"
+                  setState(() => _selectedIndex = 2);
+                },
+                child: const Text(
+                  'Lihat Semua',
+                  style: TextStyle(color: Colors.cyan),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (recentReports.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  "Belum ada laporan.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...recentReports
+                .map(
+                  (data) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportItem(data),
+                  ),
+                )
+                .toList(),
+
+          const SizedBox(height: 12),
+          _buildTipCard(),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // --- TAMPILAN STATUS (List Semua Laporan) ---
+  Widget _buildStatusContent() {
+    if (_reports.isEmpty) {
+      return const Center(
+        child: Text("Belum ada data.", style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _reports.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildReportItem(_reports[index]),
+        );
+      },
+    );
+  }
+
+  // --- WIDGET COMPONENTS ---
+
   Widget _buildGreetingCard() {
     return Container(
       width: double.infinity,
@@ -159,9 +275,7 @@ class DashboardScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(24),
-        border: const Border(
-          left: BorderSide(color: Colors.cyan, width: 4),
-        ), // Garis biru di kiri
+        border: const Border(left: BorderSide(color: Colors.cyan, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +283,7 @@ class DashboardScreen extends StatelessWidget {
           const Text('👋', style: TextStyle(fontSize: 24)),
           const SizedBox(height: 8),
           Text(
-            'Halo, $userName',
+            'Halo, ${widget.userName}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -185,11 +299,11 @@ class DashboardScreen extends StatelessWidget {
             children: const [
               Icon(Icons.calendar_today, color: Colors.grey, size: 16),
               SizedBox(width: 8),
-              Text('Kamis, 26 Des 2024', style: TextStyle(color: Colors.grey)),
+              Text('Hari ini', style: TextStyle(color: Colors.grey)),
               SizedBox(width: 16),
               Icon(Icons.wb_sunny, color: Colors.orange, size: 16),
               SizedBox(width: 8),
-              Text('28°C Cerah', style: TextStyle(color: Colors.grey)),
+              Text('Cerah', style: TextStyle(color: Colors.grey)),
             ],
           ),
         ],
@@ -197,13 +311,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReportItem({
-    required String id,
-    required String location,
-    required String date,
-    required String status,
-    required Color statusColor,
-  }) {
+  Widget _buildReportItem(dynamic data) {
+    // Parsing Data dengan fallback value jika null
+    String id = "MAINT-${data['id'].toString().padLeft(3, '0')}";
+    String location = data['lokasi_pekerjaan'] ?? 'Lokasi tidak diketahui';
+    String date = data['time_plan'] ?? '-';
+    String maintenanceType = data['jenis_maintenance'] ?? 'Maintenance';
+    String status = "TERKIRIM"; // Default status
+    Color statusColor = Colors.green;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -238,14 +354,20 @@ class DashboardScreen extends StatelessWidget {
                   children: [
                     const Icon(Icons.location_on, color: Colors.grey, size: 14),
                     const SizedBox(width: 4),
-                    Text(
-                      location,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    Expanded(
+                      child: Text(
+                        location,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
                 Text(
-                  date,
+                  "$date • $maintenanceType",
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
