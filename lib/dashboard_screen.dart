@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'input_laporan_screen.dart';
-import 'profile_screen.dart'; // Pastikan file ini sudah dibuat
+import 'input_laporan_screen.dart'; // Pastikan file ini sudah di-import
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -33,16 +33,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      // GANTI IP INI dengan IP Laptop/Server Backend Anda yang aktif
-      // Contoh: 192.168.1.15 atau 192.168.100.192
-      final url = Uri.parse('http://192.168.1.15:8000/api/maintenance/reports');
+      // GANTI IP INI dengan IP Laptop/Server Anda
+      final url = Uri.parse(
+        'http://192.168.100.192:8000/api/maintenance/reports',
+      );
 
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _reports = data['data']; // Pastikan key 'data' sesuai format JSON API
+          _reports = data['data'];
           _isLoading = false;
         });
       } else {
@@ -58,16 +59,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- LOGIKA NAVIGASI ---
   void _onItemTapped(int index) {
     if (index == 1) {
-      // Navigasi ke Input Laporan (Tab Tambah Data)
+      // Navigasi ke Input Laporan
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const InputLaporanScreen()),
       ).then((_) {
-        // Refresh data saat kembali dari halaman input agar laporan baru muncul
+        // Refresh data saat kembali dari halaman input
         _fetchReports();
       });
     } else {
-      // Pindah Tab biasa
+      // Pindah Tab
       setState(() {
         _selectedIndex = index;
       });
@@ -76,7 +77,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Menentukan konten Body berdasarkan Tab yang dipilih
     Widget bodyContent;
     switch (_selectedIndex) {
       case 0:
@@ -86,12 +86,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bodyContent = _buildStatusContent();
         break;
       case 3:
-        // PERBAIKAN DI SINI: Memanggil Widget ProfileScreen
-        bodyContent = ProfileScreen(
-          userName: widget.userName,
-          role: widget.role,
-          // Simulasi ID User (Bisa disesuaikan jika API login mengembalikan ID)
-          userId: "TEK-${widget.userName.length.toString().padLeft(3, '0')}",
+        bodyContent = const Center(
+          child: Text("Halaman Profil", style: TextStyle(color: Colors.white)),
         );
         break;
       default:
@@ -99,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424), // Background Navy Gelap
+      backgroundColor: const Color(0xFF0D1424),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -110,7 +106,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         centerTitle: true,
         actions: [
-          // Tombol Refresh Manual
           IconButton(
             onPressed: _fetchReports,
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -182,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAMPILAN HOME (Dashboard) ---
   Widget _buildHomeContent() {
-    // Mengambil maksimal 4 data terbaru
+    // PERUBAHAN DI SINI: Mengambil maksimal 4 data
     final recentReports = _reports.take(4).toList();
 
     return SingleChildScrollView(
@@ -206,7 +201,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  // Pindah ke Tab Status saat klik "Lihat Semua"
                   setState(() => _selectedIndex = 2);
                 },
                 child: const Text(
@@ -232,15 +226,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ...recentReports
                 .map(
                   (data) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(
+                      bottom: 12,
+                    ), // Tambah jarak antar card
                     child: _buildReportItem(data),
                   ),
                 )
                 .toList(),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 12), // Jarak sebelum Tip Card
           _buildTipCard(),
-          const SizedBox(height: 20),
+          const SizedBox(
+            height: 20,
+          ), // Tambahan padding bawah agar tidak tertutup navbar
         ],
       ),
     );
@@ -266,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET COMPONENTS ---
+  // --- COMPONENTS ---
 
   Widget _buildGreetingCard() {
     return Container(
@@ -312,12 +310,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildReportItem(dynamic data) {
-    // Parsing Data dengan fallback value jika null
     String id = "MAINT-${data['id'].toString().padLeft(3, '0')}";
     String location = data['lokasi_pekerjaan'] ?? 'Lokasi tidak diketahui';
     String date = data['time_plan'] ?? '-';
     String maintenanceType = data['jenis_maintenance'] ?? 'Maintenance';
-    String status = "TERKIRIM"; // Default status
+    String status = "TERKIRIM";
     Color statusColor = Colors.green;
 
     return Container(

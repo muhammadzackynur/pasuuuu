@@ -75,7 +75,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var uri = Uri.parse('http://192.168.1.15:8000/api/maintenance/report');
+      var uri = Uri.parse('http://192.168.100.192:8000/api/maintenance/report');
       var request = http.MultipartRequest('POST', uri);
 
       request.headers.addAll({'Accept': 'application/json'});

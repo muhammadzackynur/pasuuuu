@@ -1,19 +1,131 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Pastikan import login screen untuk fungsi logout
+import 'package:http/http.dart' as http; // Import http
+import 'dart:convert'; // Import convert untuk JSON
+import 'login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final String userName;
   final String role;
-  final String userId; // Tambahan jika ingin menampilkan ID (misal TEK-001)
+  final String userId; // ID Tampilan (misal TEK-001)
+  final int databaseId; // ID Database (Primary Key) untuk API update
 
   const ProfileScreen({
     super.key,
     required this.userName,
     required this.role,
-    this.userId = "TEK-001", // Default value jika data ID belum dipassing
+    this.userId = "TEK-001",
+    required this.databaseId, // Wajib di-pass dari LoginScreen
   });
 
-  // Fungsi Logout
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late String currentUserName;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi nama awal dari data yang dikirim saat login
+    currentUserName = widget.userName;
+  }
+
+  // --- FUNGSI API KE LARAVEL ---
+  Future<void> _updateProfile(String newName) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    // Ganti IP sesuai server Anda (10.0.2.2 untuk Emulator Android, localhost untuk iOS/Web)
+    final url = Uri.parse(
+      'http://192.168.100.192:8000/api/user/update/${widget.databaseId}',
+    );
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'name': newName}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() {
+          currentUserName = newName; // Update tampilan nama
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Profil Berhasil Diperbarui"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception(data['message'] ?? "Gagal update profil");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // --- DIALOG EDIT PROFIL ---
+  void _showEditProfileDialog() {
+    TextEditingController nameController = TextEditingController(
+      text: currentUserName,
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text("Edit Profil", style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: nameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: "Nama Lengkap",
+            labelStyle: TextStyle(color: Colors.cyan),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.cyan),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty) {
+                Navigator.pop(context); // Tutup dialog dulu
+                _updateProfile(nameController.text); // Jalankan fungsi update
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+            child: const Text("Simpan", style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- FUNGSI LOGOUT ---
   void _logout(BuildContext context) {
     showDialog(
       context: context,
@@ -34,9 +146,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              // Tutup Dialog
               Navigator.pop(context);
-              // Kembali ke Login Screen dan hapus semua history navigasi
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
@@ -56,7 +166,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424), // Background Navy Gelap
+      backgroundColor: const Color(0xFF0D1424),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -80,14 +190,19 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+
+                  // Tampilkan loading kecil jika sedang update
+                  isLoading
+                      ? const CircularProgressIndicator(color: Colors.cyan)
+                      : Text(
+                          currentUserName, // Menggunakan variable state
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -99,7 +214,7 @@ class ProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      role,
+                      widget.role,
                       style: const TextStyle(
                         color: Colors.cyan,
                         fontSize: 12,
@@ -140,7 +255,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        userId, // Menampilkan ID User
+                        widget.userId,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -177,7 +292,7 @@ class ProfileScreen extends StatelessWidget {
             _buildMenuTile(
               icon: Icons.person_outline,
               title: "Edit Profil",
-              onTap: () {},
+              onTap: _showEditProfileDialog, // Hubungkan fungsi dialog ke sini
             ),
             _buildMenuTile(
               icon: Icons.lock_outline,
