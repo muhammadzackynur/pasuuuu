@@ -4,7 +4,19 @@ import 'package:geolocator/geolocator.dart';
 import 'upload_foto_screen.dart';
 
 class InputLaporanScreen extends StatefulWidget {
-  const InputLaporanScreen({super.key});
+  // --- DATA USER (Wajib diteruskan dari Dashboard) ---
+  final String userName;
+  final String role;
+  final String userId;
+  final int databaseId;
+
+  const InputLaporanScreen({
+    super.key,
+    required this.userName,
+    required this.role,
+    required this.userId,
+    required this.databaseId,
+  });
 
   @override
   State<InputLaporanScreen> createState() => _InputLaporanScreenState();
@@ -168,6 +180,12 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => UploadFotoScreen(
+                      // --- TERUSKAN DATA USER ---
+                      userName: widget.userName,
+                      role: widget.role,
+                      userId: widget.userId,
+                      databaseId: widget.databaseId,
+
                       lokasi: _locationController.text,
                       lat: _currentLat,
                       lng: _currentLng,

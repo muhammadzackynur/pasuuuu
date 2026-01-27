@@ -13,8 +13,8 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     required this.userName,
     required this.role,
-    this.userId = "TEK-001",
-    required this.databaseId, // Wajib di-pass dari LoginScreen
+    required this.userId, // Diubah menjadi required agar dinamis
+    required this.databaseId, // Wajib di-pass dari Dashboard
   });
 
   @override
@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isLoading = true;
     });
 
-    // Ganti IP sesuai server Anda (10.0.2.2 untuk Emulator Android, localhost untuk iOS/Web)
+    // Ganti IP sesuai server Anda
     final url = Uri.parse(
       'http://192.168.100.192:8000/api/user/update/${widget.databaseId}',
     );
@@ -292,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuTile(
               icon: Icons.person_outline,
               title: "Edit Profil",
-              onTap: _showEditProfileDialog, // Hubungkan fungsi dialog ke sini
+              onTap: _showEditProfileDialog,
             ),
             _buildMenuTile(
               icon: Icons.lock_outline,

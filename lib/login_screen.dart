@@ -50,6 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context) => DashboardScreen(
               userName: data['user']['name'],
               role: data['user']['role'],
+              // Tambahan: Mengirim ID Tampilan dan ID Database ke Dashboard
+              userId: data['user']['user_id'] ?? '-',
+              databaseId: data['user']['id'],
             ),
           ),
         );

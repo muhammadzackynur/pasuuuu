@@ -4,6 +4,12 @@ import 'package:image_picker/image_picker.dart';
 import 'konfirmasi_laporan_screen.dart';
 
 class UploadFotoScreen extends StatefulWidget {
+  // --- DATA USER (Wajib diteruskan) ---
+  final String userName;
+  final String role;
+  final String userId;
+  final int databaseId;
+
   final String lokasi;
   final double? lat;
   final double? lng;
@@ -15,6 +21,12 @@ class UploadFotoScreen extends StatefulWidget {
 
   const UploadFotoScreen({
     super.key,
+    // Params User
+    required this.userName,
+    required this.role,
+    required this.userId,
+    required this.databaseId,
+
     required this.lokasi,
     this.lat,
     this.lng,
@@ -101,6 +113,12 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => KonfirmasiLaporanScreen(
+                          // --- TERUSKAN DATA USER KE FINAL STEP ---
+                          userName: widget.userName,
+                          role: widget.role,
+                          userId: widget.userId,
+                          databaseId: widget.databaseId,
+
                           lokasi: widget.lokasi,
                           lat: widget.lat,
                           lng: widget.lng,

@@ -8,6 +8,13 @@ import 'package:intl/intl.dart';
 import 'dashboard_screen.dart'; // Pastikan file dashboard diimport
 
 class KonfirmasiLaporanScreen extends StatefulWidget {
+  // --- DATA USER (Untuk Session) ---
+  final String userName;
+  final String role;
+  final String userId; // ID Tampilan (misal TEK-001)
+  final int databaseId; // ID Database (PK)
+
+  // --- DATA LAPORAN ---
   final String lokasi;
   final double? lat;
   final double? lng;
@@ -22,6 +29,12 @@ class KonfirmasiLaporanScreen extends StatefulWidget {
 
   const KonfirmasiLaporanScreen({
     super.key,
+    // Wajib di-pass dari screen sebelumnya (InputLaporanScreen)
+    required this.userName,
+    required this.role,
+    required this.userId,
+    required this.databaseId,
+
     required this.lokasi,
     this.lat,
     this.lng,
@@ -75,6 +88,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // GANTI IP INI SESUAI SERVER ANDA
       var uri = Uri.parse('http://192.168.100.192:8000/api/maintenance/report');
       var request = http.MultipartRequest('POST', uri);
 
@@ -89,7 +103,9 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
         formattedDate = DateFormat("yyyy-MM-dd").format(DateTime.now());
       }
 
-      request.fields['user_id'] = "1";
+      // Menggunakan ID User yang login (Dinamis)
+      request.fields['user_id'] = widget.databaseId.toString();
+
       request.fields['lokasi_pekerjaan'] = widget.lokasi;
       request.fields['latitude'] = widget.lat?.toString() ?? "";
       request.fields['longitude'] = widget.lng?.toString() ?? "";
@@ -132,12 +148,14 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
           const SnackBar(content: Text('Laporan Berhasil Disimpan!')),
         );
 
-        // PERBAIKAN: Mengirimkan userName DAN role ke DashboardScreen
+        // PERBAIKAN UTAMA: Mengirimkan data user lengkap ke DashboardScreen
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (context) => const DashboardScreen(
-              userName: "User Lapangan", // Parameter wajib 1
-              role: "Tim Lapangan", // Parameter wajib 2 sesuai log error
+            builder: (context) => DashboardScreen(
+              userName: widget.userName, // Dinamis dari widget
+              role: widget.role, // Dinamis dari widget
+              userId: widget.userId, // Dinamis dari widget
+              databaseId: widget.databaseId, // Dinamis dari widget
             ),
           ),
           (Route<dynamic> route) => false,

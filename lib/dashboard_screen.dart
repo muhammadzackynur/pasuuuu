@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'input_laporan_screen.dart'; // Pastikan file ini sudah di-import
+import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
   final String role;
+  final String userId; // ID Tampilan (misal TEK-001)
+  final int databaseId; // ID Database (Primary Key)
 
   const DashboardScreen({
     super.key,
     required this.userName,
     required this.role,
+    required this.userId,
+    required this.databaseId,
   });
 
   @override
@@ -60,9 +64,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _onItemTapped(int index) {
     if (index == 1) {
       // Navigasi ke Input Laporan
+      // PERBAIKAN: Mengirim data user ke InputLaporanScreen
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const InputLaporanScreen()),
+        MaterialPageRoute(
+          builder: (context) => InputLaporanScreen(
+            userName: widget.userName,
+            role: widget.role,
+            userId: widget.userId,
+            databaseId: widget.databaseId,
+          ),
+        ),
       ).then((_) {
         // Refresh data saat kembali dari halaman input
         _fetchReports();
@@ -86,8 +98,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bodyContent = _buildStatusContent();
         break;
       case 3:
-        bodyContent = const Center(
-          child: Text("Halaman Profil", style: TextStyle(color: Colors.white)),
+        bodyContent = ProfileScreen(
+          userName: widget.userName,
+          role: widget.role,
+          userId: widget.userId,
+          databaseId: widget.databaseId,
         );
         break;
       default:
@@ -96,61 +111,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1424),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const Icon(Icons.menu, color: Colors.white),
-        title: Text(
-          _selectedIndex == 2 ? 'Status Laporan' : 'Tim Lapangan',
-          style: const TextStyle(color: Colors.white),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _fetchReports,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-          ),
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications, color: Colors.white),
+      appBar: _selectedIndex == 3
+          ? null
+          : AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: const Icon(Icons.menu, color: Colors.white),
+              title: Text(
+                _selectedIndex == 2 ? 'Status Laporan' : 'Tim Lapangan',
+                style: const TextStyle(color: Colors.white),
               ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  onPressed: _fetchReports,
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                ),
+                Stack(
+                  children: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.notifications,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 8,
+                          minHeight: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.cyan,
+                    child: Text(
+                      'AY',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
                 ),
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.cyan,
-              child: Text(
-                'AY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
 
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(onRefresh: _fetchReports, child: bodyContent),
+          : (_selectedIndex == 3
+                ? bodyContent
+                : RefreshIndicator(
+                    onRefresh: _fetchReports,
+                    child: bodyContent,
+                  )),
 
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0D1424),
@@ -177,7 +205,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAMPILAN HOME (Dashboard) ---
   Widget _buildHomeContent() {
-    // PERUBAHAN DI SINI: Mengambil maksimal 4 data
     final recentReports = _reports.take(4).toList();
 
     return SingleChildScrollView(
@@ -226,19 +253,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ...recentReports
                 .map(
                   (data) => Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 12,
-                    ), // Tambah jarak antar card
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: _buildReportItem(data),
                   ),
                 )
                 .toList(),
 
-          const SizedBox(height: 12), // Jarak sebelum Tip Card
+          const SizedBox(height: 12),
           _buildTipCard(),
-          const SizedBox(
-            height: 20,
-          ), // Tambahan padding bawah agar tidak tertutup navbar
+          const SizedBox(height: 20),
         ],
       ),
     );
