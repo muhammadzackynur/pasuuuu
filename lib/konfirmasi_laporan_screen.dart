@@ -89,7 +89,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
 
     try {
       // GANTI IP INI SESUAI SERVER ANDA
-      var uri = Uri.parse('http://192.168.100.192:8000/api/maintenance/report');
+      var uri = Uri.parse('http://192.168.1.20:8000/api/maintenance/report');
       var request = http.MultipartRequest('POST', uri);
 
       request.headers.addAll({'Accept': 'application/json'});
