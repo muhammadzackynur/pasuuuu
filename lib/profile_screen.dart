@@ -40,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Ganti IP sesuai server Anda
     final url = Uri.parse(
-      'http://192.168.1.20:8000/api/user/update/${widget.databaseId}',
+      'http://192.168.1.28:8000/api/user/update/${widget.databaseId}',
     );
 
     try {

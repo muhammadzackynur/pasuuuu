@@ -42,7 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       // Pastikan IP ini sesuai dengan konfigurasi lokal Anda
-      final url = Uri.parse('http://192.168.1.20:8000/api/maintenance/reports');
+      final url = Uri.parse('http://192.168.1.28:8000/api/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

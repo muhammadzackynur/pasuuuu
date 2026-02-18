@@ -4,36 +4,34 @@ import 'package:image_picker/image_picker.dart';
 import 'konfirmasi_laporan_screen.dart';
 
 class UploadFotoScreen extends StatefulWidget {
-  // --- DATA USER (Wajib diteruskan) ---
   final String userName;
   final String role;
   final String userId;
   final int databaseId;
 
-  final String lokasi;
-  final double? lat;
-  final double? lng;
-  final String jenisMaintenance;
-  final String deskripsi;
-  final String durasi;
-  final String tanggal;
+  // Data Form
+  final String area;
+  final String district;
+  final String witel;
+  final String sto;
+  final String mitraPelaksana;
+  final String kategoriKegiatan;
+  final String uraianPekerjaan;
   final List<String> teknisi;
 
   const UploadFotoScreen({
     super.key,
-    // Params User
     required this.userName,
     required this.role,
     required this.userId,
     required this.databaseId,
-
-    required this.lokasi,
-    this.lat,
-    this.lng,
-    required this.jenisMaintenance,
-    required this.deskripsi,
-    required this.durasi,
-    required this.tanggal,
+    required this.area,
+    required this.district,
+    required this.witel,
+    required this.sto,
+    required this.mitraPelaksana,
+    required this.kategoriKegiatan,
+    required this.uraianPekerjaan,
     required this.teknisi,
   });
 
@@ -42,27 +40,25 @@ class UploadFotoScreen extends StatefulWidget {
 }
 
 class _UploadFotoScreenState extends State<UploadFotoScreen> {
-  final List<File> _imagesBefore = [];
-  final List<File> _imagesProgress = [];
-  final List<File> _imagesAfter = [];
+  File? _imageBefore;
+  File? _imageProgress;
+  File? _imageAfter;
+
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> _pickImage(List<File> targetList) async {
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 50,
+  Future<void> _pickImage(String type) async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 40, // Kompresi agar upload lebih cepat
     );
-    if (image != null) {
+
+    if (pickedFile != null) {
       setState(() {
-        targetList.add(File(image.path));
+        if (type == "before") _imageBefore = File(pickedFile.path);
+        if (type == "progress") _imageProgress = File(pickedFile.path);
+        if (type == "after") _imageAfter = File(pickedFile.path);
       });
     }
-  }
-
-  void _removeImage(List<File> targetList, int index) {
-    setState(() {
-      targetList.removeAt(index);
-    });
   }
 
   @override
@@ -72,82 +68,84 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Upload Dokumentasi',
-          style: TextStyle(color: Colors.white),
-        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Upload Foto',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUploadSection("Foto Before", _imagesBefore),
-            const SizedBox(height: 25),
-            _buildUploadSection("Foto Progress", _imagesProgress),
-            const SizedBox(height: 25),
-            _buildUploadSection("Foto After", _imagesAfter),
+            _buildUploadCard("Foto Before", _imageBefore, "before"),
+            const SizedBox(height: 20),
+            _buildUploadCard("Foto Progress", _imageProgress, "progress"),
+            const SizedBox(height: 20),
+            _buildUploadCard("Foto After", _imageAfter, "after"),
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
                 onPressed: () {
-                  if (_imagesBefore.isEmpty ||
-                      _imagesProgress.isEmpty ||
-                      _imagesAfter.isEmpty) {
+                  if (_imageBefore == null ||
+                      _imageProgress == null ||
+                      _imageAfter == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          "Lengkapi semua foto (Before, Progress, dan After)",
-                        ),
-                        backgroundColor: Colors.red,
+                        content: Text("Semua foto wajib diupload!"),
                       ),
                     );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => KonfirmasiLaporanScreen(
-                          // --- TERUSKAN DATA USER KE FINAL STEP ---
-                          userName: widget.userName,
-                          role: widget.role,
-                          userId: widget.userId,
-                          databaseId: widget.databaseId,
-
-                          lokasi: widget.lokasi,
-                          lat: widget.lat,
-                          lng: widget.lng,
-                          jenisMaintenance: widget.jenisMaintenance,
-                          deskripsi: widget.deskripsi,
-                          durasi: widget.durasi,
-                          tanggal: widget.tanggal,
-                          teknisi: widget.teknisi,
-                          fotoBefore: _imagesBefore,
-                          fotoProgress: _imagesProgress,
-                          fotoAfter: _imagesAfter,
-                        ),
-                      ),
-                    );
+                    return;
                   }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => KonfirmasiLaporanScreen(
+                        userName: widget.userName,
+                        role: widget.role,
+                        userId: widget.userId,
+                        databaseId: widget.databaseId,
+                        area: widget.area,
+                        district: widget.district,
+                        witel: widget.witel,
+                        sto: widget.sto,
+                        mitraPelaksana: widget.mitraPelaksana,
+                        kategoriKegiatan: widget.kategoriKegiatan,
+                        uraianPekerjaan: widget.uraianPekerjaan,
+                        teknisi: widget.teknisi,
+                        fotoBefore: _imageBefore!,
+                        fotoProgress: _imageProgress!,
+                        fotoAfter: _imageAfter!,
+                      ),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyan,
+                  backgroundColor: const Color(0xFF2196F3),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: const Text(
-                  "Lanjut ke Konfirmasi",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text(
+                      "Review Laporan",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -157,79 +155,50 @@ class _UploadFotoScreenState extends State<UploadFotoScreen> {
     );
   }
 
-  Widget _buildUploadSection(String title, List<File> currentList) {
+  Widget _buildUploadCard(String label, File? image, String type) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
+          label,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 16,
             fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: currentList.length + 1,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-          ),
-          itemBuilder: (context, index) {
-            if (index < currentList.length) {
-              return Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      image: DecorationImage(
-                        image: FileImage(currentList[index]),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: GestureDetector(
-                      onTap: () => _removeImage(currentList, index),
-                      child: const CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Colors.red,
-                        child: Icon(Icons.close, size: 12, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            } else {
-              return GestureDetector(
-                onTap: () => _pickImage(currentList),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.cyan.withOpacity(0.5)),
-                  ),
-                  child: const Column(
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: () => _pickImage(type),
+          child: Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.blue.withOpacity(0.5), width: 1),
+            ),
+            child: image == null
+                ? const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_a_photo, color: Colors.cyan, size: 28),
-                      SizedBox(height: 4),
+                      Icon(Icons.camera_alt, color: Colors.blue, size: 40),
+                      SizedBox(height: 8),
                       Text(
-                        "Tambah",
-                        style: TextStyle(color: Colors.grey, fontSize: 10),
+                        "Ketuk untuk ambil foto",
+                        style: TextStyle(color: Colors.blue),
                       ),
                     ],
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(
+                      image,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    ),
                   ),
-                ),
-              );
-            }
-          },
+          ),
         ),
       ],
     );
