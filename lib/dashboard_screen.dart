@@ -42,21 +42,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       // Pastikan IP ini sesuai dengan konfigurasi lokal Anda
-      final url = Uri.parse('http://192.168.1.28:8000/api/maintenance/reports');
+      final url = Uri.parse('http://192.168.1.83:8000/api/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> fetchedReports = data['data'];
 
-        // Hitung status (Asumsi ada field 'status', jika tidak ada default ke Pending)
         int p = 0;
         int v = 0;
         int r = 0;
 
         for (var report in fetchedReports) {
-          // Logika mapping status dari backend
-          // Sesuaikan string ini dengan respon API Anda sebenarnya
           String status = report['status'] ?? 'Pending';
           if (status.toLowerCase().contains('verif')) {
             v++;
@@ -114,7 +111,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bodyContent = _buildHomeContent();
         break;
       case 2:
-        bodyContent = _buildStatusContent(); // UI BARU DI SINI
+        bodyContent = _buildStatusContent(); // UI STATUS LAPORAN
         break;
       case 3:
         bodyContent = ProfileScreen(
@@ -129,7 +126,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return Scaffold(
-      // Warna background disesuaikan dengan desain Navy
       backgroundColor: const Color(0xFF0F1623),
       appBar: _selectedIndex == 3
           ? null
@@ -150,8 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onPressed: _fetchReports,
                   icon: const Icon(Icons.refresh, color: Colors.white),
                 ),
-                if (_selectedIndex !=
-                    2) // Sembunyikan notif di tab status agar bersih
+                if (_selectedIndex != 2)
                   Stack(
                     children: [
                       IconButton(
@@ -211,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- TAMPILAN HOME (Tampilan Lama Tetap Ada) ---
+  // --- TAMPILAN HOME ---
   Widget _buildHomeContent() {
     final recentReports = _reports.take(4).toList();
     return SingleChildScrollView(
@@ -267,15 +262,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- TAMPILAN STATUS (UI BARU YANG DIMINTA) ---
+  // --- TAMPILAN STATUS ---
   Widget _buildStatusContent() {
     int totalReports = _reports.length;
-    // Mencegah pembagian dengan nol untuk progress bar
     int flexP = _pendingCount > 0 ? _pendingCount : 1;
     int flexV = _verifiedCount > 0 ? _verifiedCount : 1;
     int flexR = _rejectedCount > 0 ? _rejectedCount : 1;
 
-    // Jika total 0, set flex default agar bar tidak error (tetap tampil kosong)
     if (totalReports == 0) {
       flexP = 1;
       flexV = 1;
@@ -427,7 +420,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           const SizedBox(height: 25),
           const Text(
-            "Aktivitas Terkini",
+            "Daftar Pekerjaan",
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -452,7 +445,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemBuilder: (context, index) {
                 final data = _reports[index];
 
-                // Mapping data API ke UI
+                // Mapping Status
                 String statusStr = data['status'] ?? 'Pending';
                 StatusType type = StatusType.pending;
                 Color sColor = Colors.amber;
@@ -466,27 +459,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }
 
                 return TimelineItem(
-                  id: "RPT-${data['id'].toString().padLeft(3, '0')}", // Contoh: RPT-001
-                  location:
-                      data['lokasi_pekerjaan'] ?? 'Lokasi tidak diketahui',
-                  time:
-                      data['time_plan'] ??
-                      '-', // Atau gunakan created_at jika ada
+                  id: "MAINT-${data['id'].toString().padLeft(3, '0')}",
+                  sto: data['sto'] ?? 'STO Tidak Diketahui',
+                  kategori: data['kategori_kegiatan'] ?? '-',
+                  uraian: data['uraian_pekerjaan'] ?? '-',
                   statusLabel: statusStr.toUpperCase(),
                   statusColor: sColor,
                   type: type,
                   isFirst: index == 0,
                   isLast: index == _reports.length - 1,
+                  // FUNGSI ONTAP DIPANGGIL DI SINI
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            DetailLaporanScreen(reportData: data),
+                      ),
+                    );
+                  },
                 );
               },
             ),
-          const SizedBox(height: 80), // Spasi bawah agar tidak tertutup navbar
+          const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  // --- WIDGET HELPER BAWAAN (LAMA) ---
+  // --- WIDGET HELPER BAWAAN ---
   Widget _buildGreetingCard() {
     return Container(
       width: double.infinity,
@@ -521,51 +522,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildReportItem(dynamic data) {
-    // Versi sederhana untuk Home Screen
     String id = "MAINT-${data['id'].toString().padLeft(3, '0')}";
-    String location = data['lokasi_pekerjaan'] ?? 'Lokasi -';
+    String location = data['sto'] ?? 'STO -';
     String status = data['status'] ?? 'TERKIRIM';
     Color statusColor = status.toLowerCase().contains('pend')
         ? Colors.amber
         : Colors.green;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
+    return InkWell(
+      onTap: () {
+        // Berikan fitur klik juga pada laporan terbaru di halaman Home
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailLaporanScreen(reportData: data),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  id,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    id,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                Text(
-                  location,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
+                  Text(
+                    location,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -584,7 +595,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Tip: Pastikan GPS aktif.',
+              'Tip: Pastikan GPS aktif saat input laporan.',
               style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
@@ -594,7 +605,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// --- CLASS WIDGET TAMBAHAN UNTUK UI BARU ---
+// --- CLASS WIDGET TAMBAHAN ---
 
 class FilterChipWidget extends StatelessWidget {
   final String label;
@@ -698,26 +709,31 @@ class StatItem extends StatelessWidget {
 
 enum StatusType { pending, verified, rejected }
 
+// --- TIMELINE ITEM UPDATE (Ditambahkan Fitur Klik) ---
 class TimelineItem extends StatelessWidget {
   final String id;
-  final String location;
-  final String time;
+  final String sto;
+  final String kategori;
+  final String uraian;
   final String statusLabel;
   final Color statusColor;
   final StatusType type;
   final bool isFirst;
   final bool isLast;
+  final VoidCallback? onTap; // Tambahkan parameter onTap
 
   const TimelineItem({
     super.key,
     required this.id,
-    required this.location,
-    required this.time,
+    required this.sto,
+    required this.kategori,
+    required this.uraian,
     required this.statusLabel,
     required this.statusColor,
     required this.type,
     this.isFirst = false,
     this.isLast = false,
+    this.onTap, // Inisialisasi parameter onTap
   });
 
   @override
@@ -726,6 +742,7 @@ class TimelineItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Garis Timeline
           SizedBox(
             width: 40,
             child: Column(
@@ -773,97 +790,337 @@ class TimelineItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
+
+          // Kartu Data Dibungkus dengan InkWell agar bisa di klik
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 20),
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFF161F2E),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        id,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: statusColor.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: onTap, // Menjalankan fungsi onTap saat diklik
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header: ID dan Status
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.circle, size: 8, color: statusColor),
-                            const SizedBox(width: 5),
                             Text(
-                              statusLabel,
-                              style: TextStyle(
-                                fontSize: 10,
+                              id, // MAINT-00X
+                              style: const TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: statusColor,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: statusColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 8,
+                                    color: statusColor,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    statusLabel,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: const TextStyle(color: Colors.grey),
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 12),
+
+                        // STO (Lokasi)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_city,
+                              size: 16,
+                              color: Color(0xFF00D1F3),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sto,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+
+                        // Kategori Kegiatan
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.category,
+                              size: 16,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                kategori,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Divider Kecil
+                        const Divider(color: Colors.white10),
+                        const SizedBox(height: 8),
+
+                        // Uraian Pekerjaan
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.description,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                uraian,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  const Divider(color: Colors.white10),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ======================================================================
+// --- HALAMAN BARU UNTUK DETAIL LAPORAN ---
+// ======================================================================
+
+class DetailLaporanScreen extends StatelessWidget {
+  final Map<String, dynamic> reportData;
+
+  const DetailLaporanScreen({super.key, required this.reportData});
+
+  @override
+  Widget build(BuildContext context) {
+    // Format ID Data
+    String idData = "MAINT-${reportData['id'].toString().padLeft(3, '0')}";
+    String status = reportData['status'] ?? 'Pending';
+
+    // Status color mapping
+    Color statusColor = Colors.amber;
+    if (status.toLowerCase().contains('verif')) {
+      statusColor = Colors.green;
+    } else if (status.toLowerCase().contains('reject')) {
+      statusColor = Colors.red;
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F1623),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Detail Laporan',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161F2E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: statusColor.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        "ID Laporan",
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
                       Text(
-                        time,
+                        idData,
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
                     ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 24),
+
+            const Text(
+              "Informasi Lokasi",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildDetailCard([
+              _buildDetailRow("Area", reportData['area'] ?? '-'),
+              _buildDetailRow("District", reportData['district'] ?? '-'),
+              _buildDetailRow("Witel", reportData['witel'] ?? '-'),
+              _buildDetailRow("STO", reportData['sto'] ?? '-'),
+            ]),
+
+            const SizedBox(height: 24),
+            const Text(
+              "Rincian Pekerjaan",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildDetailCard([
+              _buildDetailRow(
+                "Kategori Kegiatan",
+                reportData['kategori_kegiatan'] ?? '-',
+              ),
+              _buildDetailRow(
+                "Uraian Pekerjaan",
+                reportData['uraian_pekerjaan'] ?? '-',
+              ),
+              _buildDetailRow(
+                "Mitra Pelaksana",
+                reportData['mitra_pelaksana'] ?? '-',
+              ),
+              _buildDetailRow("Teknisi", reportData['teknisi'] ?? '-'),
+              _buildDetailRow(
+                "Waktu Laporan",
+                reportData['created_at']?.toString().substring(0, 10) ?? '-',
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper widget untuk membuat card container rincian
+  Widget _buildDetailCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161F2E),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  // Helper widget untuk membuat baris detail
+  Widget _buildDetailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              title,
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.right,
             ),
           ),
         ],

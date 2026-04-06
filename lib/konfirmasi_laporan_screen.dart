@@ -46,7 +46,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
 
     try {
       // URL API (Gunakan 10.0.2.2 untuk emulator Android)
-      var url = Uri.parse("http://192.168.1.28:8000/api/maintenance/report");
+      var url = Uri.parse("http://192.168.1.83:8000/api/maintenance/report");
 
       var response = await http.post(
         url,

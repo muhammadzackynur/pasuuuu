@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_generative_ai/google_generative_ai.dart'; // Import package Gemini
 import 'konfirmasi_laporan_screen.dart';
 
 class InputLaporanScreen extends StatefulWidget {
@@ -21,33 +22,71 @@ class InputLaporanScreen extends StatefulWidget {
 
 class _InputLaporanScreenState extends State<InputLaporanScreen> {
   // Controller Data Otomatis
-  final TextEditingController _areaController = TextEditingController(text: "2");
-  final TextEditingController _districtController = TextEditingController(text: "SURAMADU");
-  final TextEditingController _witelController = TextEditingController(text: "SURABAYA UTARA");
-  
+  final TextEditingController _areaController = TextEditingController(
+    text: "2",
+  );
+  final TextEditingController _districtController = TextEditingController(
+    text: "SURAMADU",
+  );
+  final TextEditingController _witelController = TextEditingController(
+    text: "SURABAYA UTARA",
+  );
+
   // Controller Input Manual
-  final TextEditingController _uraianController = TextEditingController(); 
+  final TextEditingController _uraianController = TextEditingController();
 
   // State Dropdowns
-  String? _selectedKategori; 
+  String? _selectedKategori;
   String? _selectedSTO;
-  String? _selectedMitra; 
+  String? _selectedMitra;
+
+  // Loading state untuk AI
+  bool _isPredictingKategori = false;
 
   // Data Dropdown Options
   final List<String> _stoOptions = [
-    "KENJERAN", "KAPASAN", "KEBALEN", "KALIANAK", "MERGOYOSO", 
-    "TANDES", "KANDANGAN", "KRP", "KARANGPILANG", "LAKASANTRI", 
-    "GRESIK", "CERME", "LAMONGAN", "BALOPANGGANG", "BERONDONG", 
-    "DUDUKSAMPEYAN", "BAWEAN", "BABAT", "SUKODADI", "KEDAMEAN"
+    "KENJERAN",
+    "KAPASAN",
+    "KEBALEN",
+    "KALIANAK",
+    "MERGOYOSO",
+    "TANDES",
+    "KANDANGAN",
+    "KARANGPILANG",
+    "LAKASANTRI",
+    "GRESIK",
+    "CERME",
+    "LAMONGAN",
+    "BALOPANGGANG",
+    "BERONDONG",
+    "DUDUKSAMPEYAN",
+    "BAWEAN",
+    "BABAT",
+    "SUKODADI",
+    "KEDAMEAN",
   ];
 
   final List<String> _kategoriOptions = [
-    "DISMALTING TIANG", "SISIP TIANG (SOK)", "TIANG ROBOH/KEROPOS/BENGKOK/PATAH/MIRING",
-    "GANTI BATERAI", "PEMBUATAN KERANGKENG ODC/OLT", "PENAMBAHAN BANDWITH UPLINK OLT",
-    "PERBAIKAN CRC COUNTING", "PERBAIKAN T-LINE / UPLINK", "GANTI ODP",
-    "GANTI PASSIVE SPLITTER", "GANTI BASEDTRAY", "GANTI KABINET ODC",
-    "MH/HH RUSAK", "KU TERJUNTAI/JATUH", "PERBAIKAN UC", "REPAIR FEEDER/DISTRIBUSI",
-    "PENEGAKAN ODC", "PENINGGIAN KU", "RELOKASI ALPRO", "TAMBAH TIANG",
+    "DISMALTING TIANG",
+    "SISIP TIANG (SOK)",
+    "TIANG ROBOH/KEROPOS/BENGKOK/PATAH/MIRING",
+    "GANTI BATERAI",
+    "PEMBUATAN KERANGKENG ODC/OLT",
+    "PENAMBAHAN BANDWITH UPLINK OLT",
+    "PERBAIKAN CRC COUNTING",
+    "PERBAIKAN T-LINE / UPLINK",
+    "GANTI ODP",
+    "GANTI PASSIVE SPLITTER",
+    "GANTI BASEDTRAY",
+    "GANTI KABINET ODC",
+    "MH/HH RUSAK",
+    "KU TERJUNTAI/JATUH",
+    "PERBAIKAN UC",
+    "REPAIR FEEDER/DISTRIBUSI",
+    "PENEGAKAN ODC",
+    "PENINGGIAN KU",
+    "RELOKASI ALPRO",
+    "TAMBAH TIANG",
   ];
 
   final List<String> _mitraOptions = [
@@ -57,8 +96,87 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     "PT. Centralindo Panca Sakti",
     "PT. Prima Akses Solusi Global",
     "PT. Akses Kwalitas Unggul",
-    "PT. Telkom Akses"
+    "PT. Telkom Akses",
   ];
+
+  // --- FUNGSI GENAI UNTUK MEMPREDIKSI KATEGORI ---
+  Future<void> _predictKategoriByAI() async {
+    final uraian = _uraianController.text.trim();
+    if (uraian.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Isi Uraian Pekerjaan terlebih dahulu!"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isPredictingKategori = true);
+
+    try {
+      // API Key Anda dimasukkan di sini
+      const apiKey = 'AIzaSyDbOEAGb_eekiOZtSyKQT6Pu6GoXPBv4os';
+
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+
+      // Prompt yang menginstruksikan AI untuk memilih kategori persis seperti daftar
+      final prompt =
+          '''
+      Kamu adalah asisten sistem pelaporan perbaikan jaringan.
+      Saya memiliki daftar kategori pekerjaan berikut:
+      ${_kategoriOptions.join('\n')}
+
+      Berdasarkan uraian pekerjaan teknisi berikut: "$uraian"
+      Tugasmu adalah memilih SATU kategori yang paling tepat dan relevan dari daftar di atas.
+      Hanya balas dengan nama kategori yang persis sama dengan yang ada di daftar (termasuk huruf besar dan tanda baca). Jangan tambahkan penjelasan atau kata lain.
+      ''';
+
+      final response = await model.generateContent([Content.text(prompt)]);
+      String predictedCategory = response.text?.trim() ?? '';
+
+      // Validasi apakah hasil dari AI benar-benar ada di dalam list opsi
+      if (_kategoriOptions.contains(predictedCategory)) {
+        setState(() {
+          _selectedKategori = predictedCategory;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Berhasil! Kategori diisi otomatis: $predictedCategory",
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "AI gagal mengklasifikasikan. Silakan pilih manual.",
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error koneksi AI: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPredictingKategori = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +189,11 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Input Laporan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Input Laporan',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
-      // MENGGUNAKAN SafeArea DI SINI
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -84,71 +204,150 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               _buildFieldLabel("Area"),
               _buildReadOnlyField(_areaController),
               const SizedBox(height: 15),
-  
+
               // --- DISTRICT (Otomatis) ---
               _buildFieldLabel("District"),
               _buildReadOnlyField(_districtController),
               const SizedBox(height: 15),
-  
+
               // --- WITEL (Otomatis) ---
               _buildFieldLabel("Witel"),
               _buildReadOnlyField(_witelController),
               const SizedBox(height: 15),
-  
+
               // --- STO (Dropdown) ---
               _buildFieldLabel("STO"),
-              _buildDropdownField("Pilih STO", _selectedSTO, _stoOptions, (val) => setState(() => _selectedSTO = val)),
+              _buildDropdownField(
+                "Pilih STO",
+                _selectedSTO,
+                _stoOptions,
+                (val) => setState(() => _selectedSTO = val),
+              ),
               const SizedBox(height: 15),
-  
+
               // --- MITRA PELAKSANA ---
               _buildFieldLabel("MITRA PELAKSANA"),
-              _buildDropdownField("Pilih Mitra", _selectedMitra, _mitraOptions, (val) => setState(() => _selectedMitra = val)),
+              _buildDropdownField(
+                "Pilih Mitra",
+                _selectedMitra,
+                _mitraOptions,
+                (val) => setState(() => _selectedMitra = val),
+              ),
               const SizedBox(height: 15),
-  
-              // --- KATEGORI KEGIATAN ---
-              _buildFieldLabel("KATEGORI KEGIATAN"),
-              _buildDropdownField("Pilih Kategori", _selectedKategori, _kategoriOptions, (val) => setState(() => _selectedKategori = val)),
-              const SizedBox(height: 15),
-  
+
               // --- URAIAN PEKERJAAN ---
               _buildFieldLabel("URAIAN PEKERJAAN"),
-              _buildTextArea(hint: "Jelaskan detail pekerjaan...", controller: _uraianController),
+              _buildTextArea(
+                hint: "Contoh: Perbaikan tiang keropos di karangpilang",
+                controller: _uraianController,
+              ),
+              const SizedBox(height: 8),
+
+              // --- TOMBOL GENAI AUTO-PILIH KATEGORI ---
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  onPressed: _isPredictingKategori
+                      ? null
+                      : _predictKategoriByAI,
+                  icon: _isPredictingKategori
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                  label: Text(
+                    _isPredictingKategori
+                        ? "Sedang menganalisa..."
+                        : "Auto-Pilih Kategori (AI)",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00D1F3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              // --- KATEGORI KEGIATAN ---
+              _buildFieldLabel("KATEGORI KEGIATAN"),
+              _buildDropdownField(
+                "Pilih Kategori (Bisa Auto via AI)",
+                _selectedKategori,
+                _kategoriOptions,
+                (val) => setState(() => _selectedKategori = val),
+              ),
               const SizedBox(height: 30),
-  
+
               // --- TOMBOL LANJUT (LANGSUNG KE KONFIRMASI) ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_selectedSTO == null || _selectedMitra == null || _selectedKategori == null || _uraianController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mohon lengkapi semua data!")));
+                    if (_selectedSTO == null ||
+                        _selectedMitra == null ||
+                        _selectedKategori == null ||
+                        _uraianController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Mohon lengkapi semua data!"),
+                        ),
+                      );
                       return;
                     }
-                    
+
                     // Navigasi Langsung ke Konfirmasi
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => KonfirmasiLaporanScreen(
-                      userName: widget.userName,
-                      role: widget.role,
-                      userId: widget.userId,
-                      databaseId: widget.databaseId,
-                      area: _areaController.text,
-                      district: _districtController.text,
-                      witel: _witelController.text,
-                      sto: _selectedSTO!,
-                      mitraPelaksana: _selectedMitra!,
-                      kategoriKegiatan: _selectedKategori!,
-                      uraianPekerjaan: _uraianController.text,
-                    )));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => KonfirmasiLaporanScreen(
+                          userName: widget.userName,
+                          role: widget.role,
+                          userId: widget.userId,
+                          databaseId: widget.databaseId,
+                          area: _areaController.text,
+                          district: _districtController.text,
+                          witel: _witelController.text,
+                          sto: _selectedSTO!,
+                          mitraPelaksana: _selectedMitra!,
+                          kategoriKegiatan: _selectedKategori!,
+                          uraianPekerjaan: _uraianController.text,
+                        ),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, 
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Lanjut ke Konfirmasi", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        "Lanjut ke Konfirmasi",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       SizedBox(width: 10),
                       Icon(Icons.arrow_forward, color: Colors.white),
                     ],
@@ -162,44 +361,81 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     );
   }
 
-  Widget _buildFieldLabel(String label) => Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold));
+  Widget _buildFieldLabel(String label) => Text(
+    label,
+    style: const TextStyle(
+      color: Colors.grey,
+      fontSize: 13,
+      fontWeight: FontWeight.bold,
+    ),
+  );
 
   Widget _buildReadOnlyField(TextEditingController controller) => Container(
     margin: const EdgeInsets.only(top: 5),
     padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
-    child: Text(controller.text, style: const TextStyle(color: Colors.white70, fontSize: 15)),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      controller.text,
+      style: const TextStyle(color: Colors.white70, fontSize: 15),
+    ),
   );
 
-  Widget _buildDropdownField(String hint, String? value, List<String> items, Function(String?) onChanged) => Container(
+  Widget _buildDropdownField(
+    String hint,
+    String? value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) => Container(
     margin: const EdgeInsets.only(top: 5),
     padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(12),
+    ),
     child: DropdownButtonFormField<String>(
       dropdownColor: const Color(0xFF1E293B),
       value: value,
       isExpanded: true,
-      hint: Text(hint, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+      hint: Text(
+        hint,
+        style: const TextStyle(color: Colors.grey, fontSize: 14),
+      ),
       style: const TextStyle(color: Colors.white),
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+      items: items
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(e, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(),
       onChanged: onChanged,
       decoration: const InputDecoration(border: InputBorder.none),
     ),
   );
 
-  Widget _buildTextArea({required String hint, required TextEditingController controller}) => Container(
+  Widget _buildTextArea({
+    required String hint,
+    required TextEditingController controller,
+  }) => Container(
     margin: const EdgeInsets.only(top: 5),
-    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(12),
+    ),
     child: TextField(
-      controller: controller, 
-      maxLines: 4, 
-      style: const TextStyle(color: Colors.white), 
+      controller: controller,
+      maxLines: 4,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: hint, 
-        hintStyle: const TextStyle(color: Colors.grey), 
-        contentPadding: const EdgeInsets.all(15), 
-        border: InputBorder.none
-      )
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.grey),
+        contentPadding: const EdgeInsets.all(15),
+        border: InputBorder.none,
+      ),
     ),
   );
 }
