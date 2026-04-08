@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart'; // Menggunakan Kamera untuk biometrik
-import 'package:device_info_plus/device_info_plus.dart'; // Menggunakan Device ID
+import 'package:camera/camera.dart';
 
 import 'dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
@@ -22,39 +20,53 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _idController = TextEditingController();
   bool _isLoading = false;
-  Timer? _debounce;
 
   bool _hasSavedId = false;
   String _savedUserId = '';
 
-  // Gunakan IP Server yang Anda berikan
-  final String serverUrl = 'http://192.168.1.83:8000/api';
+  CameraController? _cameraController;
+  bool _isCameraInitialized = false;
+
+  // Mode UI
+  bool _isRegisteringFace = false; // Jika true, tampilkan kamera besar
+  bool _isAutoScanning = false; // Jika true, sedang proses auto-login
+
+  final String serverUrl = 'http://10.253.128.189:8000/api';
 
   @override
   void initState() {
     super.initState();
-    // Mengecek apakah sudah ada ID tersimpan saat halaman pertama kali dibuka
-    _checkSavedLogin();
+    _initializeCameraAndCheckLogin();
   }
 
-  // --- FUNGSI MENGAMBIL DEVICE ID UNIK DARI HP ---
-  Future<String> _getDeviceId() async {
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  // Inisialisasi Kamera selalu dilakukan di awal
+  Future<void> _initializeCameraAndCheckLogin() async {
     try {
-      if (Platform.isAndroid) {
-        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        return androidInfo.id; // Unique ID on Android
-      } else if (Platform.isIOS) {
-        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        return iosInfo.identifierForVendor ?? 'unknown_ios'; // Unique ID on iOS
-      }
+      final cameras = await availableCameras();
+      final frontCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+
+      _cameraController = CameraController(
+        frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      if (!mounted) return;
+      setState(() {
+        _isCameraInitialized = true;
+      });
+
+      // Setelah kamera siap, baru cek apakah ada ID tersimpan
+      _checkSavedLogin();
     } catch (e) {
-      print("Gagal mendapatkan Device ID: $e");
+      print("Error kamera: $e");
     }
-    return 'unknown_device';
   }
 
-  // --- FUNGSI CEK PENYIMPANAN ---
   Future<void> _checkSavedLogin() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedId = prefs.getString('saved_user_id_${widget.roleTitle}');
@@ -63,196 +75,167 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _hasSavedId = true;
         _savedUserId = savedId;
-        _idController.text = savedId; // Mengisi controller secara diam-diam
       });
+      // Jika ada ID tersimpan, langsung OTOMATIS SCAN wajah
+      _autoScanLogin();
     }
   }
 
-  // --- FUNGSI MENGHAPUS AKUN (JIKA INGIN GANTI ID) ---
-  Future<void> _clearSavedData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('saved_user_id_${widget.roleTitle}');
-
-    setState(() {
-      _hasSavedId = false;
-      _savedUserId = '';
-      _idController.clear();
-    });
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _idController.dispose();
-    super.dispose();
-  }
-
-  // --- 1. FUNGSI DAFTAR SIDIK JARI KAMERA ---
-  Future<void> _registerFingerprintCamera() async {
-    if (_idController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Isi ID Anda dulu!")));
-      return;
-    }
-
-    final ImagePicker picker = ImagePicker();
-    // Buka Kamera HP mode makro
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.rear,
-      imageQuality: 100, // Kualitas harus tinggi untuk Python OpenCV
-    );
-
-    if (photo != null) {
-      setState(() => _isLoading = true);
-      try {
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$serverUrl/register-fingerprint'),
-        );
-        request.fields['user_id'] = _idController.text.trim();
-        request.files.add(
-          await http.MultipartFile.fromPath('fingerprint_image', photo.path),
-        );
-
-        var response = await request.send();
-        var responseData = await http.Response.fromStream(response);
-        var data = json.decode(responseData.body);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(data['message'])));
-
-        // Jika pendaftaran jari berhasil, otomatis lanjutkan login untuk menyimpan Device ID
-        if (data['success'] == true) _login();
-      } catch (e) {
-        print(e);
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  // --- 2. FUNGSI LOGIN MENGGUNAKAN SIDIK JARI KAMERA ---
-  Future<void> _loginFingerprintCamera() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.rear,
-      imageQuality: 100,
-    );
-
-    if (photo != null) {
-      setState(() => _isLoading = true);
-      try {
-        // Ambil Device ID untuk divalidasi juga oleh Laravel (Device Binding)
-        String currentDeviceId = await _getDeviceId();
-
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$serverUrl/login-fingerprint'),
-        );
-        request.fields['user_id'] = _savedUserId;
-        request.fields['device_id'] =
-            currentDeviceId; // Kirim Device ID ke backend
-        request.files.add(
-          await http.MultipartFile.fromPath('fingerprint_image', photo.path),
-        );
-
-        var response = await request.send();
-        var responseData = await http.Response.fromStream(response);
-        var data = json.decode(responseData.body);
-
-        if (response.statusCode == 200 && data['success'] == true) {
-          _routeToDashboard(data);
-        } else {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['message'] ?? "Ditolak"),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      } catch (e) {
-        print(e);
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  // --- 3. FUNGSI UTAMA LOGIN (TANPA SIDIK JARI / LOGIN PERTAMA) ---
-  Future<void> _login() async {
-    if (_idController.text.trim().isEmpty) return;
-
-    if (_isLoading) return;
+  // =========================================================================
+  // FUNGSI 1: DAFTAR WAJAH (KAMERA DITAMPILKAN)
+  // =========================================================================
+  Future<void> _registerFace() async {
+    if (!_isCameraInitialized) return;
     setState(() => _isLoading = true);
 
     try {
-      String roleYangDikirim = widget.roleTitle.toLowerCase().contains("admin")
-          ? "admin"
-          : "tim_lapangan";
-      String idYangDikirim = _idController.text.trim();
+      // Jepret Foto dari Kamera yang sedang Tampil
+      XFile picture = await _cameraController!.takePicture();
 
-      // Ambil Device ID sebelum mengirim ke server
-      String currentDeviceId = await _getDeviceId();
-
-      final response = await http.post(
-        Uri.parse('$serverUrl/login'),
-        body: {
-          'user_id': idYangDikirim,
-          'role': roleYangDikirim,
-          'device_id': currentDeviceId,
-        },
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$serverUrl/register-fingerprint'),
+      );
+      request.fields['user_id'] = _idController.text.trim();
+      request.files.add(
+        await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
 
-      final data = json.decode(response.body);
+      var response = await request.send();
+      var responseData = await http.Response.fromStream(response);
+      var data = json.decode(responseData.body);
 
-      if (response.statusCode == 200 && data['success'] == true) {
-        // --- JIKA LOGIN BERHASIL, SIMPAN ID PERMANEN KE MEMORI HP ---
+      if (data['success'] == true) {
+        // Simpan ID ke Memori HP agar besok bisa auto-login
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'saved_user_id_${widget.roleTitle}',
-          idYangDikirim,
+          _idController.text.trim(),
         );
 
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Langsung Login Biasa setelah daftar wajah
+        _loginLanjutkan();
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message']), backgroundColor: Colors.red),
+        );
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // =========================================================================
+  // FUNGSI 2: AUTO LOGIN WAJAH (KAMERA TERSEMBUNYI)
+  // =========================================================================
+  Future<void> _autoScanLogin() async {
+    if (!_isCameraInitialized || _cameraController == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _isAutoScanning = true;
+    });
+
+    try {
+      // JEDA 1.5 DETIK SANGAT PENTING: Memberi waktu kamera menyesuaikan cahaya (exposure)
+      // agar foto tidak gelap dan menyebabkan "Wajah tidak dikenali"
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      XFile picture = await _cameraController!.takePicture();
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$serverUrl/login-fingerprint'),
+      );
+      request.fields['user_id'] = _savedUserId;
+      request.files.add(
+        await http.MultipartFile.fromPath('fingerprint_image', picture.path),
+      );
+
+      var response = await request.send();
+      var responseData = await http.Response.fromStream(response);
+      var data = json.decode(responseData.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
         _routeToDashboard(data);
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ?? "Login Gagal"),
+            content: Text(data['message'] ?? "Wajah Tidak Dikenali"),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
           ),
         );
+        setState(
+          () => _isAutoScanning = false,
+        ); // Beri kesempatan user mengulang
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("Gagal menghubungi server"),
+          backgroundColor: Colors.red,
+        ),
       );
+      setState(() => _isAutoScanning = false);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && !_isAutoScanning) setState(() => _isLoading = false);
     }
   }
 
-  // --- ROUTING / NAVIGASI HALAMAN ---
+  // =========================================================================
+  // FUNGSI PENDUKUNG
+  // =========================================================================
+  Future<void> _loginLanjutkan() async {
+    try {
+      String roleYangDikirim = widget.roleTitle.toLowerCase().contains("admin")
+          ? "admin"
+          : "tim_lapangan";
+      final response = await http.post(
+        Uri.parse('$serverUrl/login'),
+        body: {'user_id': _idController.text.trim(), 'role': roleYangDikirim},
+      );
+      final data = json.decode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        _routeToDashboard(data);
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _clearSavedData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('saved_user_id_${widget.roleTitle}');
+    setState(() {
+      _hasSavedId = false;
+      _savedUserId = '';
+      _idController.clear();
+      _isRegisteringFace = false;
+    });
+  }
+
   void _routeToDashboard(Map<String, dynamic> data) {
     if (!mounted) return;
     String userRole = data['user']['role'].toString().toLowerCase();
-
-    if (userRole == 'admin' ||
-        userRole.contains('administrasi') ||
-        widget.roleTitle.toLowerCase().contains("admin")) {
+    if (userRole.contains('admin')) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => AdminDashboardScreen(
+          builder: (_) => AdminDashboardScreen(
             userName: data['user']['name'],
             role: data['user']['role'],
             userId: data['user']['user_id'].toString(),
@@ -263,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => DashboardScreen(
+          builder: (_) => DashboardScreen(
             userName: data['user']['name'],
             role: data['user']['role'],
             userId: data['user']['user_id']?.toString() ?? '-',
@@ -272,6 +255,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    _idController.dispose();
+    super.dispose();
   }
 
   @override
@@ -291,6 +281,20 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 30.0),
           child: Column(
             children: [
+              // =========================================================
+              // WIDGET KAMERA TERSEMBUNYI (HIDDEN BACKGROUND SCANNER)
+              // Hanya merender jika BUKAN sedang mode daftar wajah
+              // =========================================================
+              if (_isCameraInitialized && !_isRegisteringFace)
+                Offstage(
+                  offstage: true,
+                  child: SizedBox(
+                    width: 1,
+                    height: 1,
+                    child: CameraPreview(_cameraController!),
+                  ),
+                ),
+
               Text(
                 widget.roleTitle,
                 style: const TextStyle(
@@ -299,44 +303,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 40),
-
-              // ICON DI TENGAH ATAS
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(25),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF2196F3),
-                  ),
-                  child: Icon(
-                    _hasSavedId ? Icons.camera_alt : Icons.wifi_tethering,
-                    color: Colors.white,
-                    size: 50,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-              const Text(
-                'Aplikasi GYM\nPelaporan & Monitoring',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
 
               // =========================================================================
-              // TAMPILAN 1: JIKA SUDAH ADA ID TERSIMPAN (MODE KAMERA SIDIK JARI)
+              // TAMPILAN 1: SUDAH ADA ID (MODE AUTO SCAN WAJAH)
               // =========================================================================
               if (_hasSavedId) ...[
-                const Text(
-                  'Selamat Datang Kembali!',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                const SizedBox(height: 40),
+                const Icon(
+                  Icons.face_retouching_natural,
+                  color: Color(0xFF00D1F3),
+                  size: 100,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 30),
                 Text(
                   "User ID : $_savedUserId",
                   style: const TextStyle(
@@ -346,46 +325,42 @@ class _LoginScreenState extends State<LoginScreen> {
                     letterSpacing: 2,
                   ),
                 ),
-                const SizedBox(height: 50),
+                const SizedBox(height: 40),
 
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _loginFingerprintCamera,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.camera,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                    label: Text(
-                      _isLoading ? 'MEMPROSES...' : 'SCAN JARI VIA KAMERA',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                if (_isAutoScanning) ...[
+                  const CircularProgressIndicator(color: Color(0xFF00D1F3)),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Mengidentifikasi Wajah Anda...\nHarap lihat ke layar.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ] else ...[
+                  const Text(
+                    'Wajah tidak dikenali atau proses gagal.',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _autoScanLogin,
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    label: const Text(
+                      'COBA SCAN LAGI',
+                      style: TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00D1F3),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // TOMBOL BUKAN ANDA
+                ],
+                const SizedBox(height: 40),
                 TextButton(
                   onPressed: _clearSavedData,
                   child: const Text(
@@ -398,13 +373,85 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ]
               // =========================================================================
-              // TAMPILAN 2: JIKA BARU PERTAMA KALI BUKA (MODE KETIK ID & DAFTAR JARI)
+              // TAMPILAN 2: DAFTAR WAJAH (KAMERA DITAMPILKAN DI LAYAR)
+              // =========================================================================
+              else if (_isRegisteringFace && _isCameraInitialized) ...[
+                const Text(
+                  'Posisikan Wajah Anda di Tengah Layar',
+                  style: TextStyle(color: Colors.orangeAccent, fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+
+                // Kamera ditampilkan berbentuk lingkaran
+                Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.orangeAccent, width: 4),
+                  ),
+                  child: ClipOval(
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: CameraPreview(_cameraController!),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _registerFace,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.camera_alt, color: Colors.white),
+                    label: Text(
+                      _isLoading ? 'MENYIMPAN...' : 'JEPRET & DAFTAR',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => setState(() => _isRegisteringFace = false),
+                  child: const Text(
+                    "Batal",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ]
+              // =========================================================================
+              // TAMPILAN 3: LOGIN PERTAMA KALI (KETIK ID)
               // =========================================================================
               else ...[
+                const Icon(
+                  Icons.person_add_alt_1,
+                  color: Colors.blueAccent,
+                  size: 80,
+                ),
+                const SizedBox(height: 30),
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Masukkan ID Anda',
+                    'Masukkan ID Anda yang Terdaftar',
                     style: TextStyle(color: Colors.grey),
                   ),
                 ),
@@ -412,14 +459,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _idController,
                   style: const TextStyle(color: Colors.white),
-                  onChanged: (value) {
-                    if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 500), () {
-                      // Hapus logika auto-login agar pengguna bisa memilih tombol di bawah
-                    });
-                  },
                   decoration: InputDecoration(
-                    hintText: 'Ketik User ID Anda...',
+                    hintText: 'Ketik User ID...',
                     hintStyle: const TextStyle(color: Colors.grey),
                     prefixIcon: const Icon(Icons.person, color: Colors.blue),
                     filled: true,
@@ -430,41 +471,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 40),
 
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2196F3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: const Text(
-                      'MASUK (Tanpa Sidik Jari)',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
+                  height: 55,
                   child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _registerFingerprintCamera,
-                    icon: const Icon(Icons.fingerprint, color: Colors.white),
+                    onPressed: () {
+                      if (_idController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Isi ID terlebih dahulu!"),
+                          ),
+                        );
+                        return;
+                      }
+                      setState(
+                        () => _isRegisteringFace = true,
+                      ); // Pindah ke Mode Tampil Kamera
+                    },
+                    icon: const Icon(Icons.face, color: Colors.white),
                     label: const Text(
-                      'DAFTARKAN SIDIK JARI KAMERA',
+                      'DAFTARKAN WAJAH SAYA',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(

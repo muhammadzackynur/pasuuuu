@@ -116,7 +116,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
     try {
       // API Key Anda dimasukkan di sini
-      const apiKey = 'AIzaSyDbOEAGb_eekiOZtSyKQT6Pu6GoXPBv4os';
+      const apiKey = 'AIzaSyCwQ5-o_d_H55ciURfDJRIWNzpEOHNdNpE';
 
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 

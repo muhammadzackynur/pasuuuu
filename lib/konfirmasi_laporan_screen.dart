@@ -45,8 +45,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // URL API (Gunakan 10.0.2.2 untuk emulator Android)
-      var url = Uri.parse("http://192.168.1.83:8000/api/maintenance/report");
+      // URL API
+      var url = Uri.parse("http://10.253.128.189:8000/api/maintenance/report");
 
       var response = await http.post(
         url,
@@ -67,13 +67,15 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
         }),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Laporan berhasil dikirim!")),
+          const SnackBar(
+            content: Text("Laporan berhasil dikirim!"),
+            backgroundColor: Colors.green,
+          ),
         );
 
-        // --- PERUBAHAN NAVIGASI DI SINI ---
         // Kembali ke Dashboard dan hapus history halaman Input & Konfirmasi
         Navigator.pushAndRemoveUntil(
           context,
@@ -85,27 +87,45 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
               databaseId: widget.databaseId,
             ),
           ),
-          (route) =>
-              false, // Hapus semua rute sebelumnya (Login, dll) agar Dashboard jadi halaman utama baru
+          (route) => false,
         );
       } else {
-        // Menampilkan pesan error detail dari backend jika ada
-        var errorMsg = response.body;
+        // --- PERBAIKAN: TANGKAP ERROR DETAIL DARI LARAVEL ---
+        var errorMsg = "Gagal mengirim data";
         try {
           var jsonResp = jsonDecode(response.body);
           errorMsg = jsonResp['message'] ?? response.body;
-        } catch (_) {}
 
-        throw Exception(
-          "Gagal mengirim (Status: ${response.statusCode}) - $errorMsg",
-        );
+          // Jika ada error validasi spesifik (misal kolom kosong)
+          if (jsonResp['errors'] != null) {
+            Map<String, dynamic> errors = jsonResp['errors'];
+            // Gabungkan semua pesan error validasi menjadi satu string
+            String detailedErrors = errors.values
+                .map((e) => e[0].toString())
+                .join('\n');
+            errorMsg += "\n$detailedErrors";
+          }
+        } catch (_) {
+          // Jika response bukan JSON (misal error 500 HTML)
+          errorMsg = "Error Server: Status ${response.statusCode}";
+        }
+
+        throw Exception(errorMsg);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          // Hapus tulisan "Exception: " agar pesan terlihat lebih rapi
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -125,7 +145,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      // MENGGUNAKAN SafeArea AGAR TIDAK TERTUTUP PONI/STATUS BAR
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),

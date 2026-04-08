@@ -54,8 +54,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchAdminData() async {
     setState(() => _isLoading = true);
     try {
-      // IP DIUBAH KE 192.168.1.20
-      final url = Uri.parse('http://192.168.1.83:8000/api/maintenance/reports');
+      // IP DIUBAH KE 10.253.128.189
+      final url = Uri.parse(
+        'http://10.253.128.189:8000/api/maintenance/reports',
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -109,9 +111,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     try {
-      // IP DIUBAH KE 192.168.1.20
+      // IP DIUBAH KE 10.253.128.189
       final url = Uri.parse(
-        'http://192.168.1.83:8000/api/maintenance/reports/$reportId/status',
+        'http://10.253.128.189:8000/api/maintenance/reports/$reportId/status',
       );
       final response = await http.put(url, body: {'status': newStatus});
 
@@ -343,9 +345,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                           setStateDialog(() => isSubmitting = true);
                           try {
-                            // IP DIUBAH KE 192.168.1.20
+                            // IP DIUBAH KE 10.253.128.189
                             final url = Uri.parse(
-                              'http://192.168.1.83:8000/api/users/register',
+                              'http://10.253.128.189:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -2062,9 +2064,9 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               const SizedBox(width: 10),
               InkWell(
                 onTap: () async {
-                  // IP DIUBAH KE 192.168.1.20
+                  // IP DIUBAH KE 192.168.1.190
                   final String fileUrl =
-                      'http://192.168.1.83:8000/storage/$path';
+                      'http://10.253.128.189:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2158,9 +2160,9 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     setState(() => _isSaving = true);
     try {
       final reportId = widget.reportData['id'];
-      // IP DIUBAH KE 192.168.1.20
+      // IP DIUBAH KE 192.168.1.190
       final url = Uri.parse(
-        'http://192.168.1.83:8000/api/maintenance/reports/$reportId',
+        'http://10.253.128.189:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
