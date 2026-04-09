@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io'; // Tambahan untuk membaca file gambar
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dashboard_screen.dart'; // Pastikan import ini ada
@@ -18,6 +19,11 @@ class KonfirmasiLaporanScreen extends StatefulWidget {
   final String kategoriKegiatan;
   final String uraianPekerjaan;
 
+  // DATA FOTO BARU
+  final String? fotoBeforePath;
+  final String? fotoProgressPath;
+  final String? fotoAfterPath;
+
   const KonfirmasiLaporanScreen({
     super.key,
     required this.userName,
@@ -31,6 +37,9 @@ class KonfirmasiLaporanScreen extends StatefulWidget {
     required this.mitraPelaksana,
     required this.kategoriKegiatan,
     required this.uraianPekerjaan,
+    this.fotoBeforePath,
+    this.fotoProgressPath,
+    this.fotoAfterPath,
   });
 
   @override
@@ -48,30 +57,56 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       // URL API
       var url = Uri.parse("http://10.253.128.189:8000/api/maintenance/report");
 
-      var response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: jsonEncode({
-          'user_id': widget.userId,
-          'area': widget.area,
-          'district': widget.district,
-          'witel': widget.witel,
-          'sto': widget.sto,
-          'mitra_pelaksana': widget.mitraPelaksana,
-          'kategori_kegiatan': widget.kategoriKegiatan,
-          'uraian_pekerjaan': widget.uraianPekerjaan,
-          'teknisi': widget.userName, // Mengirim nama user sebagai inputter
-        }),
-      );
+      // MENGGUNAKAN MULTIPART REQUEST UNTUK MENGIRIM FILE + TEKS
+      var request = http.MultipartRequest('POST', url);
+      request.headers.addAll({"Accept": "application/json"});
+
+      // 1. Masukkan Data Teks
+      request.fields['user_id'] = widget.userId;
+      request.fields['area'] = widget.area;
+      request.fields['district'] = widget.district;
+      request.fields['witel'] = widget.witel;
+      request.fields['sto'] = widget.sto;
+      request.fields['mitra_pelaksana'] = widget.mitraPelaksana;
+      request.fields['kategori_kegiatan'] = widget.kategoriKegiatan;
+      request.fields['uraian_pekerjaan'] = widget.uraianPekerjaan;
+      request.fields['teknisi'] = widget.userName; // Mengirim nama user
+
+      // 2. Masukkan Data File (FOTO) jika ada
+      if (widget.fotoBeforePath != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'foto_before',
+            widget.fotoBeforePath!,
+          ),
+        );
+      }
+      if (widget.fotoProgressPath != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'foto_progress',
+            widget.fotoProgressPath!,
+          ),
+        );
+      }
+      if (widget.fotoAfterPath != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'foto_after',
+            widget.fotoAfterPath!,
+          ),
+        );
+      }
+
+      // 3. Kirim ke server
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Laporan berhasil dikirim!"),
+            content: Text("Laporan & Foto berhasil dikirim!"),
             backgroundColor: Colors.green,
           ),
         );
@@ -90,23 +125,20 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
           (route) => false,
         );
       } else {
-        // --- PERBAIKAN: TANGKAP ERROR DETAIL DARI LARAVEL ---
+        // Menangkap error detail dari Laravel
         var errorMsg = "Gagal mengirim data";
         try {
           var jsonResp = jsonDecode(response.body);
           errorMsg = jsonResp['message'] ?? response.body;
 
-          // Jika ada error validasi spesifik (misal kolom kosong)
           if (jsonResp['errors'] != null) {
             Map<String, dynamic> errors = jsonResp['errors'];
-            // Gabungkan semua pesan error validasi menjadi satu string
             String detailedErrors = errors.values
                 .map((e) => e[0].toString())
                 .join('\n');
             errorMsg += "\n$detailedErrors";
           }
         } catch (_) {
-          // Jika response bukan JSON (misal error 500 HTML)
           errorMsg = "Error Server: Status ${response.statusCode}";
         }
 
@@ -116,7 +148,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          // Hapus tulisan "Exception: " agar pesan terlihat lebih rapi
           content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
@@ -164,6 +195,28 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                 "Uraian": widget.uraianPekerjaan,
                 "Inputter": widget.userName,
               }),
+              const SizedBox(height: 25),
+
+              // --- TAMBAHAN PREVIEW FOTO ---
+              const Text(
+                "Bukti Foto:",
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildPhotoPreview("Before", widget.fotoBeforePath),
+                  _buildPhotoPreview("Progress", widget.fotoProgressPath),
+                  _buildPhotoPreview("After", widget.fotoAfterPath),
+                ],
+              ),
+
+              // -----------------------------
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
@@ -250,6 +303,34 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
               .toList(),
         ],
       ),
+    );
+  }
+
+  // WIDGET KOTAK PREVIEW FOTO
+  Widget _buildPhotoPreview(String label, String? path) {
+    return Column(
+      children: [
+        Container(
+          width: 90,
+          height: 90,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.withOpacity(0.5)),
+          ),
+          child: path != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(File(path), fit: BoxFit.cover),
+                )
+              : const Icon(Icons.image_not_supported, color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ],
     );
   }
 }

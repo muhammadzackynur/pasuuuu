@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:async';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -29,6 +30,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _allReports = [];
   List<dynamic> _recentReports = [];
 
+  // Variabel untuk fitur Notifikasi
+  Timer? _notificationTimer;
+  int _lastReportCount = 0;
+
   int _totalCount = 0;
   int _pendingCount = 0;
   int _verifiedCount = 0;
@@ -48,13 +53,118 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _fetchAdminData();
+    _startNotificationCheck(); // Menjalankan fungsi cek laporan baru
   }
 
-  // --- FUNGSI MENGAMBIL DATA DARI SERVER ---
+  @override
+  void dispose() {
+    _notificationTimer
+        ?.cancel(); // Menghentikan timer saat Admin keluar aplikasi
+    super.dispose();
+  }
+
+  // =========================================================================
+  // FUNGSI NOTIFIKASI (CEK LAPORAN BARU SETIAP 10 DETIK)
+  // =========================================================================
+  void _startNotificationCheck() {
+    _notificationTimer = Timer.periodic(const Duration(seconds: 10), (
+      timer,
+    ) async {
+      try {
+        final url = Uri.parse(
+          'http://10.253.128.189:8000/api/maintenance/reports',
+        );
+        final response = await http.get(url);
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          List<dynamic> fetchedReports = data['data'] ?? [];
+
+          // Log untuk memantau di console
+          print(
+            "Polling: Server=${fetchedReports.length}, Aplikasi=${_allReports.length}",
+          );
+
+          // Jika jumlah di server lebih banyak, berarti ada laporan baru
+          if (fetchedReports.length > _allReports.length) {
+            if (_allReports.isNotEmpty) {
+              _showNewReportNotification(); // Munculkan notif jika aplikasi sudah stand by
+            }
+
+            // WAJIB: Update data secara halus (tanpa loading spinner agar tidak ganggu Admin)
+            _refreshDataSilently(fetchedReports);
+          }
+        }
+      } catch (e) {
+        print("Error Polling: $e");
+      }
+    });
+  }
+
+  // Tambahkan fungsi ini agar data di dashboard terupdate otomatis tanpa Loading Screen
+  void _refreshDataSilently(List<dynamic> newReports) {
+    int p = 0, v = 0, r = 0;
+    for (var report in newReports) {
+      String status = (report['status'] ?? 'Pending').toString().toLowerCase();
+      if (status.contains('verif'))
+        v++;
+      else if (status.contains('reject'))
+        r++;
+      else
+        p++;
+    }
+
+    setState(() {
+      _allReports = newReports;
+      _recentReports = newReports.take(5).toList();
+      _totalCount = newReports.length;
+      _pendingCount = p;
+      _verifiedCount = v;
+      _rejectedCount = r;
+    });
+  }
+
+  void _showNewReportNotification() {
+    // Menghapus notifikasi lama jika ada agar tidak menumpuk
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+
+    // Menampilkan Banner Notifikasi
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.notifications_active, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Laporan Baru Masuk dari Tim Lapangan!",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.blueAccent,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: "LIHAT",
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() => _selectedIndex = 1); // Pindah otomatis ke tab Data
+          },
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // FUNGSI MENGAMBIL DATA DARI SERVER
+  // =========================================================================
   Future<void> _fetchAdminData() async {
-    setState(() => _isLoading = true);
+    // Kita tidak selalu mengeset _isLoading = true agar saat polling background
+    // layar tidak terus-terusan muncul loading spinner yang mengganggu Admin.
     try {
-      // IP DIUBAH KE 10.253.128.189
       final url = Uri.parse(
         'http://10.253.128.189:8000/api/maintenance/reports',
       );
@@ -78,25 +188,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
 
+        // Urutkan berdasarkan ID terbaru
         fetchedReports.sort(
           (a, b) => (b['id'] as int).compareTo(a['id'] as int),
         );
 
-        setState(() {
-          _allReports = fetchedReports;
-          _recentReports = fetchedReports.take(5).toList();
-          _totalCount = fetchedReports.length;
-          _pendingCount = p;
-          _verifiedCount = v;
-          _rejectedCount = r;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _allReports = fetchedReports;
+            _recentReports = fetchedReports.take(5).toList();
+            _totalCount = fetchedReports.length;
+            _pendingCount = p;
+            _verifiedCount = v;
+            _rejectedCount = r;
+            _isLoading = false;
+          });
+        }
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
       print("Error koneksi: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -111,14 +224,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     try {
-      // IP DIUBAH KE 10.253.128.189
       final url = Uri.parse(
         'http://10.253.128.189:8000/api/maintenance/reports/$reportId/status',
       );
-      final response = await http.put(url, body: {'status': newStatus});
+
+      // PERBAIKAN: Tambahkan Header dan gunakan jsonEncode
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'status': newStatus}),
+      );
+
+      print("DEBUG STATUS CODE: ${response.statusCode}");
+      print("DEBUG RESPONSE BODY: ${response.body}");
 
       if (!mounted) return;
-      Navigator.pop(context); // Tutup loading indikator
+      Navigator.pop(context);
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,11 +255,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : Colors.red,
           ),
         );
-        _fetchAdminData(); // Refresh data agar UI langsung berubah
+        _fetchAdminData();
       } else {
+        // PERBAIKAN: Tampilkan pesan error asli dari server agar mudah dilacak
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Gagal mengupdate status"),
+          SnackBar(
+            content: Text("Gagal: ${response.statusCode} - ${response.body}"),
             backgroundColor: Colors.red,
           ),
         );
@@ -143,6 +268,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
+      print("KONEKSI ERROR: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Error koneksi ke server"),
@@ -176,7 +302,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext), // Tutup pop-up
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text("Batal", style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
@@ -189,11 +315,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.pop(dialogContext); // Tutup pop-up
+                Navigator.pop(dialogContext); // Menutup dialog
                 _updateStatus(
                   reportId,
                   newStatus,
-                ); // Jalankan fungsi update ke server
+                ); // Menjalankan eksekusi ke server
               },
               child: Text(
                 newStatus == 'Verified' ? "Ya, Verifikasi" : "Ya, Tolak",
@@ -2064,7 +2190,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               const SizedBox(width: 10),
               InkWell(
                 onTap: () async {
-                  // IP DIUBAH KE 192.168.1.190
                   final String fileUrl =
                       'http://10.253.128.189:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
@@ -2160,7 +2285,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     setState(() => _isSaving = true);
     try {
       final reportId = widget.reportData['id'];
-      // IP DIUBAH KE 192.168.1.190
+
       final url = Uri.parse(
         'http://10.253.128.189:8000/api/maintenance/reports/$reportId',
       );

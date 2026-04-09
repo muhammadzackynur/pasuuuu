@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_generative_ai/google_generative_ai.dart'; // Import package Gemini
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:image_picker/image_picker.dart'; // IMPORT BARU UNTUK FOTO
 import 'konfirmasi_laporan_screen.dart';
 
 class InputLaporanScreen extends StatefulWidget {
@@ -42,6 +44,12 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
   // Loading state untuk AI
   bool _isPredictingKategori = false;
+
+  // --- STATE UNTUK FOTO ---
+  final ImagePicker _picker = ImagePicker();
+  XFile? _fotoBefore;
+  XFile? _fotoProgress;
+  XFile? _fotoAfter;
 
   // Data Dropdown Options
   final List<String> _stoOptions = [
@@ -99,7 +107,69 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     "PT. Telkom Akses",
   ];
 
-  // --- FUNGSI GENAI UNTUK MEMPREDIKSI KATEGORI ---
+  // --- FUNGSI AMBIL FOTO ---
+  Future<void> _pickImage(String type, ImageSource source) async {
+    try {
+      // Mengambil foto dan langsung di-compress kualitasnya 70% agar tidak terlalu berat saat dikirim
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          if (type == "Before")
+            _fotoBefore = pickedFile;
+          else if (type == "Progress")
+            _fotoProgress = pickedFile;
+          else if (type == "After")
+            _fotoAfter = pickedFile;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal mengambil foto: $e")));
+    }
+  }
+
+  // --- POPUP PILIH KAMERA ATAU GALERI ---
+  void _showPickerOptions(String type) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.blue),
+              title: const Text(
+                'Ambil dari Galeri',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(type, ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera, color: Colors.green),
+              title: const Text(
+                'Buka Kamera',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(type, ImageSource.camera);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- FUNGSI GENAI ---
   Future<void> _predictKategoriByAI() async {
     final uraian = _uraianController.text.trim();
     if (uraian.isEmpty) {
@@ -111,16 +181,13 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       );
       return;
     }
-
     setState(() => _isPredictingKategori = true);
 
     try {
-      // API Key Anda dimasukkan di sini
-      const apiKey = 'AIzaSyCwQ5-o_d_H55ciURfDJRIWNzpEOHNdNpE';
-
+      const apiKey =
+          'AIzaSyA3HkNX8rqpfKdDogEG6wtTVFiK6gjcc7M'; // Sebaiknya simpan ini di .env untuk produksi
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
-      // Prompt yang menginstruksikan AI untuk memilih kategori persis seperti daftar
       final prompt =
           '''
       Kamu adalah asisten sistem pelaporan perbaikan jaringan.
@@ -129,18 +196,15 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
       Berdasarkan uraian pekerjaan teknisi berikut: "$uraian"
       Tugasmu adalah memilih SATU kategori yang paling tepat dan relevan dari daftar di atas.
-      Hanya balas dengan nama kategori yang persis sama dengan yang ada di daftar (termasuk huruf besar dan tanda baca). Jangan tambahkan penjelasan atau kata lain.
+      Hanya balas dengan nama kategori yang persis sama dengan yang ada di daftar (termasuk huruf besar dan tanda baca). Jangan tambahkan penjelasan.
       ''';
 
       final response = await model.generateContent([Content.text(prompt)]);
       String predictedCategory = response.text?.trim() ?? '';
 
-      // Validasi apakah hasil dari AI benar-benar ada di dalam list opsi
       if (_kategoriOptions.contains(predictedCategory)) {
-        setState(() {
-          _selectedKategori = predictedCategory;
-        });
-        if (mounted) {
+        setState(() => _selectedKategori = predictedCategory);
+        if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -149,9 +213,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               backgroundColor: Colors.green,
             ),
           );
-        }
       } else {
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -160,21 +223,17 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               backgroundColor: Colors.red,
             ),
           );
-        }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Error koneksi AI: $e"),
             backgroundColor: Colors.red,
           ),
         );
-      }
     } finally {
-      if (mounted) {
-        setState(() => _isPredictingKategori = false);
-      }
+      if (mounted) setState(() => _isPredictingKategori = false);
     }
   }
 
@@ -200,22 +259,16 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- AREA (Otomatis) ---
               _buildFieldLabel("Area"),
               _buildReadOnlyField(_areaController),
               const SizedBox(height: 15),
-
-              // --- DISTRICT (Otomatis) ---
               _buildFieldLabel("District"),
               _buildReadOnlyField(_districtController),
               const SizedBox(height: 15),
-
-              // --- WITEL (Otomatis) ---
               _buildFieldLabel("Witel"),
               _buildReadOnlyField(_witelController),
               const SizedBox(height: 15),
 
-              // --- STO (Dropdown) ---
               _buildFieldLabel("STO"),
               _buildDropdownField(
                 "Pilih STO",
@@ -225,7 +278,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               ),
               const SizedBox(height: 15),
 
-              // --- MITRA PELAKSANA ---
               _buildFieldLabel("MITRA PELAKSANA"),
               _buildDropdownField(
                 "Pilih Mitra",
@@ -235,7 +287,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               ),
               const SizedBox(height: 15),
 
-              // --- URAIAN PEKERJAAN ---
               _buildFieldLabel("URAIAN PEKERJAAN"),
               _buildTextArea(
                 hint: "Contoh: Perbaikan tiang keropos di karangpilang",
@@ -243,7 +294,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               ),
               const SizedBox(height: 8),
 
-              // --- TOMBOL GENAI AUTO-PILIH KATEGORI ---
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
@@ -283,7 +333,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               ),
               const SizedBox(height: 15),
 
-              // --- KATEGORI KEGIATAN ---
               _buildFieldLabel("KATEGORI KEGIATAN"),
               _buildDropdownField(
                 "Pilih Kategori (Bisa Auto via AI)",
@@ -291,27 +340,41 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                 _kategoriOptions,
                 (val) => setState(() => _selectedKategori = val),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 25),
 
-              // --- TOMBOL LANJUT (LANGSUNG KE KONFIRMASI) ---
+              // --- SEKSI BUKTI FOTO ---
+              _buildFieldLabel("BUKTI FOTO (Opsional)"),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildPhotoPickerBox("Before", _fotoBefore),
+                  _buildPhotoPickerBox("Progress", _fotoProgress),
+                  _buildPhotoPickerBox("After", _fotoAfter),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // --- TOMBOL LANJUT KE KONFIRMASI ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
+                    // Validasi Text & Dropdown
                     if (_selectedSTO == null ||
                         _selectedMitra == null ||
                         _selectedKategori == null ||
                         _uraianController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("Mohon lengkapi semua data!"),
+                          content: Text("Mohon lengkapi semua data teks!"),
                         ),
                       );
                       return;
                     }
 
-                    // Navigasi Langsung ke Konfirmasi
+                    // Navigasi Langsung ke Konfirmasi dengan membawa Data FOTO
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -327,6 +390,10 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                           mitraPelaksana: _selectedMitra!,
                           kategoriKegiatan: _selectedKategori!,
                           uraianPekerjaan: _uraianController.text,
+                          // Mengirim path foto jika sudah dipilih
+                          fotoBeforePath: _fotoBefore?.path,
+                          fotoProgressPath: _fotoProgress?.path,
+                          fotoAfterPath: _fotoAfter?.path,
                         ),
                       ),
                     );
@@ -361,6 +428,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     );
   }
 
+  // --- WIDGET HELPER BAWAAN ANDA ---
   Widget _buildFieldLabel(String label) => Text(
     label,
     style: const TextStyle(
@@ -438,4 +506,54 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       ),
     ),
   );
+
+  // --- WIDGET HELPER KOTAK PEMILIH FOTO ---
+  Widget _buildPhotoPickerBox(String label, XFile? file) {
+    return GestureDetector(
+      onTap: () => _showPickerOptions(label),
+      child: Column(
+        children: [
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: file != null
+                    ? Colors.blue
+                    : Colors.grey.withOpacity(0.5),
+                width: 1.5,
+              ),
+            ),
+            child: file != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(File(file.path), fit: BoxFit.cover),
+                  )
+                : const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo, color: Colors.grey, size: 30),
+                      SizedBox(height: 5),
+                      Text(
+                        "Upload",
+                        style: TextStyle(color: Colors.grey, fontSize: 10),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
