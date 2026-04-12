@@ -55,7 +55,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
 
     try {
       // URL API
-      var url = Uri.parse("http://10.253.128.189:8000/api/maintenance/report");
+      var url = Uri.parse("http://192.168.1.45:8000/api/maintenance/report");
 
       // MENGGUNAKAN MULTIPART REQUEST UNTUK MENGIRIM FILE + TEKS
       var request = http.MultipartRequest('POST', url);

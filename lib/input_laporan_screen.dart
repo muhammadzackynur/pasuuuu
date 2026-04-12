@@ -185,7 +185,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
     try {
       const apiKey =
-          'AIzaSyA3HkNX8rqpfKdDogEG6wtTVFiK6gjcc7M'; // Sebaiknya simpan ini di .env untuk produksi
+          'AIzaSyCLISveaCxKj9NYm4OxGAdKcyOukdbkTk0'; // Sebaiknya simpan ini di .env untuk produksi
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
       final prompt =

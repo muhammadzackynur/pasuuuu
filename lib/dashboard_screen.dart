@@ -43,9 +43,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       // Pastikan IP ini sesuai dengan konfigurasi lokal Anda
       final url = Uri.parse(
-        'http://10.253.128.189:8000/api/maintenance/reports',
+        'http://192.168.1.45.189:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
+
+      print("LOG: Status Code = ${response.statusCode}");
+      print("LOG: Response Body = ${response.body}");
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1081,6 +1084,27 @@ class DetailLaporanScreen extends StatelessWidget {
                 reportData['created_at']?.toString().substring(0, 10) ?? '-',
               ),
             ]),
+
+            // --- SEKSI TAMPILAN FOTO BUKTI ---
+            const SizedBox(height: 24),
+            const Text(
+              "Bukti Foto Lapangan",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildImagePreview("Before", reportData['foto_before']),
+                _buildImagePreview("Progress", reportData['foto_progress']),
+                _buildImagePreview("After", reportData['foto_after']),
+              ],
+            ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -1127,6 +1151,40 @@ class DetailLaporanScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  // --- FUNGSI TAMPILAN FOTO (Wajib Ada di dalam class DetailLaporanScreen) ---
+  Widget _buildImagePreview(String label, String? imagePath) {
+    // URL dasar storage Laravel Anda
+    final String baseUrl = "http://192.168.1.45:8000/storage/";
+
+    return Column(
+      children: [
+        Container(
+          width: 90,
+          height: 90,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: (imagePath != null && imagePath.isNotEmpty)
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    baseUrl + imagePath,
+                    fit: BoxFit.cover,
+                    // Menangani jika gambar tidak ditemukan di server
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                )
+              : const Icon(Icons.image_not_supported, color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+      ],
     );
   }
 }
