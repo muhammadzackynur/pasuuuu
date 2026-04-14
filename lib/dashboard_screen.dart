@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
 
@@ -27,7 +30,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _reports = [];
   bool _isLoading = true;
 
-  // Variabel untuk statistik
   int _pendingCount = 0;
   int _verifiedCount = 0;
   int _rejectedCount = 0;
@@ -41,23 +43,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      // Pastikan IP ini sesuai dengan konfigurasi lokal Anda
-      final url = Uri.parse(
-        'http://192.168.1.45.189:8000/api/maintenance/reports',
-      );
+      final url = Uri.parse('http://192.168.1.54:8000/api/maintenance/reports');
       final response = await http.get(url);
-
-      print("LOG: Status Code = ${response.statusCode}");
-      print("LOG: Response Body = ${response.body}");
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> fetchedReports = data['data'];
 
-        int p = 0;
-        int v = 0;
-        int r = 0;
-
+        int p = 0, v = 0, r = 0;
         for (var report in fetchedReports) {
           String status = report['status'] ?? 'Pending';
           if (status.toLowerCase().contains('verif')) {
@@ -65,7 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           } else if (status.toLowerCase().contains('reject')) {
             r++;
           } else {
-            p++; // Default Pending
+            p++;
           }
         }
 
@@ -98,13 +91,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             databaseId: widget.databaseId,
           ),
         ),
-      ).then((_) {
-        _fetchReports();
-      });
+      ).then((_) => _fetchReports());
     } else {
-      setState(() {
-        _selectedIndex = index;
-      });
+      setState(() => _selectedIndex = index);
     }
   }
 
@@ -116,7 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bodyContent = _buildHomeContent();
         break;
       case 2:
-        bodyContent = _buildStatusContent(); // UI STATUS LAPORAN
+        bodyContent = _buildStatusContent();
         break;
       case 3:
         bodyContent = ProfileScreen(
@@ -191,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0F1623),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF00D1F3), // Warna Cyan
+        selectedItemColor: const Color(0xFF00D1F3),
         unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -211,7 +200,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- TAMPILAN HOME ---
   Widget _buildHomeContent() {
     final recentReports = _reports.take(4).toList();
     return SingleChildScrollView(
@@ -267,13 +255,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- TAMPILAN STATUS ---
   Widget _buildStatusContent() {
     int totalReports = _reports.length;
     int flexP = _pendingCount > 0 ? _pendingCount : 1;
     int flexV = _verifiedCount > 0 ? _verifiedCount : 1;
     int flexR = _rejectedCount > 0 ? _rejectedCount : 1;
-
     if (totalReports == 0) {
       flexP = 1;
       flexV = 1;
@@ -286,7 +272,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Filter Chips Row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -313,10 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 25),
-
-          // 2. Dashboard Card (Laporan Saya)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -361,8 +343,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 15),
-
-                // Custom Progress Bar
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: SizedBox(
@@ -392,10 +372,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Stats Grid
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -422,7 +399,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 25),
           const Text(
             "Daftar Pekerjaan",
@@ -433,8 +409,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 15),
-
-          // 3. Timeline List
           if (_reports.isEmpty)
             const Center(
               child: Text(
@@ -449,8 +423,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemCount: _reports.length,
               itemBuilder: (context, index) {
                 final data = _reports[index];
-
-                // Mapping Status
                 String statusStr = data['status'] ?? 'Pending';
                 StatusType type = StatusType.pending;
                 Color sColor = Colors.amber;
@@ -473,13 +445,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   type: type,
                   isFirst: index == 0,
                   isLast: index == _reports.length - 1,
-                  // FUNGSI ONTAP DIPANGGIL DI SINI
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            DetailLaporanScreen(reportData: data),
+                        builder: (context) => DetailLaporanScreen(
+                          reportData: data,
+                          onRefresh: _fetchReports,
+                          currentUserId: widget.userId,
+                        ),
                       ),
                     );
                   },
@@ -492,7 +466,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET HELPER BAWAAN ---
   Widget _buildGreetingCard() {
     return Container(
       width: double.infinity,
@@ -536,11 +509,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () {
-        // Berikan fitur klik juga pada laporan terbaru di halaman Home
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailLaporanScreen(reportData: data),
+            builder: (context) => DetailLaporanScreen(
+              reportData: data,
+              onRefresh: _fetchReports,
+              currentUserId: widget.userId,
+            ),
           ),
         );
       },
@@ -610,13 +586,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// --- CLASS WIDGET TAMBAHAN ---
-
 class FilterChipWidget extends StatelessWidget {
   final String label;
   final int? count;
   final bool isActive;
-
   const FilterChipWidget({
     super.key,
     required this.label,
@@ -675,7 +648,6 @@ class StatItem extends StatelessWidget {
   final String count;
   final String label;
   final Color color;
-
   const StatItem({
     super.key,
     required this.icon,
@@ -714,18 +686,12 @@ class StatItem extends StatelessWidget {
 
 enum StatusType { pending, verified, rejected }
 
-// --- TIMELINE ITEM UPDATE (Ditambahkan Fitur Klik) ---
 class TimelineItem extends StatelessWidget {
-  final String id;
-  final String sto;
-  final String kategori;
-  final String uraian;
-  final String statusLabel;
+  final String id, sto, kategori, uraian, statusLabel;
   final Color statusColor;
   final StatusType type;
-  final bool isFirst;
-  final bool isLast;
-  final VoidCallback? onTap; // Tambahkan parameter onTap
+  final bool isFirst, isLast;
+  final VoidCallback? onTap;
 
   const TimelineItem({
     super.key,
@@ -738,7 +704,7 @@ class TimelineItem extends StatelessWidget {
     required this.type,
     this.isFirst = false,
     this.isLast = false,
-    this.onTap, // Inisialisasi parameter onTap
+    this.onTap,
   });
 
   @override
@@ -747,7 +713,6 @@ class TimelineItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Garis Timeline
           SizedBox(
             width: 40,
             child: Column(
@@ -795,8 +760,6 @@ class TimelineItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Kartu Data Dibungkus dengan InkWell agar bisa di klik
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 20),
@@ -808,18 +771,17 @@ class TimelineItem extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: onTap, // Menjalankan fungsi onTap saat diklik
+                  onTap: onTap,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header: ID dan Status
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              id, // MAINT-00X
+                              id,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -860,8 +822,6 @@ class TimelineItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-
-                        // STO (Lokasi)
                         Row(
                           children: [
                             const Icon(
@@ -882,8 +842,6 @@ class TimelineItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-
-                        // Kategori Kegiatan
                         Row(
                           children: [
                             const Icon(
@@ -904,12 +862,8 @@ class TimelineItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-
-                        // Divider Kecil
                         const Divider(color: Colors.white10),
                         const SizedBox(height: 8),
-
-                        // Uraian Pekerjaan
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -946,27 +900,114 @@ class TimelineItem extends StatelessWidget {
 }
 
 // ======================================================================
-// --- HALAMAN BARU UNTUK DETAIL LAPORAN ---
+// --- HALAMAN DETAIL LAPORAN (STATEFUL WIDGET) ---
 // ======================================================================
 
-class DetailLaporanScreen extends StatelessWidget {
+class DetailLaporanScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
+  final VoidCallback? onRefresh;
+  final String currentUserId;
 
-  const DetailLaporanScreen({super.key, required this.reportData});
+  const DetailLaporanScreen({
+    super.key,
+    required this.reportData,
+    this.onRefresh,
+    required this.currentUserId,
+  });
+
+  @override
+  State<DetailLaporanScreen> createState() => _DetailLaporanScreenState();
+}
+
+class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
+  bool _isUploading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _uploadPhotosForCategory(String kategori) async {
+    try {
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 70,
+      );
+      if (pickedFiles.isEmpty) return;
+
+      setState(() => _isUploading = true);
+
+      String id = widget.reportData['id'].toString();
+      var url = Uri.parse(
+        "http://192.168.1.54:8000/api/maintenance/report/$id/add-photos",
+      );
+
+      var request = http.MultipartRequest('POST', url);
+      request.headers.addAll({"Accept": "application/json"});
+
+      String fieldName = "foto_${kategori.toLowerCase()}[]";
+
+      for (var file in pickedFiles) {
+        request.files.add(
+          await http.MultipartFile.fromPath(fieldName, file.path),
+        );
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Foto $kategori susulan berhasil dikirim!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        if (widget.onRefresh != null) {
+          widget.onRefresh!();
+        }
+        Navigator.pop(context);
+      } else {
+        throw Exception("Gagal upload: ${response.body}");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Format ID Data
-    String idData = "MAINT-${reportData['id'].toString().padLeft(3, '0')}";
-    String status = reportData['status'] ?? 'Pending';
+    String idData =
+        "MAINT-${widget.reportData['id'].toString().padLeft(3, '0')}";
+    String status = widget.reportData['status']?.toString() ?? 'Pending';
 
-    // Status color mapping
     Color statusColor = Colors.amber;
     if (status.toLowerCase().contains('verif')) {
       statusColor = Colors.green;
     } else if (status.toLowerCase().contains('reject')) {
       statusColor = Colors.red;
     }
+
+    // Mengambil latitude dan longitude sebagai String secara aman (mencegah error 'double is not subtype of String')
+    String? latStr = widget.reportData['latitude']?.toString();
+    String? lngStr = widget.reportData['longitude']?.toString();
+
+    List<dynamic> allImages = widget.reportData['images'] ?? [];
+    List<String> beforePaths = allImages
+        .where((i) => i['type'] == 'before')
+        .map((i) => i['image_path'].toString())
+        .toList();
+    List<String> progressPaths = allImages
+        .where((i) => i['type'] == 'progress')
+        .map((i) => i['image_path'].toString())
+        .toList();
+    List<String> afterPaths = allImages
+        .where((i) => i['type'] == 'after')
+        .map((i) => i['image_path'].toString())
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1623),
@@ -985,7 +1026,6 @@ class DetailLaporanScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -1039,8 +1079,9 @@ class DetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // --- BAGIAN LOKASI YANG DIPERBARUI ---
             const Text(
-              "Informasi Lokasi",
+              "Informasi Lokasi & Link Maps",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -1048,12 +1089,102 @@ class DetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildDetailCard([
-              _buildDetailRow("Area", reportData['area'] ?? '-'),
-              _buildDetailRow("District", reportData['district'] ?? '-'),
-              _buildDetailRow("Witel", reportData['witel'] ?? '-'),
-              _buildDetailRow("STO", reportData['sto'] ?? '-'),
-            ]),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161F2E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDetailRow(
+                    "Area",
+                    widget.reportData['area']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    "District",
+                    widget.reportData['district']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    "Witel",
+                    widget.reportData['witel']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    "STO",
+                    widget.reportData['sto']?.toString() ?? '-',
+                  ),
+
+                  const Divider(color: Colors.white10, height: 30),
+
+                  // Menggunakan variabel String yang aman dari error
+                  _buildDetailRow("Latitude", latStr ?? '-'),
+                  _buildDetailRow("Longitude", lngStr ?? '-'),
+
+                  const SizedBox(height: 5),
+                  const Text(
+                    "Link Google Maps:",
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 5),
+                  SelectableText(
+                    (latStr != null && lngStr != null && latStr.isNotEmpty)
+                        ? "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr"
+                        : "Koordinat belum tersedia",
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 12,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        if (latStr != null &&
+                            lngStr != null &&
+                            latStr.isNotEmpty) {
+                          final url =
+                              "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr";
+                          await launchUrl(
+                            Uri.parse(url),
+                            mode: LaunchMode.externalApplication,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Koordinat tidak ditemukan"),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.map,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        "Buka di Google Maps",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
             const Text(
@@ -1068,24 +1199,26 @@ class DetailLaporanScreen extends StatelessWidget {
             _buildDetailCard([
               _buildDetailRow(
                 "Kategori Kegiatan",
-                reportData['kategori_kegiatan'] ?? '-',
+                widget.reportData['kategori_kegiatan']?.toString() ?? '-',
               ),
               _buildDetailRow(
                 "Uraian Pekerjaan",
-                reportData['uraian_pekerjaan'] ?? '-',
+                widget.reportData['uraian_pekerjaan']?.toString() ?? '-',
               ),
               _buildDetailRow(
                 "Mitra Pelaksana",
-                reportData['mitra_pelaksana'] ?? '-',
+                widget.reportData['mitra_pelaksana']?.toString() ?? '-',
               ),
-              _buildDetailRow("Teknisi", reportData['teknisi'] ?? '-'),
+              _buildDetailRow(
+                "Teknisi",
+                widget.reportData['teknisi']?.toString() ?? '-',
+              ),
               _buildDetailRow(
                 "Waktu Laporan",
-                reportData['created_at']?.toString().substring(0, 10) ?? '-',
+                widget.reportData['created_at']?.toString().substring(0, 10) ??
+                    '-',
               ),
             ]),
-
-            // --- SEKSI TAMPILAN FOTO BUKTI ---
             const SizedBox(height: 24),
             const Text(
               "Bukti Foto Lapangan",
@@ -1096,14 +1229,13 @@ class DetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildImagePreview("Before", reportData['foto_before']),
-                _buildImagePreview("Progress", reportData['foto_progress']),
-                _buildImagePreview("After", reportData['foto_after']),
-              ],
-            ),
+
+            _buildPhotoCategory("Before", beforePaths),
+            const SizedBox(height: 15),
+            _buildPhotoCategory("Progress", progressPaths),
+            const SizedBox(height: 15),
+            _buildPhotoCategory("After", afterPaths),
+
             const SizedBox(height: 40),
           ],
         ),
@@ -1111,7 +1243,6 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Helper widget untuk membuat card container rincian
   Widget _buildDetailCard(List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1123,7 +1254,6 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Helper widget untuk membuat baris detail
   Widget _buildDetailRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1154,37 +1284,204 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // --- FUNGSI TAMPILAN FOTO (Wajib Ada di dalam class DetailLaporanScreen) ---
-  Widget _buildImagePreview(String label, String? imagePath) {
-    // URL dasar storage Laravel Anda
-    final String baseUrl = "http://192.168.1.45:8000/storage/";
+  Widget _buildPhotoCategory(String label, List<String> paths) {
+    final String baseUrl = "http://192.168.1.54:8000/storage/";
+
+    bool canAddPhoto =
+        widget.currentUserId == widget.reportData['user_id'].toString();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 90,
-          height: 90,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white10),
+        Text(
+          "$label (${paths.length} Foto)",
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
-          child: (imagePath != null && imagePath.isNotEmpty)
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    baseUrl + imagePath,
-                    fit: BoxFit.cover,
-                    // Menangani jika gambar tidak ditemukan di server
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.broken_image, color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
+
+        if (paths.isEmpty)
+          canAddPhoto
+              ? InkWell(
+                  onTap: _isUploading
+                      ? null
+                      : () => _uploadPhotosForCategory(label),
+                  child: Container(
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue, width: 1.5),
+                    ),
+                    child: _isUploading
+                        ? const Center(child: CircularProgressIndicator())
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add_a_photo, color: Colors.blue),
+                              const SizedBox(height: 5),
+                              Text(
+                                "Tambah Foto $label",
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 )
-              : const Icon(Icons.image_not_supported, color: Colors.grey),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              : Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
+                  ),
+                )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1,
+            ),
+            itemCount: canAddPhoto ? paths.length + 1 : paths.length,
+            itemBuilder: (context, index) {
+              if (canAddPhoto && index == paths.length) {
+                return InkWell(
+                  onTap: _isUploading
+                      ? null
+                      : () => _uploadPhotosForCategory(label),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue, width: 1.5),
+                    ),
+                    child: _isUploading
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(10.0),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_a_photo,
+                                color: Colors.blue,
+                                size: 24,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                "Tambah",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                );
+              }
+
+              String fullUrl = baseUrl + paths[index];
+              String heroTag = "image_${label}_$index";
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FullScreenImageScreen(
+                        imageUrl: fullUrl,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Hero(
+                      tag: heroTag,
+                      child: Image.network(
+                        fullUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
       ],
+    );
+  }
+}
+
+// ======================================================================
+// --- HALAMAN FULL SCREEN IMAGE VIEWER DENGAN ZOOM ---
+// ======================================================================
+
+class FullScreenImageScreen extends StatelessWidget {
+  final String imageUrl;
+  final String heroTag;
+
+  const FullScreenImageScreen({
+    super.key,
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Hero(
+            tag: heroTag,
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.broken_image, color: Colors.grey, size: 50),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

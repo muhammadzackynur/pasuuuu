@@ -72,7 +72,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ) async {
       try {
         final url = Uri.parse(
-          'http://192.168.1.45:8000/api/maintenance/reports',
+          'http://192.168.1.54:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -165,7 +165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     // Kita tidak selalu mengeset _isLoading = true agar saat polling background
     // layar tidak terus-terusan muncul loading spinner yang mengganggu Admin.
     try {
-      final url = Uri.parse('http://192.168.1.45:8000/api/maintenance/reports');
+      final url = Uri.parse('http://192.168.1.54:8000/api/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -223,7 +223,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://192.168.1.45:8000/api/maintenance/reports/$reportId/status',
+        'http://192.168.1.54:8000/api/maintenance/reports/$reportId/status',
       );
 
       // PERBAIKAN: Tambahkan Header dan gunakan jsonEncode
@@ -471,7 +471,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           try {
                             // IP DIUBAH KE 192.168.1.45
                             final url = Uri.parse(
-                              'http://192.168.1.45:8000/api/users/register',
+                              'http://192.168.1.54:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -2189,7 +2189,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://192.168.1.45:8000/storage/$path';
+                      'http://192.168.1.54:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2285,7 +2285,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
       final reportId = widget.reportData['id'];
 
       final url = Uri.parse(
-        'http://192.168.1.45:8000/api/maintenance/reports/$reportId',
+        'http://192.168.1.54:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
