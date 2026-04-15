@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegisteringFace = false; // Jika true, tampilkan kamera besar
   bool _isAutoScanning = false; // Jika true, sedang proses auto-login
 
-  final String serverUrl = 'http://192.168.1.54:8000/api';
+  final String serverUrl = 'http://192.168.100.192:8000/api';
 
   @override
   void initState() {

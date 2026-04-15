@@ -32,7 +32,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // Variabel untuk fitur Notifikasi
   Timer? _notificationTimer;
-  int _lastReportCount = 0;
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -53,13 +52,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _fetchAdminData();
-    _startNotificationCheck(); // Menjalankan fungsi cek laporan baru
+    _startNotificationCheck();
   }
 
   @override
   void dispose() {
-    _notificationTimer
-        ?.cancel(); // Menghentikan timer saat Admin keluar aplikasi
+    _notificationTimer?.cancel();
     super.dispose();
   }
 
@@ -72,7 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ) async {
       try {
         final url = Uri.parse(
-          'http://192.168.1.54:8000/api/maintenance/reports',
+          'http://192.168.100.192:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -80,18 +78,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           final data = json.decode(response.body);
           List<dynamic> fetchedReports = data['data'] ?? [];
 
-          // Log untuk memantau di console
-          print(
-            "Polling: Server=${fetchedReports.length}, Aplikasi=${_allReports.length}",
-          );
-
-          // Jika jumlah di server lebih banyak, berarti ada laporan baru
           if (fetchedReports.length > _allReports.length) {
             if (_allReports.isNotEmpty) {
-              _showNewReportNotification(); // Munculkan notif jika aplikasi sudah stand by
+              _showNewReportNotification();
             }
-
-            // WAJIB: Update data secara halus (tanpa loading spinner agar tidak ganggu Admin)
             _refreshDataSilently(fetchedReports);
           }
         }
@@ -101,7 +91,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
   }
 
-  // Tambahkan fungsi ini agar data di dashboard terupdate otomatis tanpa Loading Screen
   void _refreshDataSilently(List<dynamic> newReports) {
     int p = 0, v = 0, r = 0;
     for (var report in newReports) {
@@ -125,10 +114,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showNewReportNotification() {
-    // Menghapus notifikasi lama jika ada agar tidak menumpuk
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
-
-    // Menampilkan Banner Notifikasi
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -151,7 +137,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           label: "LIHAT",
           textColor: Colors.white,
           onPressed: () {
-            setState(() => _selectedIndex = 1); // Pindah otomatis ke tab Data
+            setState(() => _selectedIndex = 1);
           },
         ),
       ),
@@ -162,10 +148,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // FUNGSI MENGAMBIL DATA DARI SERVER
   // =========================================================================
   Future<void> _fetchAdminData() async {
-    // Kita tidak selalu mengeset _isLoading = true agar saat polling background
-    // layar tidak terus-terusan muncul loading spinner yang mengganggu Admin.
     try {
-      final url = Uri.parse('http://192.168.1.54:8000/api/maintenance/reports');
+      final url = Uri.parse(
+        'http://192.168.100.192:8000/api/maintenance/reports',
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -186,7 +172,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
 
-        // Urutkan berdasarkan ID terbaru
         fetchedReports.sort(
           (a, b) => (b['id'] as int).compareTo(a['id'] as int),
         );
@@ -211,7 +196,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  // --- FUNGSI UPDATE STATUS KE DATABASE ---
   Future<void> _updateStatus(int reportId, String newStatus) async {
     showDialog(
       context: context,
@@ -223,10 +207,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://192.168.1.54:8000/api/maintenance/reports/$reportId/status',
+        'http://192.168.100.192:8000/api/maintenance/reports/$reportId/status',
       );
 
-      // PERBAIKAN: Tambahkan Header dan gunakan jsonEncode
       final response = await http.put(
         url,
         headers: {
@@ -235,9 +218,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         },
         body: jsonEncode({'status': newStatus}),
       );
-
-      print("DEBUG STATUS CODE: ${response.statusCode}");
-      print("DEBUG RESPONSE BODY: ${response.body}");
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -255,7 +235,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
         _fetchAdminData();
       } else {
-        // PERBAIKAN: Tampilkan pesan error asli dari server agar mudah dilacak
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Gagal: ${response.statusCode} - ${response.body}"),
@@ -276,7 +255,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  // --- FUNGSI POP-UP KONFIRMASI (TOLAK / VERIFIKASI) ---
   void _confirmUpdateStatus(
     BuildContext context,
     int reportId,
@@ -313,11 +291,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.pop(dialogContext); // Menutup dialog
-                _updateStatus(
-                  reportId,
-                  newStatus,
-                ); // Menjalankan eksekusi ke server
+                Navigator.pop(dialogContext);
+                _updateStatus(reportId, newStatus);
               },
               child: Text(
                 newStatus == 'Verified' ? "Ya, Verifikasi" : "Ya, Tolak",
@@ -348,7 +323,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }).toList();
   }
 
-  // --- POPUP DAFTARKAN PENGGUNA ---
   void _showAddUserDialog(BuildContext context) {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController idController = TextEditingController();
@@ -469,9 +443,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                           setStateDialog(() => isSubmitting = true);
                           try {
-                            // IP DIUBAH KE 192.168.1.45
                             final url = Uri.parse(
-                              'http://192.168.1.54:8000/api/users/register',
+                              'http://192.168.100.192:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -1293,7 +1266,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // =========================================================================
-  // 4. KONTEN PROFIL
+  // 4. KONTEN PROFIL (ADMIN)
   // =========================================================================
   Widget _buildProfileContent() {
     return SingleChildScrollView(
@@ -1413,6 +1386,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             () => _showAddUserDialog(context),
           ),
           _buildNewProfileMenuItem(Icons.person_outline, "Edit Profil", () {}),
+
+          // --- MENU BARU: JADWAL & TIM LAPANGAN (TLA) UNTUK ADMIN ---
+          _buildNewProfileMenuItem(
+            Icons.calendar_month,
+            "Jadwal & Tim Lapangan (TLA)",
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const JadwalScreen()),
+              );
+            },
+          ),
+
           _buildNewProfileMenuItem(Icons.lock_outline, "Ganti Password", () {}),
           _buildNewProfileMenuItem(
             Icons.notifications_none,
@@ -1463,7 +1449,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Icon(
                   icon,
-                  color: isDestructive ? Colors.redAccent : Colors.white70,
+                  color: isDestructive
+                      ? Colors.redAccent
+                      : const Color(0xFF00D1F3),
                   size: 24,
                 ),
                 const SizedBox(width: 16),
@@ -1645,7 +1633,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-              // --- TOMBOL TOLAK & VERIFIKASI (Dengan fungsi Pop-Up) ---
               if (isPending) ...[
                 const Divider(color: Colors.white10, height: 1),
                 Padding(
@@ -1654,7 +1641,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          // MENGGUNAKAN POP-UP KONFIRMASI
                           onPressed: () => _confirmUpdateStatus(
                             context,
                             data['id'],
@@ -1681,7 +1667,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(width: 15),
                       Expanded(
                         child: ElevatedButton.icon(
-                          // MENGGUNAKAN POP-UP KONFIRMASI
                           onPressed: () => _confirmUpdateStatus(
                             context,
                             data['id'],
@@ -1933,6 +1918,26 @@ class AdminDetailLaporanScreen extends StatelessWidget {
         ? Colors.red
         : Colors.orange;
 
+    String? latStr = reportData['latitude']?.toString();
+    String? lngStr = reportData['longitude']?.toString();
+    String mapsUrl = (latStr != null && lngStr != null && latStr.isNotEmpty)
+        ? "https://www.google.com/maps?q=$latStr,$lngStr"
+        : "Koordinat belum tersedia";
+
+    List<dynamic> allImages = reportData['images'] ?? [];
+    List<String> beforePaths = allImages
+        .where((i) => i['type'] == 'before')
+        .map((i) => i['image_path'].toString())
+        .toList();
+    List<String> progressPaths = allImages
+        .where((i) => i['type'] == 'progress')
+        .map((i) => i['image_path'].toString())
+        .toList();
+    List<String> afterPaths = allImages
+        .where((i) => i['type'] == 'after')
+        .map((i) => i['image_path'].toString())
+        .toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A101D),
       appBar: AppBar(
@@ -2002,8 +2007,10 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+
+            // --- BAGIAN LOKASI & LINK MAPS ---
             const Text(
-              "Informasi Lokasi",
+              "Informasi Lokasi & Link Maps",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -2016,16 +2023,87 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF161F2E),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.withOpacity(0.2)),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow("Area", reportData['area'] ?? '-'),
-                  _buildDetailRow("District", reportData['district'] ?? '-'),
-                  _buildDetailRow("Witel", reportData['witel'] ?? '-'),
-                  _buildDetailRow("STO", reportData['sto'] ?? '-'),
+                  _buildDetailRow(
+                    "Area",
+                    reportData['area']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    "District",
+                    reportData['district']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow(
+                    "Witel",
+                    reportData['witel']?.toString() ?? '-',
+                  ),
+                  _buildDetailRow("STO", reportData['sto']?.toString() ?? '-'),
+                  const Divider(color: Colors.white10, height: 30),
+                  _buildDetailRow("Latitude", latStr ?? '-'),
+                  _buildDetailRow("Longitude", lngStr ?? '-'),
+
+                  const SizedBox(height: 5),
+                  const Text(
+                    "Link Google Maps:",
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 5),
+                  SelectableText(
+                    mapsUrl,
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 12,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        if (latStr != null &&
+                            lngStr != null &&
+                            latStr.isNotEmpty) {
+                          await launchUrl(
+                            Uri.parse(mapsUrl),
+                            mode: LaunchMode.externalApplication,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Koordinat tidak ditemukan"),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.map,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        "Buka di Google Maps",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
             const Text(
               "Rincian Pekerjaan",
@@ -2077,6 +2155,24 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+
+            // --- BAGIAN BUKTI FOTO ---
+            const Text(
+              "Bukti Foto Lapangan",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildPhotoCategory(context, "Before", beforePaths),
+            const SizedBox(height: 15),
+            _buildPhotoCategory(context, "Progress", progressPaths),
+            const SizedBox(height: 15),
+            _buildPhotoCategory(context, "After", afterPaths),
+
             const SizedBox(height: 24),
             const Text(
               "Lampiran Evidence",
@@ -2152,6 +2248,90 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildPhotoCategory(
+    BuildContext context,
+    String label,
+    List<String> paths,
+  ) {
+    const String baseUrl = "http://192.168.100.192:8000/storage/";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "$label (${paths.length} Foto)",
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 10),
+        paths.isEmpty
+            ? Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  color: Colors.grey,
+                ),
+              )
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 1,
+                ),
+                itemCount: paths.length,
+                itemBuilder: (context, index) {
+                  String fullUrl = "$baseUrl${paths[index]}";
+                  String heroTag = "admin_image_${label}_$index";
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FullScreenImageScreen(
+                            imageUrl: fullUrl,
+                            heroTag: heroTag,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Hero(
+                          tag: heroTag,
+                          child: Image.network(
+                            fullUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ],
+    );
+  }
+
   Widget _buildEvidenceStatus(
     BuildContext context,
     String title,
@@ -2189,7 +2369,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://192.168.1.54:8000/storage/$path';
+                      'http://192.168.100.192:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2283,9 +2463,8 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     setState(() => _isSaving = true);
     try {
       final reportId = widget.reportData['id'];
-
       final url = Uri.parse(
-        'http://192.168.1.54:8000/api/maintenance/reports/$reportId',
+        'http://192.168.100.192:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -2494,6 +2673,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
       fontWeight: FontWeight.bold,
     ),
   );
+
   Widget _buildTextField(TextEditingController controller) {
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -2544,7 +2724,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               children: [
                 Icon(
                   Icons.folder_zip,
-                  color: file != null ? Colors.green : Colors.blue,
+                  color: file != null ? Colors.green : const Color(0xFF00D1F3),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2566,6 +2746,308 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
         ),
         const SizedBox(height: 20),
       ],
+    );
+  }
+}
+
+// ======================================================================
+// --- HALAMAN FULL SCREEN IMAGE VIEWER DENGAN ZOOM ---
+// ======================================================================
+
+class FullScreenImageScreen extends StatelessWidget {
+  final String imageUrl;
+  final String heroTag;
+
+  const FullScreenImageScreen({
+    super.key,
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Hero(
+            tag: heroTag,
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.broken_image, color: Colors.grey, size: 50),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ======================================================================
+// --- HALAMAN JADWAL & DAFTAR TIM ---
+// --- DI TAMPILKAN BERTUMPUK (LIST VERTIKAL) SESUAI GAMBAR ---
+// ======================================================================
+
+class JadwalScreen extends StatefulWidget {
+  const JadwalScreen({super.key});
+
+  @override
+  State<JadwalScreen> createState() => _JadwalScreenState();
+}
+
+class _JadwalScreenState extends State<JadwalScreen> {
+  bool _isLoading = true;
+  Map<String, List<dynamic>> _groupedTlaUsers = {};
+
+  // Kamus Nama Lengkap STO
+  final Map<String, String> _stoFullNames = {
+    'KJR': 'KENJERAN',
+    'KPS': 'KAPASAN',
+    'KBL': 'KEBALEN',
+    'KLK': 'KALIANAK',
+    'MGS': 'MERGOYOSO',
+    'TND': 'TANDES',
+    'KDG': 'KANDANGAN',
+    'KRP': 'KARANGPILANG',
+    'LKS': 'LAKASANTRI',
+    'GRK': 'GRESIK',
+    'CRM': 'CERME',
+    'LMG': 'LAMONGAN',
+    'BPG': 'BALOPANGGANG',
+    'BRD': 'BERONDONG',
+    'DSK': 'DUDUKSAMPEYAN',
+    'BWN': 'BAWEAN',
+    'BBT': 'BABAT',
+    'SKD': 'SUKODADI',
+    'KDM': 'KEDAMEAN',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  Future<void> _fetchUsers() async {
+    try {
+      final url = Uri.parse('http://192.168.100.192:8000/api/users');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        List<dynamic> users = data['data'] ?? [];
+
+        Map<String, List<dynamic>> tempGroup = {};
+
+        for (var user in users) {
+          // FILTER: HANYA TAMPILKAN TIM LAPANGAN (TLA)
+          String role = user['role']?.toString() ?? '';
+          if (role != 'Tim Lapangan') {
+            continue;
+          }
+
+          String userId = user['user_id']?.toString().toUpperCase() ?? '';
+
+          // FORMAT BARU: TLA-KJR-834
+          List<String> parts = userId.split('-');
+
+          String prefix = '';
+
+          if (parts.length >= 3 && parts[0] == 'TLA') {
+            prefix = parts[1];
+          } else if (parts.length == 2) {
+            prefix = parts[0];
+          } else {
+            continue;
+          }
+
+          if (!tempGroup.containsKey(prefix)) {
+            tempGroup[prefix] = [];
+          }
+
+          tempGroup[prefix]!.add(user);
+        }
+
+        if (mounted) {
+          setState(() {
+            _groupedTlaUsers = tempGroup;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+        _showError("Gagal mengambil data: ${response.statusCode}");
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      _showError("Koneksi Error: $e");
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Mengambil daftar STO dan mengurutkannya sesuai abjad
+    List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A101D),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Manajemen Tim Lapangan',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
+            )
+          : _groupedTlaUsers.isEmpty
+          ? const Center(
+              child: Text(
+                "Belum ada data tim lapangan",
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: groupKeys.length,
+              itemBuilder: (context, index) {
+                String prefix = groupKeys[index];
+                String fullStoName =
+                    _stoFullNames[prefix] ??
+                    prefix; // Mengubah singkatan jadi Nama Lengkap
+                List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- HEADER STO (NAMA LENGKAP) ---
+                    Text(
+                      "STO $fullStoName",
+                      style: const TextStyle(
+                        color: Color(0xFF00D1F3),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // --- TABEL DATA TEKNISI ---
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          headingRowColor: MaterialStateProperty.all(
+                            const Color(0xFF334155),
+                          ),
+                          dataRowMinHeight: 50,
+                          dataRowMaxHeight: 50,
+                          columns: const [
+                            DataColumn(
+                              label: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'STO',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'ID Tim Lapangan',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Nama',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                          rows: List.generate(usersInGroup.length, (rowIndex) {
+                            final user = usersInGroup[rowIndex];
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    '${rowIndex + 1}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    fullStoName,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ), // Kolom STO menggunakan Nama Lengkap
+                                DataCell(
+                                  Text(
+                                    user['user_id'] ?? '-',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    user['name'] ?? '-',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 35),
+                  ],
+                );
+              },
+            ),
     );
   }
 }

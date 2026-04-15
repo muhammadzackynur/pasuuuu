@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // Import http
-import 'dart:convert'; // Import convert untuk JSON
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
   final String role;
-  final String userId; // ID Tampilan (misal TEK-001)
-  final int databaseId; // ID Database (Primary Key) untuk API update
+  final String userId;
+  final int databaseId;
 
   const ProfileScreen({
     super.key,
     required this.userName,
     required this.role,
-    required this.userId, // Diubah menjadi required agar dinamis
-    required this.databaseId, // Wajib di-pass dari Dashboard
+    required this.userId,
+    required this.databaseId,
   });
 
   @override
@@ -28,19 +28,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi nama awal dari data yang dikirim saat login
     currentUserName = widget.userName;
   }
 
-  // --- FUNGSI API KE LARAVEL ---
+  // --- FUNGSI API UPDATE PROFIL ---
   Future<void> _updateProfile(String newName) async {
     setState(() {
       isLoading = true;
     });
 
-    // Ganti IP sesuai server Anda
+    // PASTIKAN IP SESUAI DENGAN SERVER ANDA
     final url = Uri.parse(
-      'http://192.168.1.54:8000/api/user/update/${widget.databaseId}',
+      'http://192.168.100.192:8000/api/user/update/${widget.databaseId}',
     );
 
     try {
@@ -54,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (response.statusCode == 200 && data['success'] == true) {
         setState(() {
-          currentUserName = newName; // Update tampilan nama
+          currentUserName = newName;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -113,12 +112,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty) {
-                Navigator.pop(context); // Tutup dialog dulu
-                _updateProfile(nameController.text); // Jalankan fungsi update
+                Navigator.pop(context);
+                _updateProfile(nameController.text);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
-            child: const Text("Simpan", style: TextStyle(color: Colors.black)),
+            child: const Text(
+              "Simpan",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -133,7 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFF1E293B),
         title: const Text(
           "Konfirmasi Logout",
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: const Text(
           "Apakah Anda yakin ingin keluar?",
@@ -144,7 +149,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text("Batal", style: TextStyle(color: Colors.grey)),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
               Navigator.pushAndRemoveUntil(
@@ -156,7 +162,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 (route) => false,
               );
             },
-            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+            child: const Text(
+              "Logout",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -191,11 +203,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Tampilkan loading kecil jika sedang update
                   isLoading
                       ? const CircularProgressIndicator(color: Colors.cyan)
                       : Text(
-                          currentUserName, // Menggunakan variable state
+                          currentUserName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -294,11 +305,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: "Edit Profil",
               onTap: _showEditProfileDialog,
             ),
+
+            // MENU JADWAL TIM LAPANGAN (TLA)
             _buildMenuTile(
-              icon: Icons.lock_outline,
-              title: "Ganti Password",
-              onTap: () {},
+              icon: Icons.calendar_month,
+              title: "Jadwal & Tim Lapangan (TLA)",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const JadwalScreen()),
+                );
+              },
             ),
+
             _buildMenuTile(
               icon: Icons.notifications_none,
               title: "Notifikasi",
@@ -361,10 +380,234 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: ListTile(
         onTap: onTap,
-        leading: Icon(icon, color: Colors.white),
+        leading: Icon(icon, color: Colors.cyan),
         title: Text(title, style: const TextStyle(color: Colors.white)),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       ),
+    );
+  }
+}
+
+// ======================================================================
+// --- HALAMAN JADWAL & DAFTAR TIM (BERUPA TABEL PER STO) ---
+// ======================================================================
+
+class JadwalScreen extends StatefulWidget {
+  const JadwalScreen({super.key});
+
+  @override
+  State<JadwalScreen> createState() => _JadwalScreenState();
+}
+
+class _JadwalScreenState extends State<JadwalScreen> {
+  bool _isLoading = true;
+  Map<String, List<dynamic>> _groupedTlaUsers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  Future<void> _fetchUsers() async {
+    try {
+      final url = Uri.parse('http://192.168.100.192:8000/api/users');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        List<dynamic> users = data['data'] ?? [];
+
+        Map<String, List<dynamic>> tempGroup = {};
+
+        for (var user in users) {
+          // 1. FILTER: HANYA TAMPILKAN TIM LAPANGAN (TLA)
+          String role = user['role']?.toString() ?? '';
+          if (role != 'Tim Lapangan') {
+            continue;
+          }
+
+          String userId = user['user_id']?.toString().toUpperCase() ?? '';
+
+          // 2. FILTER: HAPUS "LAINNYA" (Harus punya tanda '-' seperti KJR-001)
+          if (!userId.contains('-')) {
+            continue;
+          }
+
+          // Mengambil kode unik STO (misal: "KJR" dari "KJR-001")
+          String prefix = userId.split('-')[0];
+
+          if (!tempGroup.containsKey(prefix)) {
+            tempGroup[prefix] = [];
+          }
+
+          // Masukkan ke grup STO yang sesuai
+          tempGroup[prefix]!.add(user);
+        }
+
+        if (mounted) {
+          setState(() {
+            _groupedTlaUsers = tempGroup;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+        _showError("Gagal mengambil data: ${response.statusCode}");
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      _showError("Koneksi Error: $e");
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Mengambil daftar STO dan mengurutkannya sesuai abjad (KDG, KJR, MGS, dst)
+    List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D1424),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Daftar Tim Lapangan (TLA)',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
+          : _groupedTlaUsers.isEmpty
+          ? const Center(
+              child: Text(
+                "Belum ada data tim lapangan",
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: groupKeys.length,
+              itemBuilder: (context, index) {
+                String prefix = groupKeys[index];
+                List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- HEADER STO ---
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.cyan.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            "STO $prefix",
+                            style: const TextStyle(
+                              color: Colors.cyan,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          "${usersInGroup.length} Teknisi",
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // --- TABEL DATA TEKNISI ---
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          headingRowColor: MaterialStateProperty.all(
+                            const Color(0xFF161F2E),
+                          ),
+                          dataRowMinHeight: 60,
+                          dataRowMaxHeight: 60,
+                          headingTextStyle: const TextStyle(
+                            color: Colors.cyan,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          dataTextStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                          columns: const [
+                            DataColumn(label: Text('NO')),
+                            DataColumn(label: Text('KODE UNIK (ID)')),
+                            DataColumn(label: Text('NAMA LENGKAP')),
+                          ],
+                          rows: List.generate(usersInGroup.length, (rowIndex) {
+                            final user = usersInGroup[rowIndex];
+                            return DataRow(
+                              color: MaterialStateProperty.all(
+                                rowIndex % 2 == 0
+                                    ? Colors.transparent
+                                    : Colors.black12,
+                              ),
+                              cells: [
+                                DataCell(Text('${rowIndex + 1}')),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.cyan.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      user['user_id'] ?? '-',
+                                      style: const TextStyle(
+                                        color: Colors.cyan,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(Text(user['name'] ?? '-')),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30), // Jarak antar STO
+                  ],
+                );
+              },
+            ),
     );
   }
 }

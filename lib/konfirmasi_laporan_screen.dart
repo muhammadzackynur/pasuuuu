@@ -53,7 +53,7 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://192.168.1.54:8000/api/maintenance/report");
+      var url = Uri.parse("http://192.168.100.192:8000/api/maintenance/report");
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({"Accept": "application/json"});
 
@@ -68,6 +68,9 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       request.fields['teknisi'] = widget.userName;
       request.fields['latitude'] = widget.latitude ?? "";
       request.fields['longitude'] = widget.longitude ?? "";
+
+      // MENGIRIM LINK MAPS KE KOLOM LOKASI PEKERJAAN DI DATABASE
+      request.fields['lokasi_pekerjaan'] = widget.mapsLink ?? "";
 
       for (String p in widget.fotoBeforePaths)
         request.files.add(
@@ -137,7 +140,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // KARTU 1: INFORMASI LOKASI & TEKNISI
             _buildInfoCard("Data Laporan", {
               "Area": widget.area,
               "District": widget.district,
@@ -147,7 +149,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
             }),
             const SizedBox(height: 15),
 
-            // KARTU 2: RINCIAN PEKERJAAN
             _buildInfoCard("Rincian Pekerjaan", {
               "Mitra": widget.mitraPelaksana,
               "Kategori": widget.kategoriKegiatan,
@@ -155,7 +156,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
             }),
             const SizedBox(height: 15),
 
-            // KARTU 3: TAMPILAN LINK MAPS
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -199,11 +199,20 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                     height: 45,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        if (widget.mapsLink != null)
+                        if (widget.mapsLink != null &&
+                            widget.mapsLink!.isNotEmpty &&
+                            widget.mapsLink != "-") {
                           await launchUrl(
                             Uri.parse(widget.mapsLink!),
                             mode: LaunchMode.externalApplication,
                           );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Link lokasi belum tersedia."),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(
                         Icons.location_on,
@@ -230,7 +239,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
             ),
             const SizedBox(height: 15),
 
-            // KARTU 4: BUKTI FOTO
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -263,7 +271,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
             ),
             const SizedBox(height: 40),
 
-            // TOMBOL KIRIM
             SizedBox(
               width: double.infinity,
               height: 60,
