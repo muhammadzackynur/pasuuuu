@@ -31,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegisteringFace = false; // Jika true, tampilkan kamera besar
   bool _isAutoScanning = false; // Jika true, sedang proses auto-login
 
+  // Ganti IP ini sesuai dengan IP Laptop/Server Laravel Anda
   final String serverUrl = 'http://192.168.100.192:8000/api';
 
   @override
@@ -39,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _initializeCameraAndCheckLogin();
   }
 
-  // Inisialisasi Kamera selalu dilakukan di awal
+  // Inisialisasi Kamera
   Future<void> _initializeCameraAndCheckLogin() async {
     try {
       final cameras = await availableCameras();
@@ -60,10 +61,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _isCameraInitialized = true;
       });
 
-      // Setelah kamera siap, baru cek apakah ada ID tersimpan
       _checkSavedLogin();
     } catch (e) {
-      print("Error kamera: $e");
+      debugPrint("Error kamera: $e");
     }
   }
 
@@ -76,20 +76,30 @@ class _LoginScreenState extends State<LoginScreen> {
         _hasSavedId = true;
         _savedUserId = savedId;
       });
-      // Jika ada ID tersimpan, langsung OTOMATIS SCAN wajah
+      // Jika ada ID tersimpan, jalankan auto scan
       _autoScanLogin();
     }
   }
 
   // =========================================================================
-  // FUNGSI 1: DAFTAR WAJAH (KAMERA DITAMPILKAN)
+  // FUNGSI 1: DAFTAR WAJAH (DENGAN VALIDASI ID KETAT)
   // =========================================================================
   Future<void> _registerFace() async {
     if (!_isCameraInitialized) return;
+
+    // Pastikan ID diambil langsung dari controller dan di-trim
+    final String userId = _idController.text.trim();
+
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("ID tidak boleh kosong!")));
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Jepret Foto dari Kamera yang sedang Tampil
       XFile picture = await _cameraController!.takePicture();
 
       var request = http.MultipartRequest(
@@ -97,41 +107,32 @@ class _LoginScreenState extends State<LoginScreen> {
         Uri.parse('$serverUrl/register-fingerprint'),
       );
 
-      // --- TAMBAHAN HEADER AGAR LARAVEL MENGEMBALIKAN JSON ---
       request.headers.addAll({'Accept': 'application/json'});
 
-      request.fields['user_id'] = _idController.text.trim();
+      // Mengirim user_id hasil trim
+      request.fields['user_id'] = userId;
+
+      debugPrint("Mengirim pendaftaran untuk ID: $userId");
+
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
 
-      var response = await request.send();
-      var responseData = await http.Response.fromStream(response);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
-      // --- MENCEGAH CRASH FORMAT EXCEPTION JIKA SERVER MENGIRIM HTML ---
-      if (responseData.statusCode >= 500) {
-        print("ERROR DARI LARAVEL: ${responseData.body}");
+      debugPrint("Response Server (${response.statusCode}): ${response.body}");
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Internal Server Error (500). Cek Terminal Laravel."),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isLoading = false);
-        return;
+      if (response.statusCode >= 500) {
+        throw "Terjadi kesalahan di server (500)";
       }
 
-      var data = json.decode(responseData.body);
+      var data = json.decode(response.body);
 
       if (data['success'] == true) {
-        // Simpan ID ke Memori HP agar besok bisa auto-login
+        // Simpan ID ke SharedPreferences agar bisa auto-login nanti
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString(
-          'saved_user_id_${widget.roleTitle}',
-          _idController.text.trim(),
-        );
+        await prefs.setString('saved_user_id_${widget.roleTitle}', userId);
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -141,16 +142,20 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // Langsung Login Biasa setelah daftar wajah
-        _loginLanjutkan();
+        // Setelah daftar sukses, lanjutkan ke dashboard
+        _loginLanjutkan(userId);
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message']), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(data['message'] ?? "Gagal Daftar"),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() => _isLoading = false);
       }
     } catch (e) {
+      debugPrint("Error Register: $e");
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,19 +165,30 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // =========================================================================
-  // FUNGSI 2: AUTO LOGIN WAJAH (KAMERA TERSEMBUNYI)
+  // FUNGSI 2: AUTO LOGIN WAJAH (PERBAIKAN: AMBIL ID SEBELUM KIRIM)
   // =========================================================================
   Future<void> _autoScanLogin() async {
     if (!_isCameraInitialized || _cameraController == null) return;
 
+    // Pastikan mengambil ID terbaru dari SharedPreferences agar tidak null
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? currentSavedId = prefs.getString(
+      'saved_user_id_${widget.roleTitle}',
+    );
+
+    if (currentSavedId == null || currentSavedId.isEmpty) {
+      setState(() => _hasSavedId = false);
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _isAutoScanning = true;
+      _savedUserId = currentSavedId;
     });
 
     try {
-      // JEDA 1.5 DETIK SANGAT PENTING: Memberi waktu kamera menyesuaikan cahaya (exposure)
-      // agar foto tidak gelap dan menyebabkan "Wajah tidak dikenali"
+      // Tunggu kamera menyesuaikan exposure
       await Future.delayed(const Duration(milliseconds: 1500));
 
       XFile picture = await _cameraController!.takePicture();
@@ -182,33 +198,31 @@ class _LoginScreenState extends State<LoginScreen> {
         Uri.parse('$serverUrl/login-fingerprint'),
       );
 
-      // --- TAMBAHAN HEADER AGAR LARAVEL MENGEMBALIKAN JSON ---
       request.headers.addAll({'Accept': 'application/json'});
 
-      request.fields['user_id'] = _savedUserId;
+      // Mengirim ID yang sudah dipastikan ada dari SharedPreferences
+      request.fields['user_id'] = currentSavedId;
+
+      debugPrint("Auto Scanning Login untuk ID: $currentSavedId");
+
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
 
-      var response = await request.send();
-      var responseData = await http.Response.fromStream(response);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
-      // --- MENCEGAH CRASH FORMAT EXCEPTION JIKA SERVER MENGIRIM HTML ---
-      if (responseData.statusCode >= 500) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Internal Server Error (500). Cek Terminal Laravel."),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isAutoScanning = false);
-        return;
+      debugPrint(
+        "Response Auto-Login (${response.statusCode}): ${response.body}",
+      );
+
+      if (response.statusCode >= 500) {
+        throw "Internal Server Error";
       }
 
-      var data = json.decode(responseData.body);
+      var data = json.decode(response.body);
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      if (data['success'] == true) {
         _routeToDashboard(data);
       } else {
         if (!mounted) return;
@@ -218,11 +232,10 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        setState(
-          () => _isAutoScanning = false,
-        ); // Beri kesempatan user mengulang
+        setState(() => _isAutoScanning = false);
       }
     } catch (e) {
+      debugPrint("Error Auto Login: $e");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -239,27 +252,26 @@ class _LoginScreenState extends State<LoginScreen> {
   // =========================================================================
   // FUNGSI PENDUKUNG
   // =========================================================================
-  Future<void> _loginLanjutkan() async {
+  Future<void> _loginLanjutkan(String userId) async {
     try {
       String roleYangDikirim = widget.roleTitle.toLowerCase().contains("admin")
           ? "admin"
           : "tim_lapangan";
+
       final response = await http.post(
         Uri.parse('$serverUrl/login'),
-        headers: {
-          'Accept': 'application/json', // Tambahan header disini juga
-        },
-        body: {'user_id': _idController.text.trim(), 'role': roleYangDikirim},
+        headers: {'Accept': 'application/json'},
+        body: {'user_id': userId, 'role': roleYangDikirim},
       );
 
-      if (response.statusCode >= 500) return; // Mencegah crash jika error HTML
-
-      final data = json.decode(response.body);
-      if (response.statusCode == 200 && data['success'] == true) {
-        _routeToDashboard(data);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          _routeToDashboard(data);
+        }
       }
     } catch (e) {
-      // Tangani error diam-diam atau tambahkan log
+      debugPrint("Error Login Lanjutan: $e");
     }
   }
 
@@ -271,6 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _savedUserId = '';
       _idController.clear();
       _isRegisteringFace = false;
+      _isAutoScanning = false;
     });
   }
 
@@ -327,10 +340,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 30.0),
           child: Column(
             children: [
-              // =========================================================
-              // WIDGET KAMERA TERSEMBUNYI (HIDDEN BACKGROUND SCANNER)
-              // Hanya merender jika BUKAN sedang mode daftar wajah
-              // =========================================================
+              // Kamera tersembunyi untuk auto-scan
               if (_isCameraInitialized && !_isRegisteringFace)
                 Offstage(
                   offstage: true,
@@ -351,9 +361,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // =========================================================================
-              // TAMPILAN 1: SUDAH ADA ID (MODE AUTO SCAN WAJAH)
-              // =========================================================================
               if (_hasSavedId) ...[
                 const SizedBox(height: 40),
                 const Icon(
@@ -368,7 +375,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -377,13 +383,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   const CircularProgressIndicator(color: Color(0xFF00D1F3)),
                   const SizedBox(height: 20),
                   const Text(
-                    'Mengidentifikasi Wajah Anda...\nHarap lihat ke layar.',
+                    'Mengidentifikasi Wajah...\nHarap lihat ke layar.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ] else ...[
                   const Text(
-                    'Wajah tidak dikenali atau proses gagal.',
+                    'Wajah tidak dikenali.',
                     style: TextStyle(color: Colors.redAccent, fontSize: 16),
                   ),
                   const SizedBox(height: 20),
@@ -399,10 +405,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 30,
-                        vertical: 15,
-                      ),
                     ),
                   ),
                 ],
@@ -410,25 +412,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextButton(
                   onPressed: _clearSavedData,
                   child: const Text(
-                    "Bukan Anda? Ganti Akun",
+                    "Ganti Akun",
                     style: TextStyle(
                       color: Colors.grey,
                       decoration: TextDecoration.underline,
                     ),
                   ),
                 ),
-              ]
-              // =========================================================================
-              // TAMPILAN 2: DAFTAR WAJAH (KAMERA DITAMPILKAN DI LAYAR)
-              // =========================================================================
-              else if (_isRegisteringFace && _isCameraInitialized) ...[
+              ] else if (_isRegisteringFace && _isCameraInitialized) ...[
                 const Text(
-                  'Posisikan Wajah Anda di Tengah Layar',
+                  'Posisikan Wajah di Tengah',
                   style: TextStyle(color: Colors.orangeAccent, fontSize: 16),
                 ),
                 const SizedBox(height: 20),
-
-                // Kamera ditampilkan berbentuk lingkaran
                 Container(
                   width: 250,
                   height: 250,
@@ -444,27 +440,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _registerFace,
                     icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          )
+                        ? const CircularProgressIndicator(color: Colors.white)
                         : const Icon(Icons.camera_alt, color: Colors.white),
                     label: Text(
                       _isLoading ? 'MENYIMPAN...' : 'JEPRET & DAFTAR',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -475,7 +463,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
                 TextButton(
                   onPressed: () => setState(() => _isRegisteringFace = false),
                   child: const Text(
@@ -483,25 +470,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.grey),
                   ),
                 ),
-              ]
-              // =========================================================================
-              // TAMPILAN 3: LOGIN PERTAMA KALI (KETIK ID)
-              // =========================================================================
-              else ...[
+              ] else ...[
                 const Icon(
                   Icons.person_add_alt_1,
                   color: Colors.blueAccent,
                   size: 80,
                 ),
                 const SizedBox(height: 30),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Masukkan ID Anda yang Terdaftar',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 10),
                 TextField(
                   controller: _idController,
                   style: const TextStyle(color: Colors.white),
@@ -518,23 +493,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      if (_idController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Isi ID terlebih dahulu!"),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(
-                        () => _isRegisteringFace = true,
-                      ); // Pindah ke Mode Tampil Kamera
+                      if (_idController.text.trim().isEmpty) return;
+                      setState(() => _isRegisteringFace = true);
                     },
                     icon: const Icon(Icons.face, color: Colors.white),
                     label: const Text(
@@ -542,7 +507,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
