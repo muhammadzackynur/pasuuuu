@@ -48,7 +48,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
   String? _latitude;
   String? _longitude;
-  String? _mapsLink; // TAMBAHAN: Variabel penyimpan Link Maps
+  String? _mapsLink;
   bool _isFetchingLocation = true;
 
   final List<String> _stoOptions = [
@@ -160,9 +160,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
         setState(() {
           _latitude = position.latitude.toString();
           _longitude = position.longitude.toString();
-          // Merakit Link Google Maps Otomatis
           _mapsLink =
-              "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}";
+              "http://maps.google.com/?q=${position.latitude},${position.longitude}";
           _isFetchingLocation = false;
         });
       }
@@ -271,7 +270,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                 _pickCameraImage(type);
               },
             ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -293,9 +291,9 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
     try {
       const apiKey = 'AIzaSyCLISveaCxKj9NYm4OxGAdKcyOukdbkTk0';
-      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
       final prompt =
-          '''Kamu adalah asisten sistem pelaporan perbaikan jaringan. Saya memiliki daftar kategori pekerjaan berikut: ${_kategoriOptions.join('\n')} \n Berdasarkan uraian pekerjaan teknisi berikut: "$uraian" \n Tugasmu adalah memilih SATU kategori yang paling tepat dan relevan dari daftar di atas. Hanya balas dengan nama kategori yang persis sama dengan yang ada di daftar (termasuk huruf besar dan tanda baca). Jangan tambahkan penjelasan.''';
+          '''Berdasarkan uraian pekerjaan: "$uraian", pilih satu kategori paling tepat dari daftar: ${_kategoriOptions.join(', ')}. Cukup balas nama kategorinya saja.''';
       final response = await model.generateContent([Content.text(prompt)]);
       String predictedCategory = response.text?.trim() ?? '';
 
@@ -359,17 +357,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               _buildFieldLabel("LOKASI SAAT INI (GPS)"),
               const SizedBox(height: 5),
               _isFetchingLocation
-                  ? Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(child: CircularProgressIndicator()),
-                    )
+                  ? const Center(child: CircularProgressIndicator())
                   : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -385,14 +374,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 15),
-                        // TAMPILAN FORM LINK MAPS BARU
-                        _buildFieldLabel("LINK GOOGLE MAPS"),
-                        _buildReadOnlyField(
-                          TextEditingController(
-                            text: _mapsLink ?? "Menunggu GPS...",
-                          ),
-                        ),
                         const SizedBox(height: 10),
                         InkWell(
                           onTap: _openGoogleMaps,
@@ -405,9 +386,9 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                                 color: Colors.green.withOpacity(0.5),
                               ),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
+                              children: [
                                 Icon(Icons.map, color: Colors.green, size: 18),
                                 SizedBox(width: 8),
                                 Text(
@@ -423,15 +404,6 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                         ),
                       ],
                     ),
-              const SizedBox(height: 15),
-              _buildFieldLabel("Area"),
-              _buildReadOnlyField(_areaController),
-              const SizedBox(height: 15),
-              _buildFieldLabel("District"),
-              _buildReadOnlyField(_districtController),
-              const SizedBox(height: 15),
-              _buildFieldLabel("Witel"),
-              _buildReadOnlyField(_witelController),
               const SizedBox(height: 15),
               _buildFieldLabel("STO"),
               _buildDropdownField(
@@ -451,7 +423,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               const SizedBox(height: 15),
               _buildFieldLabel("URAIAN PEKERJAAN"),
               _buildTextArea(
-                hint: "Contoh: Perbaikan tiang keropos di karangpilang",
+                hint: "Contoh: Perbaikan tiang keropos",
                 controller: _uraianController,
               ),
               const SizedBox(height: 8),
@@ -479,29 +451,23 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                     _isPredictingKategori
                         ? "Sedang menganalisa..."
                         : "Auto-Pilih Kategori (AI)",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00D1F3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
               _buildFieldLabel("KATEGORI KEGIATAN"),
               _buildDropdownField(
-                "Pilih Kategori (Bisa Auto via AI)",
+                "Pilih Kategori",
                 _selectedKategori,
                 _kategoriOptions,
                 (val) => setState(() => _selectedKategori = val),
               ),
               const SizedBox(height: 25),
-              _buildFieldLabel("BUKTI FOTO (Opsional, Bisa Lebih dari 10)"),
+              _buildFieldLabel("BUKTI FOTO (Before Wajib Diisi)"),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -517,6 +483,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
+                    // Validasi Data Teks
                     if (_selectedSTO == null ||
                         _selectedMitra == null ||
                         _selectedKategori == null ||
@@ -528,6 +495,21 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                       );
                       return;
                     }
+
+                    // --- VALIDASI FOTO BEFORE (PERBAIKAN) ---
+                    if (_fotoBefore.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Peringatan: Bukti foto 'Before' wajib diunggah!",
+                          ),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+                    // ----------------------------------------
+
                     if (_isFetchingLocation) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -536,6 +518,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                       );
                       return;
                     }
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -553,7 +536,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                           uraianPekerjaan: _uraianController.text,
                           latitude: _latitude,
                           longitude: _longitude,
-                          mapsLink: _mapsLink, // MENGIRIM LINK MAPS
+                          mapsLink: _mapsLink,
                           fotoBeforePaths: _fotoBefore
                               .map((e) => e.path)
                               .toList(),
@@ -597,6 +580,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     );
   }
 
+  // Widget Helper tetap sama
   Widget _buildFieldLabel(String label) => Text(
     label,
     style: const TextStyle(
@@ -605,18 +589,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       fontWeight: FontWeight.bold,
     ),
   );
-  Widget _buildReadOnlyField(TextEditingController controller) => Container(
-    margin: const EdgeInsets.only(top: 5),
-    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(
-      controller.text,
-      style: const TextStyle(color: Colors.white70, fontSize: 13),
-    ),
-  );
+
   Widget _buildGPSBox(String title, String value) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -654,6 +627,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       ],
     ),
   );
+
   Widget _buildDropdownField(
     String h,
     String? v,
@@ -684,6 +658,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       decoration: const InputDecoration(border: InputBorder.none),
     ),
   );
+
   Widget _buildTextArea({
     required String hint,
     required TextEditingController controller,
@@ -705,6 +680,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       ),
     ),
   );
+
   Widget _buildPhotoPickerBox(String label, List<XFile> files) =>
       GestureDetector(
         onTap: () => _showPickerOptions(label),
