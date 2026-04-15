@@ -96,6 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
         'POST',
         Uri.parse('$serverUrl/register-fingerprint'),
       );
+
+      // --- TAMBAHAN HEADER AGAR LARAVEL MENGEMBALIKAN JSON ---
+      request.headers.addAll({'Accept': 'application/json'});
+
       request.fields['user_id'] = _idController.text.trim();
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
@@ -103,6 +107,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
       var response = await request.send();
       var responseData = await http.Response.fromStream(response);
+
+      // --- MENCEGAH CRASH FORMAT EXCEPTION JIKA SERVER MENGIRIM HTML ---
+      if (responseData.statusCode >= 500) {
+        print("ERROR DARI LARAVEL: ${responseData.body}");
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Internal Server Error (500). Cek Terminal Laravel."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
       var data = json.decode(responseData.body);
 
       if (data['success'] == true) {
@@ -161,6 +181,10 @@ class _LoginScreenState extends State<LoginScreen> {
         'POST',
         Uri.parse('$serverUrl/login-fingerprint'),
       );
+
+      // --- TAMBAHAN HEADER AGAR LARAVEL MENGEMBALIKAN JSON ---
+      request.headers.addAll({'Accept': 'application/json'});
+
       request.fields['user_id'] = _savedUserId;
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
@@ -168,6 +192,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       var response = await request.send();
       var responseData = await http.Response.fromStream(response);
+
+      // --- MENCEGAH CRASH FORMAT EXCEPTION JIKA SERVER MENGIRIM HTML ---
+      if (responseData.statusCode >= 500) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Internal Server Error (500). Cek Terminal Laravel."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isAutoScanning = false);
+        return;
+      }
+
       var data = json.decode(responseData.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
@@ -187,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text("Gagal menghubungi server"),
           backgroundColor: Colors.red,
         ),
@@ -208,13 +246,21 @@ class _LoginScreenState extends State<LoginScreen> {
           : "tim_lapangan";
       final response = await http.post(
         Uri.parse('$serverUrl/login'),
+        headers: {
+          'Accept': 'application/json', // Tambahan header disini juga
+        },
         body: {'user_id': _idController.text.trim(), 'role': roleYangDikirim},
       );
+
+      if (response.statusCode >= 500) return; // Mencegah crash jika error HTML
+
       final data = json.decode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
         _routeToDashboard(data);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Tangani error diam-diam atau tambahkan log
+    }
   }
 
   Future<void> _clearSavedData() async {
