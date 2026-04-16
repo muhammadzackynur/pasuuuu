@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'login_screen.dart';
+import 'role_selection_screen.dart'; // Mengubah import ke halaman role
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -39,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // PASTIKAN IP SESUAI DENGAN SERVER ANDA
     final url = Uri.parse(
-      'http://192.168.100.192:8000/api/user/update/${widget.databaseId}',
+      'http://192.168.1.189:8000/api/user/update/${widget.databaseId}',
     );
 
     try {
@@ -152,12 +152,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // Tutup dialog
+              // Arahkan ke halaman pemilihan role (RoleSelectionScreen) dan hapus riwayat rute sebelumnya
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      const LoginScreen(roleTitle: 'Tim Lapangan'),
+                  builder: (context) => const RoleSelectionScreen(),
                 ),
                 (route) => false,
               );
@@ -411,7 +411,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://192.168.100.192:8000/api/users');
+      final url = Uri.parse('http://192.168.1.189:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

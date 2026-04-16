@@ -70,7 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ) async {
       try {
         final url = Uri.parse(
-          'http://192.168.100.192:8000/api/maintenance/reports',
+          'http://192.168.1.189:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -150,7 +150,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchAdminData() async {
     try {
       final url = Uri.parse(
-        'http://192.168.100.192:8000/api/maintenance/reports',
+        'http://192.168.1.189:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
 
@@ -207,7 +207,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://192.168.100.192:8000/api/maintenance/reports/$reportId/status',
+        'http://192.168.1.189:8000/api/maintenance/reports/$reportId/status',
       );
 
       final response = await http.put(
@@ -444,7 +444,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           setStateDialog(() => isSubmitting = true);
                           try {
                             final url = Uri.parse(
-                              'http://192.168.100.192:8000/api/users/register',
+                              'http://192.168.1.189:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -2253,7 +2253,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
   ) {
-    const String baseUrl = "http://192.168.100.192:8000/storage/";
+    const String baseUrl = "http://192.168.1.189:8000/storage/";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2369,7 +2369,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://192.168.100.192:8000/storage/$path';
+                      'http://192.168.1.189:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2464,7 +2464,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     try {
       final reportId = widget.reportData['id'];
       final url = Uri.parse(
-        'http://192.168.100.192:8000/api/maintenance/reports/$reportId',
+        'http://192.168.1.189:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -2842,7 +2842,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://192.168.100.192:8000/api/users');
+      final url = Uri.parse('http://192.168.1.189:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

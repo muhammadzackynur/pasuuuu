@@ -17,7 +17,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _idController = TextEditingController();
   bool _isLoading = false;
 
@@ -27,160 +28,147 @@ class _LoginScreenState extends State<LoginScreen> {
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
 
-  // Mode UI
-  bool _isRegisteringFace = false; // Jika true, tampilkan kamera besar
-  bool _isAutoScanning = false; // Jika true, sedang proses auto-login
+  bool _isRegisteringFace = false;
+  bool _isAutoScanning = false;
 
-  // Ganti IP ini sesuai dengan IP Laptop/Server Laravel Anda
-  final String serverUrl = 'http://192.168.100.192:8000/api';
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  final String serverUrl = 'http://192.168.1.189:8000/api';
+
+  // ─── Color palette ───────────────────────────────────────────────────────
+  static const Color _bgDeep = Color(0xFF080E1C);
+  static const Color _bgCard = Color(0xFF111827);
+  static const Color _fieldBg = Color(0xFF1A2336);
+  static const Color _accent = Color(0xFF3B8BEB);
+  static const Color _accentGlow = Color(0xFF5BA3F5);
+  static const Color _orange = Color(0xFFF97316);
+  static const Color _textPrimary = Colors.white;
+  static const Color _textSecondary = Color(0xFF94A3B8);
 
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+
     _initializeCameraAndCheckLogin();
+    _animController.forward();
   }
 
-  // Inisialisasi Kamera
+  // =========================================================================
   Future<void> _initializeCameraAndCheckLogin() async {
     try {
       final cameras = await availableCameras();
       final frontCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
+        (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
-
       _cameraController = CameraController(
         frontCamera,
         ResolutionPreset.medium,
         enableAudio: false,
       );
-
       await _cameraController!.initialize();
       if (!mounted) return;
-      setState(() {
-        _isCameraInitialized = true;
-      });
+      setState(() => _isCameraInitialized = true);
 
+      // Setelah kamera siap, langsung cek apakah ada saved ID
       _checkSavedLogin();
     } catch (e) {
       debugPrint("Error kamera: $e");
+      // Tetap cek saved login meski kamera gagal
+      _checkSavedLogin();
     }
   }
 
+  /// Cek apakah user sudah pernah login sebelumnya.
+  /// Jika ada saved ID → langsung tampilkan auto scan (tanpa input ID).
+  /// Kunci: saved_user_id TIDAK dihapus saat logout, hanya saat "Ganti Akun".
   Future<void> _checkSavedLogin() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedId = prefs.getString('saved_user_id_${widget.roleTitle}');
-
     if (savedId != null && savedId.isNotEmpty) {
+      if (!mounted) return;
       setState(() {
         _hasSavedId = true;
         _savedUserId = savedId;
       });
-      // Jika ada ID tersimpan, jalankan auto scan
+      // Langsung mulai auto scan wajah
       _autoScanLogin();
     }
   }
 
   // =========================================================================
-  // FUNGSI 1: DAFTAR WAJAH (DENGAN VALIDASI ID KETAT)
-  // =========================================================================
+  /// Daftarkan wajah baru untuk user yang baru pertama kali login.
   Future<void> _registerFace() async {
     if (!_isCameraInitialized) return;
-
-    // Pastikan ID diambil langsung dari controller dan di-trim
     final String userId = _idController.text.trim();
-
     if (userId.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("ID tidak boleh kosong!")));
+      _showSnack("ID tidak boleh kosong!", Colors.red);
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
       XFile picture = await _cameraController!.takePicture();
-
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$serverUrl/register-fingerprint'),
       );
-
       request.headers.addAll({'Accept': 'application/json'});
-
-      // Mengirim user_id hasil trim
       request.fields['user_id'] = userId;
-
-      debugPrint("Mengirim pendaftaran untuk ID: $userId");
-
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
-
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
-      debugPrint("Response Server (${response.statusCode}): ${response.body}");
-
       if (response.statusCode >= 500) {
         throw "Terjadi kesalahan di server (500)";
       }
-
       var data = json.decode(response.body);
-
       if (data['success'] == true) {
-        // Simpan ID ke SharedPreferences agar bisa auto-login nanti
+        // Simpan user_id agar login berikutnya langsung auto scan
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_user_id_${widget.roleTitle}', userId);
-
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message']),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Setelah daftar sukses, lanjutkan ke dashboard
+        _showSnack(data['message'], Colors.green);
         _loginLanjutkan(userId);
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message'] ?? "Gagal Daftar"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnack(data['message'] ?? "Gagal Daftar", Colors.red);
         setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint("Error Register: $e");
-      setState(() => _isLoading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
+      setState(() => _isLoading = false);
+      _showSnack("Error: $e", Colors.red);
     }
   }
 
-  // =========================================================================
-  // FUNGSI 2: AUTO LOGIN WAJAH (PERBAIKAN: AMBIL ID SEBELUM KIRIM)
-  // =========================================================================
+  /// Auto scan wajah menggunakan saved_user_id yang tersimpan.
+  /// Dipanggil otomatis saat layar login dibuka dan saved ID ditemukan.
   Future<void> _autoScanLogin() async {
     if (!_isCameraInitialized || _cameraController == null) return;
 
-    // Pastikan mengambil ID terbaru dari SharedPreferences agar tidak null
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? currentSavedId = prefs.getString(
       'saved_user_id_${widget.roleTitle}',
     );
-
     if (currentSavedId == null || currentSavedId.isEmpty) {
-      setState(() => _hasSavedId = false);
+      if (mounted) setState(() => _hasSavedId = false);
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _isAutoScanning = true;
@@ -188,102 +176,80 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Tunggu kamera menyesuaikan exposure
+      // Jeda singkat agar kamera siap
       await Future.delayed(const Duration(milliseconds: 1500));
-
       XFile picture = await _cameraController!.takePicture();
 
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$serverUrl/login-fingerprint'),
       );
-
       request.headers.addAll({'Accept': 'application/json'});
-
-      // Mengirim ID yang sudah dipastikan ada dari SharedPreferences
       request.fields['user_id'] = currentSavedId;
-
-      debugPrint("Auto Scanning Login untuk ID: $currentSavedId");
-
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
-      debugPrint(
-        "Response Auto-Login (${response.statusCode}): ${response.body}",
-      );
-
-      if (response.statusCode >= 500) {
-        throw "Internal Server Error";
-      }
+      if (response.statusCode >= 500) throw "Internal Server Error";
 
       var data = json.decode(response.body);
-
       if (data['success'] == true) {
+        // Login berhasil → arahkan ke dashboard
         _routeToDashboard(data);
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message'] ?? "Wajah Tidak Dikenali"),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isAutoScanning = false);
+        _showSnack(data['message'] ?? "Kredensial tidak valid", Colors.red);
       }
     } catch (e) {
       debugPrint("Error Auto Login: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Gagal menghubungi server"),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() => _isAutoScanning = false);
+      _showSnack("Gagal menghubungi server", Colors.red);
     } finally {
-      if (mounted && !_isAutoScanning) setState(() => _isLoading = false);
+      // PERBAIKAN: Selalu reset loading & scanning di finally
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isAutoScanning = false;
+        });
+      }
     }
   }
 
-  // =========================================================================
-  // FUNGSI PENDUKUNG
-  // =========================================================================
+  /// Login lanjutan setelah registrasi wajah berhasil.
   Future<void> _loginLanjutkan(String userId) async {
     try {
       String roleYangDikirim = widget.roleTitle.toLowerCase().contains("admin")
           ? "admin"
           : "tim_lapangan";
-
       final response = await http.post(
         Uri.parse('$serverUrl/login'),
         headers: {'Accept': 'application/json'},
         body: {'user_id': userId, 'role': roleYangDikirim},
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          _routeToDashboard(data);
-        }
+        if (data['success'] == true) _routeToDashboard(data);
       }
     } catch (e) {
       debugPrint("Error Login Lanjutan: $e");
     }
   }
 
+  /// Hapus saved ID → user harus input ID dan daftar wajah lagi.
+  /// Dipanggil hanya saat user menekan "Ganti Akun".
   Future<void> _clearSavedData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('saved_user_id_${widget.roleTitle}');
+    if (!mounted) return;
     setState(() {
       _hasSavedId = false;
       _savedUserId = '';
       _idController.clear();
       _isRegisteringFace = false;
       _isAutoScanning = false;
+      _isLoading = false;
     });
   }
 
@@ -316,211 +282,608 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _animController.dispose();
     _cameraController?.dispose();
     _idController.dispose();
     super.dispose();
   }
 
+  // =========================================================================
+  // BUILD
+  // =========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0),
-          child: Column(
-            children: [
-              // Kamera tersembunyi untuk auto-scan
-              if (_isCameraInitialized && !_isRegisteringFace)
-                Offstage(
-                  offstage: true,
-                  child: SizedBox(
-                    width: 1,
-                    height: 1,
-                    child: CameraPreview(_cameraController!),
-                  ),
-                ),
-
-              Text(
-                widget.roleTitle,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+      backgroundColor: _bgDeep,
+      body: Stack(
+        children: [
+          // ── Background radial glow ────────────────────────────────────
+          Positioned(
+            top: -100,
+            left: MediaQuery.of(context).size.width / 2 - 180,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [_accent.withOpacity(0.18), Colors.transparent],
                 ),
               ),
-              const SizedBox(height: 20),
+            ),
+          ),
 
-              if (_hasSavedId) ...[
-                const SizedBox(height: 40),
-                const Icon(
-                  Icons.face_retouching_natural,
-                  color: Color(0xFF00D1F3),
-                  size: 100,
-                ),
-                const SizedBox(height: 30),
-                Text(
-                  "User ID : $_savedUserId",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 40),
+          // ── Hidden camera untuk auto scan ─────────────────────────────
+          if (_isCameraInitialized && !_isRegisteringFace)
+            Offstage(
+              offstage: true,
+              child: SizedBox(
+                width: 1,
+                height: 1,
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
 
-                if (_isAutoScanning) ...[
-                  const CircularProgressIndicator(color: Color(0xFF00D1F3)),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Mengidentifikasi Wajah...\nHarap lihat ke layar.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ] else ...[
-                  const Text(
-                    'Wajah tidak dikenali.',
-                    style: TextStyle(color: Colors.redAccent, fontSize: 16),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _autoScanLogin,
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                    label: const Text(
-                      'COBA SCAN LAGI',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00D1F3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SlideTransition(
+                position: _slideAnim,
+                child: Column(
+                  children: [
+                    // ── AppBar row ───────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 40),
-                TextButton(
-                  onPressed: _clearSavedData,
-                  child: const Text(
-                    "Ganti Akun",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      decoration: TextDecoration.underline,
+
+                    Expanded(
+                      child: _hasSavedId
+                          ? _buildAutoScanBody()
+                          : _isRegisteringFace && _isCameraInitialized
+                          ? _buildRegisterFaceBody()
+                          : _buildMainBody(),
                     ),
-                  ),
+                  ],
                 ),
-              ] else if (_isRegisteringFace && _isCameraInitialized) ...[
-                const Text(
-                  'Posisikan Wajah di Tengah',
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 16),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.orangeAccent, width: 4),
-                  ),
-                  child: ClipOval(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: CameraPreview(_cameraController!),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _registerFace,
-                    icon: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Icon(Icons.camera_alt, color: Colors.white),
-                    label: Text(
-                      _isLoading ? 'MENYIMPAN...' : 'JEPRET & DAFTAR',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _isRegisteringFace = false),
-                  child: const Text(
-                    "Batal",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              ] else ...[
-                const Icon(
-                  Icons.person_add_alt_1,
-                  color: Colors.blueAccent,
-                  size: 80,
-                ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: _idController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Ketik User ID...',
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    prefixIcon: const Icon(Icons.person, color: Colors.blue),
-                    filled: true,
-                    fillColor: const Color(0xFF1E293B),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (_idController.text.trim().isEmpty) return;
-                      setState(() => _isRegisteringFace = true);
-                    },
-                    icon: const Icon(Icons.face, color: Colors.white),
-                    label: const Text(
-                      'DAFTARKAN WAJAH SAYA',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── MAIN BODY (input ID + daftar wajah — hanya untuk user baru) ──────────
+  Widget _buildMainBody() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const Spacer(flex: 1),
+
+          // Role chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: _accent.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _accent.withOpacity(0.4)),
+            ),
+            child: Text(
+              widget.roleTitle,
+              style: const TextStyle(
+                color: _accentGlow,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Icon circle
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _accent.withOpacity(0.45),
+                  blurRadius: 28,
+                  spreadRadius: 2,
                 ),
               ],
+            ),
+            child: const Icon(
+              Icons.cell_tower_rounded,
+              color: Colors.white,
+              size: 44,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          const Text(
+            'Operasi Pemeliharaan',
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Masukkan ID untuk melanjutkan',
+            style: TextStyle(color: _textSecondary, fontSize: 13),
+          ),
+
+          const Spacer(flex: 1),
+
+          // ── ID Field ────────────────────────────────────────────────
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Masukkan ID',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: _fieldBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.07)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _idController,
+              style: const TextStyle(color: _textPrimary, fontSize: 15),
+              cursorColor: _accentGlow,
+              decoration: const InputDecoration(
+                hintText: 'Masukkan ID Anda',
+                hintStyle: TextStyle(color: Color(0xFF4B5563), fontSize: 15),
+                prefixIcon: Icon(
+                  Icons.person_outline_rounded,
+                  color: Color(0xFF3B8BEB),
+                  size: 22,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+            ),
+          ),
+
+          const Spacer(flex: 2),
+
+          // ── Primary button ──────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_idController.text.trim().isEmpty) return;
+                setState(() => _isRegisteringFace = true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.zero,
+              ),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accent.withOpacity(0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(
+                        Icons.face_retouching_natural_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'DAFTARKAN WAJAH SAYA',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          const Text(
+            '© 2025 Maintenance System',
+            style: TextStyle(color: Color(0xFF374151), fontSize: 12),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // ── REGISTER FACE BODY ────────────────────────────────────────────────────
+  Widget _buildRegisterFaceBody() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          const Text(
+            'Posisikan Wajah di Tengah',
+            style: TextStyle(
+              color: _orange,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Camera circle
+          Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: _orange, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: _orange.withOpacity(0.3),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
+          ),
+          const Spacer(),
+
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading ? null : _registerFace,
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.camera_alt_rounded, color: Colors.white),
+              label: Text(
+                _isLoading ? 'MENYIMPAN...' : 'JEPRET & DAFTAR',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _orange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextButton(
+            onPressed: () => setState(() => _isRegisteringFace = false),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: _textSecondary, fontSize: 14),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  // ── AUTO SCAN BODY ────────────────────────────────────────────────────────
+  // Ditampilkan saat ada saved_user_id (user sudah pernah login).
+  // Langsung scan wajah tanpa perlu input ID lagi.
+  Widget _buildAutoScanBody() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const Spacer(flex: 1),
+
+          // Role chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: _accent.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _accent.withOpacity(0.4)),
+            ),
+            child: Text(
+              widget.roleTitle,
+              style: const TextStyle(
+                color: _accentGlow,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Face icon dengan animated ring
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer glow ring
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isAutoScanning
+                        ? _accentGlow.withOpacity(0.3)
+                        : Colors.redAccent.withOpacity(0.2),
+                    width: 8,
+                  ),
+                ),
+              ),
+              // Inner circle
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF0F2040),
+                  border: Border.all(
+                    color: _isAutoScanning
+                        ? _accentGlow.withOpacity(0.8)
+                        : Colors.redAccent.withOpacity(0.6),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_isAutoScanning ? _accent : Colors.redAccent)
+                          .withOpacity(0.3),
+                      blurRadius: 28,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Icon(
+                  _isAutoScanning
+                      ? Icons.face_retouching_natural_rounded
+                      : Icons.face_retouching_off_rounded,
+                  key: ValueKey(_isAutoScanning),
+                  color: _isAutoScanning ? _accentGlow : Colors.redAccent,
+                  size: 60,
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 32),
+
+          Text(
+            'User ID : $_savedUserId',
+            style: const TextStyle(
+              color: _textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Status scanning atau gagal
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _isAutoScanning
+                ? Column(
+                    key: const ValueKey('scanning'),
+                    children: [
+                      const SizedBox(height: 20),
+                      const SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                          color: _accentGlow,
+                          strokeWidth: 3,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Mengidentifikasi Wajah…\nHarap lihat ke layar.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 15,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    key: const ValueKey('failed'),
+                    children: [
+                      const Text(
+                        'Wajah tidak dikenali.',
+                        style: TextStyle(color: Colors.redAccent, fontSize: 15),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── Tombol Coba Scan Lagi ──────────────────────
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _autoScanLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _accent.withOpacity(0.4),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Container(
+                              alignment: Alignment.center,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.refresh_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'COBA SCAN LAGI',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+
+          const Spacer(flex: 2),
+
+          // ── Ganti Akun ────────────────────────────────────────────
+          // Hanya "Ganti Akun" yang menghapus saved_user_id.
+          // Logout TIDAK menghapus saved_user_id.
+          TextButton(
+            onPressed: _isLoading ? null : _clearSavedData,
+            child: const Text(
+              'Ganti Akun',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
