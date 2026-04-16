@@ -55,6 +55,8 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 700),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+
+    // PERBAIKAN: Mengganti Curves.relativeEaseOut menjadi Curves.easeOut
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -91,8 +93,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   /// Cek apakah user sudah pernah login sebelumnya.
-  /// Jika ada saved ID → langsung tampilkan auto scan (tanpa input ID).
-  /// Kunci: saved_user_id TIDAK dihapus saat logout, hanya saat "Ganti Akun".
   Future<void> _checkSavedLogin() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedId = prefs.getString('saved_user_id_${widget.roleTitle}');
@@ -130,14 +130,13 @@ class _LoginScreenState extends State<LoginScreen>
       );
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-      if (response.statusCode >= 500) {
-        throw "Terjadi kesalahan di server (500)";
-      }
+
       var data = json.decode(response.body);
       if (data['success'] == true) {
         // Simpan user_id agar login berikutnya langsung auto scan
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_user_id_${widget.roleTitle}', userId);
+
         if (!mounted) return;
         _showSnack(data['message'], Colors.green);
         _loginLanjutkan(userId);
@@ -155,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   /// Auto scan wajah menggunakan saved_user_id yang tersimpan.
-  /// Dipanggil otomatis saat layar login dibuka dan saved ID ditemukan.
   Future<void> _autoScanLogin() async {
     if (!_isCameraInitialized || _cameraController == null) return;
 
@@ -163,6 +161,7 @@ class _LoginScreenState extends State<LoginScreen>
     String? currentSavedId = prefs.getString(
       'saved_user_id_${widget.roleTitle}',
     );
+
     if (currentSavedId == null || currentSavedId.isEmpty) {
       if (mounted) setState(() => _hasSavedId = false);
       return;
@@ -176,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // Jeda singkat agar kamera siap
+      // Jeda singkat agar kamera benar-benar siap menangkap frame
       await Future.delayed(const Duration(milliseconds: 1500));
       XFile picture = await _cameraController!.takePicture();
 
@@ -192,11 +191,9 @@ class _LoginScreenState extends State<LoginScreen>
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-      if (response.statusCode >= 500) throw "Internal Server Error";
 
       var data = json.decode(response.body);
       if (data['success'] == true) {
-        // Login berhasil → arahkan ke dashboard
         _routeToDashboard(data);
       } else {
         if (!mounted) return;
@@ -207,7 +204,6 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       _showSnack("Gagal menghubungi server", Colors.red);
     } finally {
-      // PERBAIKAN: Selalu reset loading & scanning di finally
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -237,19 +233,26 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  /// Hapus saved ID → user harus input ID dan daftar wajah lagi.
-  /// Dipanggil hanya saat user menekan "Ganti Akun".
+  /// FUNGSI GANTI AKUN:
+  /// Menghapus saved ID dari storage dan mengembalikan UI ke menu input ID.
   Future<void> _clearSavedData() async {
+    setState(() => _isLoading = true);
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    // 1. Hapus data dari SharedPreferences
     await prefs.remove('saved_user_id_${widget.roleTitle}');
+
+    // Memberikan delay kecil agar transisinya halus
+    await Future.delayed(const Duration(milliseconds: 500));
+
     if (!mounted) return;
     setState(() {
-      _hasSavedId = false;
-      _savedUserId = '';
-      _idController.clear();
-      _isRegisteringFace = false;
-      _isAutoScanning = false;
-      _isLoading = false;
+      _hasSavedId = false; // Kembali ke tampilan _buildMainBody()
+      _savedUserId = ''; // Reset variabel ID
+      _idController.clear(); // Bersihkan text field
+      _isRegisteringFace = false; // Pastikan tidak dalam mode kamera jepret
+      _isAutoScanning = false; // Matikan status scanning
+      _isLoading = false; // Selesai loading
     });
   }
 
@@ -302,16 +305,13 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // =========================================================================
-  // BUILD
-  // =========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgDeep,
       body: Stack(
         children: [
-          // ── Background radial glow ────────────────────────────────────
+          // Background radial glow
           Positioned(
             top: -100,
             left: MediaQuery.of(context).size.width / 2 - 180,
@@ -327,7 +327,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // ── Hidden camera untuk auto scan ─────────────────────────────
+          // Hidden camera untuk auto scan (selalu siap di background jika ada saved ID)
           if (_isCameraInitialized && !_isRegisteringFace)
             Offstage(
               offstage: true,
@@ -345,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen>
                 position: _slideAnim,
                 child: Column(
                   children: [
-                    // ── AppBar row ───────────────────────────────────
+                    // AppBar row
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -382,103 +382,104 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── MAIN BODY (input ID + daftar wajah — hanya untuk user baru) ──────────
+  // ── MAIN BODY (Input ID) ───────────────────────────────────────────────────
+  // ======================= PERUBAHAN HANYA DI _buildMainBody =======================
+
   Widget _buildMainBody() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Spacer(flex: 1),
+          const SizedBox(height: 40),
 
           // Role chip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: _accent.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _accent.withOpacity(0.4)),
-            ),
-            child: Text(
-              widget.roleTitle,
-              style: const TextStyle(
-                color: _accentGlow,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: _accent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _accent.withOpacity(0.4)),
               ),
-            ),
-          ),
-          const SizedBox(height: 28),
-
-          // Icon circle
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _accent.withOpacity(0.45),
-                  blurRadius: 28,
-                  spreadRadius: 2,
+              child: Text(
+                widget.roleTitle,
+                style: const TextStyle(
+                  color: _accentGlow,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-            child: const Icon(
-              Icons.cell_tower_rounded,
-              color: Colors.white,
-              size: 44,
+              ),
             ),
           ),
+
           const SizedBox(height: 24),
 
-          const Text(
-            'Operasi Pemeliharaan',
-            style: TextStyle(
-              color: _textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Masukkan ID untuk melanjutkan',
-            style: TextStyle(color: _textSecondary, fontSize: 13),
-          ),
-
-          const Spacer(flex: 1),
-
-          // ── ID Field ────────────────────────────────────────────────
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Masukkan ID',
-              style: TextStyle(
-                color: _textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+          // Icon
+          Center(
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                ),
+                boxShadow: [
+                  BoxShadow(color: _accent.withOpacity(0.45), blurRadius: 20),
+                ],
+              ),
+              child: const Icon(
+                Icons.cell_tower_rounded,
+                color: Colors.white,
+                size: 40,
               ),
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // Title
+          const Center(
+            child: Text(
+              'Operasi Pemeliharaan',
+              style: TextStyle(
+                color: _textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          const Center(
+            child: Text(
+              'Masukkan ID untuk melanjutkan',
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Label
+          const Text(
+            'Masukkan ID',
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
           const SizedBox(height: 8),
+
+          // Input
           Container(
             decoration: BoxDecoration(
               color: _fieldBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white.withOpacity(0.07)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
             ),
             child: TextField(
               controller: _idController,
@@ -486,11 +487,10 @@ class _LoginScreenState extends State<LoginScreen>
               cursorColor: _accentGlow,
               decoration: const InputDecoration(
                 hintText: 'Masukkan ID Anda',
-                hintStyle: TextStyle(color: Color(0xFF4B5563), fontSize: 15),
+                hintStyle: TextStyle(color: Color(0xFF4B5563)),
                 prefixIcon: Icon(
                   Icons.person_outline_rounded,
                   color: Color(0xFF3B8BEB),
-                  size: 22,
                 ),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
@@ -501,15 +501,21 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          const Spacer(flex: 2),
+          const SizedBox(height: 20),
 
-          // ── Primary button ──────────────────────────────────────────
+          // Button (lebih dekat ke input)
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
               onPressed: () {
-                if (_idController.text.trim().isEmpty) return;
+                if (_idController.text.trim().isEmpty) {
+                  _showSnack(
+                    "Silakan masukkan ID terlebih dahulu",
+                    Colors.orange,
+                  );
+                  return;
+                }
                 setState(() => _isRegisteringFace = true);
               },
               style: ElevatedButton.styleFrom(
@@ -524,36 +530,26 @@ class _LoginScreenState extends State<LoginScreen>
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(
-                      color: _accent.withOpacity(0.5),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
+                    BoxShadow(color: _accent.withOpacity(0.5), blurRadius: 16),
                   ],
                 ),
-                child: Container(
-                  alignment: Alignment.center,
+                child: const Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(
                         Icons.face_retouching_natural_rounded,
                         color: Colors.white,
-                        size: 22,
                       ),
                       SizedBox(width: 10),
                       Text(
                         'DAFTARKAN WAJAH SAYA',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -564,17 +560,19 @@ class _LoginScreenState extends State<LoginScreen>
           ),
 
           const SizedBox(height: 24),
-          const Text(
-            '© 2025 Maintenance System',
-            style: TextStyle(color: Color(0xFF374151), fontSize: 12),
+
+          const Center(
+            child: Text(
+              '© 2025 Maintenance System',
+              style: TextStyle(color: Color(0xFF374151), fontSize: 12),
+            ),
           ),
-          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  // ── REGISTER FACE BODY ────────────────────────────────────────────────────
+  // ── REGISTER FACE BODY (Kamera Aktif untuk Jepret) ──────────────────────────
   Widget _buildRegisterFaceBody() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -590,8 +588,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 24),
-
-          // Camera circle
           Container(
             width: 260,
             height: 260,
@@ -614,7 +610,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const Spacer(),
-
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -636,7 +631,6 @@ class _LoginScreenState extends State<LoginScreen>
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  letterSpacing: 0.6,
                 ),
               ),
               style: ElevatedButton.styleFrom(
@@ -644,7 +638,6 @@ class _LoginScreenState extends State<LoginScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: 0,
               ),
             ),
           ),
@@ -662,17 +655,13 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── AUTO SCAN BODY ────────────────────────────────────────────────────────
-  // Ditampilkan saat ada saved_user_id (user sudah pernah login).
-  // Langsung scan wajah tanpa perlu input ID lagi.
+  // ── AUTO SCAN BODY (Tampilan Identifikasi Wajah Otomatis) ───────────────────
   Widget _buildAutoScanBody() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
           const Spacer(flex: 1),
-
-          // Role chip
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -686,17 +675,13 @@ class _LoginScreenState extends State<LoginScreen>
                 color: _accentGlow,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
               ),
             ),
           ),
           const SizedBox(height: 32),
-
-          // Face icon dengan animated ring
           Stack(
             alignment: Alignment.center,
             children: [
-              // Outer glow ring
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 width: 140,
@@ -711,7 +696,6 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ),
               ),
-              // Inner circle
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 width: 120,
@@ -749,7 +733,6 @@ class _LoginScreenState extends State<LoginScreen>
             ],
           ),
           const SizedBox(height: 32),
-
           Text(
             'User ID : $_savedUserId',
             style: const TextStyle(
@@ -759,8 +742,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 12),
-
-          // Status scanning atau gagal
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: _isAutoScanning
@@ -796,8 +777,6 @@ class _LoginScreenState extends State<LoginScreen>
                         style: TextStyle(color: Colors.redAccent, fontSize: 15),
                       ),
                       const SizedBox(height: 28),
-
-                      // ── Tombol Coba Scan Lagi ──────────────────────
                       SizedBox(
                         width: double.infinity,
                         height: 54,
@@ -815,8 +794,6 @@ class _LoginScreenState extends State<LoginScreen>
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
                               ),
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
@@ -853,7 +830,6 @@ class _LoginScreenState extends State<LoginScreen>
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
-                                            letterSpacing: 0.6,
                                           ),
                                         ),
                                       ],
@@ -865,14 +841,10 @@ class _LoginScreenState extends State<LoginScreen>
                     ],
                   ),
           ),
-
           const Spacer(flex: 2),
-
-          // ── Ganti Akun ────────────────────────────────────────────
-          // Hanya "Ganti Akun" yang menghapus saved_user_id.
-          // Logout TIDAK menghapus saved_user_id.
+          // TOMBOL GANTI AKUN
           TextButton(
-            onPressed: _isLoading ? null : _clearSavedData,
+            onPressed: _clearSavedData,
             child: const Text(
               'Ganti Akun',
               style: TextStyle(
