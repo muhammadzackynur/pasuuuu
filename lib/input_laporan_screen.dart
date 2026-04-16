@@ -290,7 +290,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     setState(() => _isPredictingKategori = true);
 
     try {
-      const apiKey = 'AIzaSyCLISveaCxKj9NYm4OxGAdKcyOukdbkTk0';
+      const apiKey = 'AIzaSyC7cP03v8hQvOQUu9N_j-wahXVdbYFah5I';
       final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
       final prompt =
           '''Berdasarkan uraian pekerjaan: "$uraian", pilih satu kategori paling tepat dari daftar: ${_kategoriOptions.join(', ')}. Cukup balas nama kategorinya saja.''';
