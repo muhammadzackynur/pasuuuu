@@ -56,7 +56,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
 
-    // PERBAIKAN: Mengganti Curves.relativeEaseOut menjadi Curves.easeOut
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -383,8 +382,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ── MAIN BODY (Input ID) ───────────────────────────────────────────────────
-  // ======================= PERUBAHAN HANYA DI _buildMainBody =======================
-
   Widget _buildMainBody() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -588,11 +585,14 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 24),
+
+          // --- PERUBAHAN BENTUK KAMERA MENJADI KOTAK PORTRAIT 4:3 ---
           Container(
             width: 260,
-            height: 260,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(
+                20,
+              ), // Sudut kotak sedikit melengkung
               border: Border.all(color: _orange, width: 3),
               boxShadow: [
                 BoxShadow(
@@ -602,13 +602,18 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ],
             ),
-            child: ClipOval(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                17,
+              ), // Sedikit lebih kecil dari border luar
               child: AspectRatio(
-                aspectRatio: 1,
+                aspectRatio: 3 / 4, // Rasio 4:3 versi portrait
                 child: CameraPreview(_cameraController!),
               ),
             ),
           ),
+
+          // -----------------------------------------------------------
           const Spacer(),
           SizedBox(
             width: double.infinity,
