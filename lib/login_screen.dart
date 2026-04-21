@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  final String serverUrl = 'http://192.168.1.189:8000/api';
+  final String serverUrl = 'http://10.253.130.116:8000/api';
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);

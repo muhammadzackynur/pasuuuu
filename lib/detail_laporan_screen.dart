@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 class DetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
   // Sesuaikan dengan IP Server Laravel Anda
-  final String baseUrl = "http://192.168.100.192:8000/storage/";
+  final String baseUrl = "http://10.253.130.116:8000/storage/";
 
   const DetailLaporanScreen({super.key, required this.reportData});
 
