@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
+import 'notification_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -31,7 +32,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _recentReports = [];
 
   // Variabel untuk fitur Notifikasi
+  int _unreadNotifCount = 0;
   Timer? _notificationTimer;
+
+  final String serverUrl = 'http://192.168.1.41:8000/api';
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -52,6 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _fetchAdminData();
+    _fetchUnreadCount(); // Panggil fungsi notifikasi lonceng saat aplikasi dibuka
     _startNotificationCheck();
   }
 
@@ -59,6 +64,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void dispose() {
     _notificationTimer?.cancel();
     super.dispose();
+  }
+
+  // =========================================================================
+  // FUNGSI NOTIFIKASI LONCENG
+  // =========================================================================
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final response = await http.get(Uri.parse('$serverUrl/notifications'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            _unreadNotifCount = data['unread_count'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error get notif count: $e");
+    }
   }
 
   // =========================================================================
@@ -70,7 +94,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ) async {
       try {
         final url = Uri.parse(
-          'http://10.253.130.116:8000/api/maintenance/reports',
+          'http://192.168.1.41:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -83,6 +107,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _showNewReportNotification();
             }
             _refreshDataSilently(fetchedReports);
+            _fetchUnreadCount(); // Update titik kuning jika ada laporan baru secara realtime
           }
         }
       } catch (e) {
@@ -150,7 +175,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchAdminData() async {
     try {
       final url = Uri.parse(
-        'http://10.253.130.116:8000/api/maintenance/reports',
+        'http://192.168.1.41:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
 
@@ -207,7 +232,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://10.253.130.116:8000/api/maintenance/reports/$reportId/status',
+        'http://192.168.1.41:8000/api/maintenance/reports/$reportId/status',
       );
 
       final response = await http.put(
@@ -444,7 +469,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           setStateDialog(() => isSubmitting = true);
                           try {
                             final url = Uri.parse(
-                              'http://10.253.130.116:8000/api/users/register',
+                              'http://192.168.1.41:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -563,8 +588,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            onPressed: () async {
+              // Navigasi ke halaman notifikasi dan update badge saat kembali
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+              _fetchUnreadCount(); // Refresh jumlah notifikasi saat kembali ke dashboard
+            },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications, color: Colors.white),
+                if (_unreadNotifCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.orange, // Titik kuning/orange notifikasi
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$_unreadNotifCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
@@ -1403,7 +1462,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _buildNewProfileMenuItem(
             Icons.notifications_none,
             "Notifikasi",
-            () {},
+            () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+              _fetchUnreadCount();
+            },
           ),
           _buildNewProfileMenuItem(
             Icons.help_outline,
@@ -2253,7 +2320,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
   ) {
-    const String baseUrl = "http://10.253.130.116:8000/storage/";
+    const String baseUrl = "http://192.168.1.41:8000/storage/";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2369,7 +2436,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://10.253.130.116:8000/storage/$path';
+                      'http://192.168.1.41:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2464,7 +2531,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     try {
       final reportId = widget.reportData['id'];
       final url = Uri.parse(
-        'http://10.253.130.116:8000/api/maintenance/reports/$reportId',
+        'http://192.168.1.41:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -2842,7 +2909,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://10.253.130.116:8000/api/users');
+      final url = Uri.parse('http://192.168.1.41:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

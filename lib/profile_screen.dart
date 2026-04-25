@@ -39,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // PASTIKAN IP SESUAI DENGAN SERVER ANDA
     final url = Uri.parse(
-      'http://10.253.130.116:8000/api/user/update/${widget.databaseId}',
+      'http://192.168.1.41:8000/api/user/update/${widget.databaseId}',
     );
 
     try {
@@ -411,7 +411,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://10.253.130.116:8000/api/users');
+      final url = Uri.parse('http://192.168.1.41:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
