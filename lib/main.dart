@@ -13,6 +13,16 @@ void main() {
   // Meminta izin notifikasi (Muncul saat aplikasi pertama kali dijalankan)
   OneSignal.Notifications.requestPermission(true);
 
+  // --- TAMBAHAN BARU: Memaksa notifikasi pop-up saat aplikasi aktif (Foreground) ---
+  OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+    // Mencegah OneSignal "menyembunyikan" notifikasi saat aplikasi dibuka
+    event.preventDefault();
+
+    // Memaksa notifikasi ditampilkan dengan semua elemennya (pop-up, suara, badge)
+    event.notification.display();
+  });
+  // ----------------------------------------------------------------------------------
+
   runApp(const MaintenanceApp());
 }
 

@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'dart:io';
+
 import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
+import 'notification_screen.dart'; // <-- TAMBAHAN: Import screen notifikasi
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -34,16 +36,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _verifiedCount = 0;
   int _rejectedCount = 0;
 
+  // --- TAMBAHAN: Variabel untuk fitur Notifikasi Lonceng ---
+  int _unreadNotifCount = 0;
+  final String serverUrl = 'http://192.168.1.9:8000/api';
+  // ---------------------------------------------------------
+
   @override
   void initState() {
     super.initState();
     _fetchReports();
+    _fetchUnreadCount(); // <-- TAMBAHAN: Panggil saat aplikasi dibuka
   }
+
+  // --- TAMBAHAN: Fungsi untuk mengambil jumlah notifikasi belum dibaca ---
+  Future<void> _fetchUnreadCount() async {
+    try {
+      // Mengirim userId milik teknisi ini agar yang ditarik hanya notif miliknya
+      final response = await http.get(
+        Uri.parse('$serverUrl/notifications?user_id=${widget.userId}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            _unreadNotifCount = data['unread_count'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error get notif count: $e");
+    }
+  }
+  // -----------------------------------------------------------------------
 
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('http://192.168.1.41:8000/api/maintenance/reports');
+      final url = Uri.parse('http://192.168.1.9:8000/api/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -137,36 +166,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
               centerTitle: true,
               actions: [
                 IconButton(
-                  onPressed: _fetchReports,
+                  onPressed: () {
+                    _fetchReports();
+                    _fetchUnreadCount(); // Refresh notif saat refresh ditekan
+                  },
                   icon: const Icon(Icons.refresh, color: Colors.white),
                 ),
                 if (_selectedIndex != 2)
-                  Stack(
-                    children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.notifications,
-                          color: Colors.white,
+                  // --- PERUBAHAN: Ikon Lonceng dengan Badge Notifikasi ---
+                  IconButton(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              NotificationScreen(userId: widget.userId),
                         ),
-                      ),
-                      Positioned(
-                        right: 12,
-                        top: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.orange,
-                            shape: BoxShape.circle,
+                      );
+                      _fetchUnreadCount(); // Refresh saat kembali dari layar notifikasi
+                    },
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications, color: Colors.white),
+                        if (_unreadNotifCount > 0)
+                          Positioned(
+                            right: -4,
+                            top: -4,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$_unreadNotifCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 8,
-                            minHeight: 8,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                // --------------------------------------------------------
               ],
             ),
       body: _isLoading
@@ -174,7 +220,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : (_selectedIndex == 3
                 ? bodyContent
                 : RefreshIndicator(
-                    onRefresh: _fetchReports,
+                    onRefresh: () async {
+                      await _fetchReports();
+                      await _fetchUnreadCount();
+                    },
                     child: bodyContent,
                   )),
       bottomNavigationBar: BottomNavigationBar(
@@ -934,7 +983,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       String id = widget.reportData['id'].toString();
       var url = Uri.parse(
-        "http://192.168.1.41:8000/api/maintenance/report/$id/add-photos",
+        "http://192.168.1.9:8000/api/maintenance/report/$id/add-photos",
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -1285,7 +1334,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   }
 
   Widget _buildPhotoCategory(String label, List<String> paths) {
-    final String baseUrl = "http://192.168.1.41:8000/storage/";
+    final String baseUrl = "http://192.168.1.9:8000/storage/";
 
     bool canAddPhoto =
         widget.currentUserId == widget.reportData['user_id'].toString();

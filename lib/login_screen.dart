@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<Offset> _slideAnim;
 
   // Sesuaikan dengan IP Jaringan laptop Anda
-  final String serverUrl = 'http://192.168.1.41:8000/api';
+  final String serverUrl = 'http://192.168.1.9:8000/api';
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);
@@ -110,6 +110,10 @@ class _LoginScreenState extends State<LoginScreen>
 
     // 1. Daftarkan user ID ke OneSignal
     OneSignal.login(userIdStr);
+
+    // --- TAMBAHAN BARU: Memberikan tag identitas spesifik pada device ini ---
+    OneSignal.User.addTagWithKey("user_id", userIdStr);
+    // ------------------------------------------------------------------------
 
     // 2. Arahkan ke dashboard sesuai role & berikan Tag OneSignal
     if (userRole.contains('admin')) {
