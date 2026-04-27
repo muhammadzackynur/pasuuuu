@@ -38,7 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAMBAHAN: Variabel untuk fitur Notifikasi Lonceng ---
   int _unreadNotifCount = 0;
-  final String serverUrl = 'http://192.168.1.9:8000/api';
+  final String serverUrl = 'http://192.168.1.41:8000/api';
   // ---------------------------------------------------------
 
   @override
@@ -72,7 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('http://192.168.1.9:8000/api/maintenance/reports');
+      final url = Uri.parse('http://192.168.1.41:8000/api/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -983,7 +983,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       String id = widget.reportData['id'].toString();
       var url = Uri.parse(
-        "http://192.168.1.9:8000/api/maintenance/report/$id/add-photos",
+        "http://192.168.1.41:8000/api/maintenance/report/$id/add-photos",
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -1334,7 +1334,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   }
 
   Widget _buildPhotoCategory(String label, List<String> paths) {
-    final String baseUrl = "http://192.168.1.9:8000/storage/";
+    final String baseUrl = "http://192.168.1.41:8000/storage/";
 
     bool canAddPhoto =
         widget.currentUserId == widget.reportData['user_id'].toString();

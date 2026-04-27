@@ -8,20 +8,10 @@ void main() {
 
   // Konfigurasi OneSignal menggunakan App ID Anda
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("012d1524-5b9a-4834-8dab-8741b8dbd0c1");
+  OneSignal.initialize("c5e1b4de-5fdf-406e-ab45-7bb5b47ac450");
 
   // Meminta izin notifikasi (Muncul saat aplikasi pertama kali dijalankan)
   OneSignal.Notifications.requestPermission(true);
-
-  // --- TAMBAHAN BARU: Memaksa notifikasi pop-up saat aplikasi aktif (Foreground) ---
-  OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-    // Mencegah OneSignal "menyembunyikan" notifikasi saat aplikasi dibuka
-    event.preventDefault();
-
-    // Memaksa notifikasi ditampilkan dengan semua elemennya (pop-up, suara, badge)
-    event.notification.display();
-  });
-  // ----------------------------------------------------------------------------------
 
   runApp(const MaintenanceApp());
 }
