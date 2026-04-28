@@ -13,7 +13,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   // Pastikan IP disesuaikan
-  final String serverUrl = 'http://192.168.1.41:8000/api';
+  final String serverUrl = 'http://192.168.1.164:8000/api';
   List<dynamic> _notifications = [];
   bool _isLoading = true;
 

@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<Offset> _slideAnim;
 
   // Sesuaikan dengan IP Server Laravel Anda
-  final String serverUrl = 'http://192.168.1.41:8000/api';
+  final String serverUrl = 'http://192.168.1.164:8000/api';
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);
