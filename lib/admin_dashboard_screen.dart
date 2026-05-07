@@ -35,7 +35,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _unreadNotifCount = 0;
   Timer? _notificationTimer;
 
-  final String serverUrl = 'http://192.168.1.164:8000/api';
+  // --- VARIABEL UNTUK MENYIMPAN DATA TEKNISI PER STO ---
+  Map<String, List<dynamic>> _stoTechnicians = {};
+
+  final Map<String, String> _stoFullNames = {
+    'KJR': 'KENJERAN',
+    'KPS': 'KAPASAN',
+    'KBL': 'KEBALEN',
+    'KLK': 'KALIANAK',
+    'MGS': 'MERGOYOSO',
+    'TND': 'TANDES',
+    'KDG': 'KANDANGAN',
+    'KRP': 'KARANGPILANG',
+    'LKS': 'LAKASANTRI',
+    'GRK': 'GRESIK',
+    'CRM': 'CERME',
+    'LMG': 'LAMONGAN',
+    'BPG': 'BALOPANGGANG',
+    'BRD': 'BERONDONG',
+    'DSK': 'DUDUKSAMPEYAN',
+    'BWN': 'BAWEAN',
+    'BBT': 'BABAT',
+    'SKD': 'SUKODADI',
+    'KDM': 'KEDAMEAN',
+  };
+  // -----------------------------------------------------
+
+  final String serverUrl = 'http://10.253.130.152:8000/api';
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -56,7 +82,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _fetchAdminData();
-    _fetchUnreadCount(); // Panggil fungsi notifikasi lonceng saat aplikasi dibuka
+    _fetchUnreadCount();
+    _fetchTechnicianData(); // Ambil data teknisi
     _startNotificationCheck();
   }
 
@@ -67,8 +94,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // =========================================================================
-  // FUNGSI NOTIFIKASI LONCENG
+  // FUNGSI UNTUK MENDATA TEKNISI YANG SEDANG DITUGASKAN DI LAPORAN OPEN
   // =========================================================================
+  Set<String> _getBusyTechnicians() {
+    Set<String> busyIds = {};
+    for (var report in _allReports) {
+      String status = (report['status'] ?? '').toString().toLowerCase();
+
+      // Jika statusnya verified/open, teknisi ditarik (maks 5)
+      if (status.contains('verif')) {
+        String reportSto = (report['sto'] ?? '').toString().toUpperCase();
+        if (_stoFullNames.containsKey(reportSto)) {
+          reportSto = _stoFullNames[reportSto]!;
+        }
+
+        List<dynamic> allTechsInSto = _stoTechnicians[reportSto] ?? [];
+        List<dynamic> assignedTechs = allTechsInSto
+            .take(5)
+            .toList(); // Auto-assign 5 org
+
+        for (var tech in assignedTechs) {
+          if (tech['user_id'] != null) {
+            busyIds.add(tech['user_id'].toString());
+          }
+        }
+      }
+    }
+    return busyIds; // Mengembalikan list unik user_id yang sibuk
+  }
+  // =========================================================================
+
+  Future<void> _fetchTechnicianData() async {
+    try {
+      final url = Uri.parse('http://10.253.130.152:8000/api/users');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        List<dynamic> users = data['data'] ?? [];
+        Map<String, List<dynamic>> tempTechs = {};
+
+        for (var user in users) {
+          String role = user['role']?.toString() ?? '';
+          if (role != 'Tim Lapangan') continue;
+
+          String userId = user['user_id']?.toString().toUpperCase() ?? '';
+          List<String> parts = userId.split('-');
+          String prefix = '';
+
+          if (parts.length >= 3 && parts[0] == 'TLA') {
+            prefix = parts[1];
+          } else if (parts.length == 2) {
+            prefix = parts[0];
+          } else {
+            continue;
+          }
+
+          String fullStoName = _stoFullNames[prefix] ?? prefix;
+
+          if (!tempTechs.containsKey(fullStoName)) {
+            tempTechs[fullStoName] = [];
+          }
+          tempTechs[fullStoName]!.add(user);
+        }
+
+        if (mounted) {
+          setState(() {
+            _stoTechnicians = tempTechs;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetch technicians: $e");
+    }
+  }
+
   Future<void> _fetchUnreadCount() async {
     try {
       final response = await http.get(Uri.parse('$serverUrl/notifications'));
@@ -85,16 +185,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  // =========================================================================
-  // FUNGSI NOTIFIKASI (CEK LAPORAN BARU SETIAP 10 DETIK)
-  // =========================================================================
   void _startNotificationCheck() {
     _notificationTimer = Timer.periodic(const Duration(seconds: 10), (
       timer,
     ) async {
       try {
         final url = Uri.parse(
-          'http://192.168.1.164:8000/api/maintenance/reports',
+          'http://10.253.130.152:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -107,7 +204,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _showNewReportNotification();
             }
             _refreshDataSilently(fetchedReports);
-            _fetchUnreadCount(); // Update titik kuning jika ada laporan baru secara realtime
+            _fetchUnreadCount();
           }
         }
       } catch (e) {
@@ -169,13 +266,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // =========================================================================
-  // FUNGSI MENGAMBIL DATA DARI SERVER
-  // =========================================================================
   Future<void> _fetchAdminData() async {
     try {
       final url = Uri.parse(
-        'http://192.168.1.164:8000/api/maintenance/reports',
+        'http://10.253.130.152:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
 
@@ -232,7 +326,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://192.168.1.164:8000/api/maintenance/reports/$reportId/status',
+        'http://10.253.130.152:8000/api/maintenance/reports/$reportId/status',
       );
 
       final response = await http.put(
@@ -469,7 +563,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           setStateDialog(() => isSubmitting = true);
                           try {
                             final url = Uri.parse(
-                              'http://192.168.1.164:8000/api/users/register',
+                              'http://10.253.130.152:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -589,15 +683,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           IconButton(
             onPressed: () async {
-              // Navigasi ke halaman notifikasi dan update badge saat kembali
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
                       const NotificationScreen(userId: 'admin'),
-                ), // <--- TAMBAHKAN userId: 'admin'
+                ),
               );
-              _fetchUnreadCount(); // Refresh jumlah notifikasi saat kembali ke dashboard
+              _fetchUnreadCount();
             },
             icon: Stack(
               clipBehavior: Clip.none,
@@ -610,7 +703,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Colors.orange, // Titik kuning/orange notifikasi
+                        color: Colors.orange,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
@@ -637,7 +730,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
             )
-          : RefreshIndicator(onRefresh: _fetchAdminData, child: bodyContent),
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _fetchAdminData();
+                await _fetchTechnicianData(); // Refresh data user juga
+              },
+              child: bodyContent,
+            ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0F1623),
         type: BottomNavigationBarType.fixed,
@@ -664,9 +763,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // =========================================================================
-  // 1. KONTEN HOME
-  // =========================================================================
   Widget _buildHomeContent() {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -839,9 +935,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // =========================================================================
-  // 2. KONTEN DATA
-  // =========================================================================
   Widget _buildDataContent() {
     List<dynamic> currentData = _filteredReports;
     return Column(
@@ -908,9 +1001,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // =========================================================================
-  // 3. KONTEN ANALYTICS
-  // =========================================================================
   Widget _buildAnalyticsContent() {
     if (_allReports.isEmpty) {
       return const Center(
@@ -1325,9 +1415,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // =========================================================================
-  // 4. KONTEN PROFIL (ADMIN)
-  // =========================================================================
   Widget _buildProfileContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
@@ -1447,18 +1534,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildNewProfileMenuItem(Icons.person_outline, "Edit Profil", () {}),
 
-          // --- MENU BARU: JADWAL & TIM LAPANGAN (TLA) UNTUK ADMIN ---
+          // --- MENU MENUJU JADWAL DENGAN PASSING DATA ---
           _buildNewProfileMenuItem(
             Icons.calendar_month,
             "Jadwal & Tim Lapangan (TLA)",
             () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const JadwalScreen()),
+                MaterialPageRoute(
+                  builder: (context) => JadwalScreen(
+                    busyTechIds: _getBusyTechnicians(),
+                  ), // Passing list sibuk
+                ),
               );
             },
           ),
 
+          // ----------------------------------------------
           _buildNewProfileMenuItem(Icons.lock_outline, "Ganti Password", () {}),
           _buildNewProfileMenuItem(
             Icons.notifications_none,
@@ -1469,7 +1561,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 MaterialPageRoute(
                   builder: (context) =>
                       const NotificationScreen(userId: 'admin'),
-                ), // <--- TAMBAHKAN userId: 'admin'
+                ),
               );
               _fetchUnreadCount();
             },
@@ -1549,17 +1641,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // WIDGET CARD UNTUK MENU DATA (DENGAN TOMBOL KONFIRMASI)
   Widget _buildDataCard(dynamic data) {
     String idStr = "MAINT-${data['id'].toString().padLeft(3, '0')}";
-    bool isPending = (data['status'] ?? '').toString().toLowerCase().contains(
-      'pending',
-    );
+
+    String statusString = (data['status'] ?? '').toString().toLowerCase();
+    bool isPending = statusString.contains('pending');
+    bool isVerified = statusString.contains('verif');
+
     Color statusColor = isPending
         ? Colors.orange
-        : (data['status'].toString().toLowerCase().contains('verif')
-              ? Colors.green
-              : Colors.red);
+        : (isVerified ? Colors.green : Colors.red);
+
+    String reportSto = (data['sto'] ?? '').toString().toUpperCase();
+    if (_stoFullNames.containsKey(reportSto)) {
+      reportSto = _stoFullNames[reportSto]!;
+    }
+
+    List<dynamic> allTechsInSto = _stoTechnicians[reportSto] ?? [];
+    List<dynamic> assignedTechs = allTechsInSto.take(5).toList();
+
+    int currentWorkers = assignedTechs.length;
+    int maxWorkers = 5;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1601,6 +1703,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1624,46 +1727,106 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ],
                     ),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        IconButton(
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    AdminEditLaporanScreen(reportData: data),
+                        Row(
+                          children: [
+                            IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.only(right: 8),
+                              onPressed: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        AdminEditLaporanScreen(
+                                          reportData: data,
+                                        ),
+                                  ),
+                                );
+                                if (result == true) {
+                                  _fetchAdminData();
+                                  _fetchTechnicianData();
+                                }
+                              },
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.blue,
+                                size: 20,
                               ),
-                            );
-                            if (result == true) _fetchAdminData();
-                          },
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Colors.blue,
-                            size: 20,
-                          ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: statusColor.withOpacity(0.5),
+                                ),
+                              ),
+                              child: Text(
+                                (data['status'] ?? 'PENDING').toUpperCase(),
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: statusColor.withOpacity(0.5),
+                        if (isVerified)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: Colors.blueAccent.withOpacity(0.5),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "OPEN",
+                                    style: TextStyle(
+                                      color: Colors.blueAccent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.group,
+                                      color: Colors.grey,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "$currentWorkers/$maxWorkers",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          child: Text(
-                            (data['status'] ?? 'PENDING').toUpperCase(),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -1676,8 +1839,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildInfoRow(
                       Icons.person,
-                      "Teknisi",
-                      data['teknisi'] ?? 'Teknisi Lapangan',
+                      "Pelapor",
+                      data['teknisi'] ?? 'Teknisi Pelapor',
                     ),
                     const SizedBox(height: 10),
                     _buildInfoRow(Icons.map, "Witel", data['witel'] ?? '-'),
@@ -1699,6 +1862,79 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       data['uraian_pekerjaan'] ?? '-',
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
+
+                    if (isVerified) ...[
+                      const SizedBox(height: 15),
+                      const Divider(color: Colors.white10),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.engineering,
+                            color: Colors.blueAccent,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "Teknisi Ditugaskan (Auto-Assign):",
+                            style: TextStyle(
+                              color: Colors.blueAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (assignedTechs.isEmpty)
+                        const Text(
+                          "Belum ada data teknisi tersedia di STO ini.",
+                          style: TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: assignedTechs
+                                .map(
+                                  (tech) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.circle,
+                                          color: Colors.green,
+                                          size: 8,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            "${tech['user_id']}  -  ${tech['name']}",
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -1970,9 +2206,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// ======================================================================
-// --- HALAMAN DETAIL LAPORAN UNTUK ADMIN ---
-// ======================================================================
 class AdminDetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
   const AdminDetailLaporanScreen({super.key, required this.reportData});
@@ -2077,7 +2310,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // --- BAGIAN LOKASI & LINK MAPS ---
             const Text(
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
@@ -2199,7 +2431,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     "Mitra",
                     reportData['mitra_pelaksana'] ?? '-',
                   ),
-                  _buildDetailRow("Teknisi", reportData['teknisi'] ?? '-'),
+                  _buildDetailRow("Pelapor", reportData['teknisi'] ?? '-'),
                   _buildDetailRow(
                     "Waktu Input",
                     reportData['created_at']?.toString().substring(0, 10) ??
@@ -2226,7 +2458,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // --- BAGIAN BUKTI FOTO ---
             const Text(
               "Bukti Foto Lapangan",
               style: TextStyle(
@@ -2322,7 +2553,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
   ) {
-    const String baseUrl = "http://192.168.1.164:8000/storage/";
+    const String baseUrl = "http://10.253.130.152:8000/storage/";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2438,7 +2669,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://192.168.1.164:8000/storage/$path';
+                      'http://10.253.130.152:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2471,9 +2702,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
   }
 }
 
-// ======================================================================
-// --- HALAMAN EDIT LAPORAN & UPLOAD BUKTI UNTUK ADMIN ---
-// ======================================================================
 class AdminEditLaporanScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
   const AdminEditLaporanScreen({super.key, required this.reportData});
@@ -2533,7 +2761,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     try {
       final reportId = widget.reportData['id'];
       final url = Uri.parse(
-        'http://192.168.1.164:8000/api/maintenance/reports/$reportId',
+        'http://10.253.130.152:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -2819,10 +3047,6 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
   }
 }
 
-// ======================================================================
-// --- HALAMAN FULL SCREEN IMAGE VIEWER DENGAN ZOOM ---
-// ======================================================================
-
 class FullScreenImageScreen extends StatelessWidget {
   final String imageUrl;
   final String heroTag;
@@ -2864,13 +3088,10 @@ class FullScreenImageScreen extends StatelessWidget {
   }
 }
 
-// ======================================================================
-// --- HALAMAN JADWAL & DAFTAR TIM ---
-// --- DI TAMPILKAN BERTUMPUK (LIST VERTIKAL) SESUAI GAMBAR ---
-// ======================================================================
-
 class JadwalScreen extends StatefulWidget {
-  const JadwalScreen({super.key});
+  final Set<String> busyTechIds; // Variabel penampung daftar teknisi sibuk
+
+  const JadwalScreen({super.key, required this.busyTechIds});
 
   @override
   State<JadwalScreen> createState() => _JadwalScreenState();
@@ -2880,7 +3101,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
   bool _isLoading = true;
   Map<String, List<dynamic>> _groupedTlaUsers = {};
 
-  // Kamus Nama Lengkap STO
   final Map<String, String> _stoFullNames = {
     'KJR': 'KENJERAN',
     'KPS': 'KAPASAN',
@@ -2911,7 +3131,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://192.168.1.164:8000/api/users');
+      final url = Uri.parse('http://10.253.130.152:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -2921,7 +3141,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
         Map<String, List<dynamic>> tempGroup = {};
 
         for (var user in users) {
-          // FILTER: HANYA TAMPILKAN TIM LAPANGAN (TLA)
           String role = user['role']?.toString() ?? '';
           if (role != 'Tim Lapangan') {
             continue;
@@ -2929,7 +3148,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
           String userId = user['user_id']?.toString().toUpperCase() ?? '';
 
-          // FORMAT BARU: TLA-KJR-834
           List<String> parts = userId.split('-');
 
           String prefix = '';
@@ -2975,7 +3193,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil daftar STO dan mengurutkannya sesuai abjad
     List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
 
     return Scaffold(
@@ -3005,15 +3222,12 @@ class _JadwalScreenState extends State<JadwalScreen> {
               itemCount: groupKeys.length,
               itemBuilder: (context, index) {
                 String prefix = groupKeys[index];
-                String fullStoName =
-                    _stoFullNames[prefix] ??
-                    prefix; // Mengubah singkatan jadi Nama Lengkap
+                String fullStoName = _stoFullNames[prefix] ?? prefix;
                 List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- HEADER STO (NAMA LENGKAP) ---
                     Text(
                       "STO $fullStoName",
                       style: const TextStyle(
@@ -3024,7 +3238,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // --- TABEL DATA TEKNISI ---
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -3077,9 +3290,26 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                 ),
                               ),
                             ),
+                            // --- TAMBAHAN KOLOM STATUS ---
+                            DataColumn(
+                              label: Text(
+                                'Status',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            // -----------------------------
                           ],
                           rows: List.generate(usersInGroup.length, (rowIndex) {
                             final user = usersInGroup[rowIndex];
+
+                            // Cek apakah ID Teknisi ini ada di dalam List "Teknisi Sibuk"
+                            bool isBusy = widget.busyTechIds.contains(
+                              user['user_id'],
+                            );
+
                             return DataRow(
                               cells: [
                                 DataCell(
@@ -3093,7 +3323,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     fullStoName,
                                     style: const TextStyle(color: Colors.white),
                                   ),
-                                ), // Kolom STO menggunakan Nama Lengkap
+                                ),
                                 DataCell(
                                   Text(
                                     user['user_id'] ?? '-',
@@ -3106,6 +3336,37 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     style: const TextStyle(color: Colors.white),
                                   ),
                                 ),
+                                // --- DATA CELL STATUS ---
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isBusy
+                                          ? Colors.orange.withOpacity(0.2)
+                                          : Colors.green.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isBusy
+                                            ? Colors.orange.withOpacity(0.5)
+                                            : Colors.green.withOpacity(0.5),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      isBusy ? "Ditugaskan" : "Tersedia",
+                                      style: TextStyle(
+                                        color: isBusy
+                                            ? Colors.orangeAccent
+                                            : Colors.greenAccent,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // ------------------------
                               ],
                             );
                           }),
