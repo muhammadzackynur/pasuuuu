@@ -36,8 +36,8 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  // Sesuaikan dengan IP Server Laravel Anda
-  final String serverUrl = 'http://10.253.130.152:8000/api';
+  // URL SERVER (IP: 192.168.1.142)
+  final String serverUrl = 'http://192.168.1.142:8000/api';
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);
@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // Jeda singkat agar kamera siap
+      // Jeda singkat agar kamera siap & user punya waktu berpose
       await Future.delayed(const Duration(milliseconds: 1500));
       XFile picture = await _cameraController!.takePicture();
 
@@ -345,17 +345,6 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
           ),
-
-          // ── Hidden camera untuk auto scan ─────────────────────────────
-          if (_isCameraInitialized && !_isRegisteringFace)
-            Offstage(
-              offstage: true,
-              child: SizedBox(
-                width: 1,
-                height: 1,
-                child: CameraPreview(_cameraController!),
-              ),
-            ),
 
           SafeArea(
             child: FadeTransition(
@@ -601,13 +590,19 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── REGISTER FACE BODY ────────────────────────────────────────────────────
   Widget _buildRegisterFaceBody() {
+    // Menghitung lebar dinamis agar memenuhi layar (dikurangi sedikit padding)
+    double screenWidth = MediaQuery.of(context).size.width;
+    double cameraWidth =
+        screenWidth - 56; // 56 karena ada padding 28 di kiri dan kanan
+    double cameraHeight = cameraWidth * (4 / 3); // Rasio presisi 3:4 (Portrait)
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
           const SizedBox(height: 12),
           const Text(
-            'Posisikan Wajah di Tengah',
+            'Posisikan Wajah Memenuhi Layar',
             style: TextStyle(
               color: _orange,
               fontSize: 16,
@@ -616,12 +611,13 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 24),
 
-          // Camera circle
+          // Camera Frame Portrait (Lebar memenuhi layar dengan Rasio 3:4) untuk Register
           Container(
-            width: 260,
-            height: 260,
+            width: cameraWidth,
+            height: cameraHeight,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              color: const Color(0xFF0F2040),
+              borderRadius: BorderRadius.circular(30),
               border: Border.all(color: _orange, width: 3),
               boxShadow: [
                 BoxShadow(
@@ -631,9 +627,12 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ],
             ),
-            child: ClipOval(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                27,
+              ), // Curve menyesuaikan border luar
               child: AspectRatio(
-                aspectRatio: 1,
+                aspectRatio: 3 / 4, // Rasio kamera Portrait standard
                 child: CameraPreview(_cameraController!),
               ),
             ),
@@ -689,11 +688,16 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── AUTO SCAN BODY ────────────────────────────────────────────────────────
   Widget _buildAutoScanBody() {
+    // Menghitung lebar dinamis agar memenuhi layar dengan rasio presisi 3:4
+    double screenWidth = MediaQuery.of(context).size.width;
+    double cameraWidth = screenWidth - 56;
+    double cameraHeight = cameraWidth * (4 / 3);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
-          const Spacer(flex: 1),
+          const SizedBox(height: 10),
 
           // Role chip
           Container(
@@ -713,38 +717,40 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
 
-          // Face icon dengan animated ring
+          // Live Camera Preview Portrait (3:4) untuk Auto-Scan (Login)
           Stack(
             alignment: Alignment.center,
             children: [
+              // Frame Luar Animasi
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
-                width: 140,
-                height: 140,
+                width: cameraWidth + 12,
+                height: cameraHeight + 12,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(35),
                   border: Border.all(
                     color: _isAutoScanning
                         ? _accentGlow.withOpacity(0.3)
                         : Colors.redAccent.withOpacity(0.2),
-                    width: 8,
+                    width: 6,
                   ),
                 ),
               ),
+              // Frame Dalam & Kamera Live
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
-                width: 120,
-                height: 120,
+                width: cameraWidth,
+                height: cameraHeight,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(30),
                   color: const Color(0xFF0F2040),
                   border: Border.all(
                     color: _isAutoScanning
                         ? _accentGlow.withOpacity(0.8)
                         : Colors.redAccent.withOpacity(0.6),
-                    width: 2,
+                    width: 3,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -755,21 +761,25 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ],
                 ),
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Icon(
-                  _isAutoScanning
-                      ? Icons.face_retouching_natural_rounded
-                      : Icons.face_retouching_off_rounded,
-                  key: ValueKey(_isAutoScanning),
-                  color: _isAutoScanning ? _accentGlow : Colors.redAccent,
-                  size: 60,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(27),
+                  child: _isCameraInitialized && _cameraController != null
+                      ? AspectRatio(
+                          aspectRatio: 3 / 4,
+                          child: CameraPreview(_cameraController!),
+                        )
+                      : const Center(
+                          child: Icon(
+                            Icons.face_retouching_natural_rounded,
+                            color: Colors.white54,
+                            size: 60,
+                          ),
+                        ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 25),
 
           Text(
             'User ID : $_savedUserId',
@@ -788,7 +798,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ? Column(
                     key: const ValueKey('scanning'),
                     children: [
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       const SizedBox(
                         width: 36,
                         height: 36,
@@ -799,7 +809,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'Mengidentifikasi Wajah…\nHarap lihat ke layar.',
+                        'Mengidentifikasi Wajah…\nPosisikan wajah Anda di tengah layar.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _textSecondary,
@@ -816,7 +826,7 @@ class _LoginScreenState extends State<LoginScreen>
                         'Wajah tidak dikenali.',
                         style: TextStyle(color: Colors.redAccent, fontSize: 15),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
 
                       // ── Tombol Coba Scan Lagi ──────────────────────
                       SizedBox(
@@ -901,7 +911,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
         ],
       ),
     );

@@ -61,7 +61,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   };
   // -----------------------------------------------------
 
-  final String serverUrl = 'http://10.253.130.152:8000/api';
+  final String serverUrl = 'http://192.168.1.142:8000/api';
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -126,7 +126,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchTechnicianData() async {
     try {
-      final url = Uri.parse('http://10.253.130.152:8000/api/users');
+      final url = Uri.parse('http://192.168.1.142:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -191,7 +191,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ) async {
       try {
         final url = Uri.parse(
-          'http://10.253.130.152:8000/api/maintenance/reports',
+          'http://192.168.1.142:8000/api/maintenance/reports',
         );
         final response = await http.get(url);
 
@@ -269,7 +269,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchAdminData() async {
     try {
       final url = Uri.parse(
-        'http://10.253.130.152:8000/api/maintenance/reports',
+        'http://192.168.1.142:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
 
@@ -326,7 +326,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://10.253.130.152:8000/api/maintenance/reports/$reportId/status',
+        'http://192.168.1.142:8000/api/maintenance/reports/$reportId/status',
       );
 
       final response = await http.put(
@@ -563,7 +563,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           setStateDialog(() => isSubmitting = true);
                           try {
                             final url = Uri.parse(
-                              'http://10.253.130.152:8000/api/users/register',
+                              'http://192.168.1.142:8000/api/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -1044,6 +1044,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     var sortedCat = catCount.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // --- LOGIKA RINGKASAN EKSEKUTIF ---
+    String topStoName = top5Sto.isNotEmpty ? top5Sto.first.key : '-';
+    int topStoCount = top5Sto.isNotEmpty ? top5Sto.first.value : 0;
+
+    String topCatName = sortedCat.isNotEmpty ? sortedCat.first.key : '-';
+    int topCatCount = sortedCat.isNotEmpty ? sortedCat.first.value : 0;
+
+    String majorityStatus = 'Pending';
+    int maxStatusCount = _pendingCount;
+    if (_verifiedCount > maxStatusCount) {
+      majorityStatus = 'Verified';
+      maxStatusCount = _verifiedCount;
+    }
+    if (_rejectedCount > maxStatusCount) {
+      majorityStatus = 'Rejected';
+      maxStatusCount = _rejectedCount;
+    }
+
+    String summaryText =
+        "Berdasarkan data saat ini, total terdapat $_totalCount laporan dengan tingkat penyelesaian sebesar ${completionRate.toStringAsFixed(1)}%. "
+        "Mayoritas laporan saat ini berada pada status $majorityStatus. "
+        "Lokasi STO yang paling banyak menerima laporan adalah STO $topStoName ($topStoCount laporan), "
+        "dengan jenis gangguan yang mendominasi yaitu $topCatName ($topCatCount kasus).";
+    // ----------------------------------
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       physics: const AlwaysScrollableScrollPhysics(),
@@ -1063,8 +1088,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             "Overview & performa pemeliharaan",
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
+          const SizedBox(height: 20),
+
+          // --- UI RINGKASAN EKSEKUTIF ---
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D1F3).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF00D1F3).withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      color: Color(0xFF00D1F3),
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      "Ringkasan Eksekutif",
+                      style: TextStyle(
+                        color: Color(0xFF00D1F3),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  summaryText,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 25),
 
+          // ------------------------------
           Row(
             children: [
               Expanded(
@@ -2553,7 +2624,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
   ) {
-    const String baseUrl = "http://10.253.130.152:8000/storage/";
+    const String baseUrl = "http://192.168.1.142:8000/storage/";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2669,7 +2740,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://10.253.130.152:8000/storage/$path';
+                      'http://192.168.1.142:8000/storage/$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2761,7 +2832,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     try {
       final reportId = widget.reportData['id'];
       final url = Uri.parse(
-        'http://10.253.130.152:8000/api/maintenance/reports/$reportId',
+        'http://192.168.1.142:8000/api/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -3131,7 +3202,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://10.253.130.152:8000/api/users');
+      final url = Uri.parse('http://192.168.1.142:8000/api/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

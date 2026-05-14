@@ -38,7 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAMBAHAN: Variabel untuk fitur Notifikasi Lonceng ---
   int _unreadNotifCount = 0;
-  final String serverUrl = 'http://10.253.130.152:8000/api';
+  final String serverUrl = 'http://192.168.1.142:8000/api';
   // ---------------------------------------------------------
 
   @override
@@ -73,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       final url = Uri.parse(
-        'http://10.253.130.152:8000/api/maintenance/reports',
+        'http://192.168.1.142:8000/api/maintenance/reports',
       );
       final response = await http.get(url);
 
@@ -985,7 +985,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       String id = widget.reportData['id'].toString();
       var url = Uri.parse(
-        "http://10.253.130.152:8000/api/maintenance/report/$id/add-photos",
+        "http://192.168.1.142:8000/api/maintenance/report/$id/add-photos",
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -1336,7 +1336,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   }
 
   Widget _buildPhotoCategory(String label, List<String> paths) {
-    final String baseUrl = "http://10.253.130.152:8000/storage/";
+    final String baseUrl = "http://192.168.1.142:8000/storage/";
 
     bool canAddPhoto =
         widget.currentUserId == widget.reportData['user_id'].toString();
