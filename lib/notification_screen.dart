@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'api_config.dart'; // Import konfigurasi API terpusat
 
 class NotificationScreen extends StatefulWidget {
   final String userId; // Tambahan parameter User ID
@@ -12,8 +13,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  // Pastikan IP disesuaikan
-  final String serverUrl = 'http://192.168.1.142:8000/api';
+  // Menggunakan ApiConfig.baseUrl agar lebih fleksibel
   List<dynamic> _notifications = [];
   bool _isLoading = true;
 
@@ -25,21 +25,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _fetchNotifications() async {
     try {
-      // Panggil API dengan mengirimkan user_id
+      // Panggil API dengan mengirimkan user_id menggunakan ApiConfig
       final response = await http.get(
-        Uri.parse('$serverUrl/notifications?user_id=${widget.userId}'),
+        Uri.parse(
+          '${ApiConfig.baseUrl}/notifications?user_id=${widget.userId}',
+        ),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (mounted) {
           setState(() {
-            _notifications = data['data'];
+            _notifications = data['data'] ?? [];
             _isLoading = false;
           });
         }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
+      debugPrint("Error fetching notifications: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -56,7 +61,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
 
     try {
-      await http.post(Uri.parse('$serverUrl/notifications/$id/read'));
+      // Menggunakan ApiConfig.baseUrl
+      await http.post(Uri.parse('${ApiConfig.baseUrl}/notifications/$id/read'));
     } catch (e) {
       debugPrint("Gagal update status read");
     }
@@ -97,7 +103,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 return GestureDetector(
                   onTap: () {
                     _markAsRead(notif['id'], index);
-                    // Optional: Kasih dialog atau navigasi ke detail laporan
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(

@@ -8,6 +8,7 @@ import 'dart:io';
 import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart'; // <-- TAMBAHAN: Import screen notifikasi
+import 'api_config.dart'; // <-- TAMBAHAN: Import konfigurasi API terpusat
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -38,7 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAMBAHAN: Variabel untuk fitur Notifikasi Lonceng ---
   int _unreadNotifCount = 0;
-  final String serverUrl = 'http://192.168.1.142:8000/api';
+  final String serverUrl = ApiConfig.baseUrl; // Menggunakan ApiConfig
   // ---------------------------------------------------------
 
   @override
@@ -73,7 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       final url = Uri.parse(
-        'http://192.168.1.142:8000/api/maintenance/reports',
+        '$serverUrl/maintenance/reports', // Menggunakan serverUrl (ApiConfig)
       );
       final response = await http.get(url);
 
@@ -985,7 +986,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       String id = widget.reportData['id'].toString();
       var url = Uri.parse(
-        "http://192.168.1.142:8000/api/maintenance/report/$id/add-photos",
+        "${ApiConfig.baseUrl}/maintenance/report/$id/add-photos", // Menggunakan ApiConfig
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -1336,7 +1337,8 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   }
 
   Widget _buildPhotoCategory(String label, List<String> paths) {
-    final String baseUrl = "http://192.168.1.142:8000/storage/";
+    // Menggunakan base URL storage dari ApiConfig
+    final String baseUrl = ApiConfig.baseUrl.replaceAll('/api', '/storage/');
 
     bool canAddPhoto =
         widget.currentUserId == widget.reportData['user_id'].toString();

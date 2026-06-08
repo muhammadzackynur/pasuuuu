@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'role_selection_screen.dart'; // Mengubah import ke halaman role
+import 'api_config.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -39,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // PASTIKAN IP SESUAI DENGAN SERVER ANDA
     final url = Uri.parse(
-      'http://192.168.1.142:8000/api/user/update/${widget.databaseId}',
+      '${ApiConfig.baseUrl}/user/update/${widget.databaseId}',
     );
 
     try {
@@ -411,7 +412,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://192.168.1.142:8000/api/users');
+      final url = Uri.parse('${ApiConfig.baseUrl}/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

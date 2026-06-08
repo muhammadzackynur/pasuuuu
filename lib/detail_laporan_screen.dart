@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'api_config.dart';
 
 class DetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
-  // Sesuaikan dengan IP Server Laravel Anda
-  final String baseUrl = "http://192.168.1.142:8000/storage/";
 
   const DetailLaporanScreen({super.key, required this.reportData});
 
-  // Fungsi untuk memfilter gambar berdasarkan tipenya (before, progress, after)
+  // Getter untuk URL storage
+  String get storageBaseUrl =>
+      ApiConfig.baseUrl.replaceAll('/api', '/storage/');
+
+  // Fungsi untuk memfilter gambar berdasarkan tipenya
   List<String> _getImagesByType(String type) {
     if (reportData['images'] == null) return [];
+
     List<dynamic> allImages = reportData['images'];
+
     return allImages
         .where((img) => img['type'] == type)
-        .map((img) => baseUrl + img['image_path'])
+        .map<String>((img) => storageBaseUrl + img['image_path'])
         .toList();
   }
 
@@ -23,7 +28,9 @@ class DetailLaporanScreen extends StatelessWidget {
     if (lat == null || lng == null || lat.isEmpty || lng.isEmpty) {
       return;
     }
+
     final url = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
+
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
@@ -31,7 +38,6 @@ class DetailLaporanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ambil data gambar
     final fotoBefore = _getImagesByType('before');
     final fotoProgress = _getImagesByType('progress');
     final fotoAfter = _getImagesByType('after');
@@ -52,7 +58,7 @@ class DetailLaporanScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- HEADER STATUS ---
+            // HEADER STATUS
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -67,10 +73,12 @@ class DetailLaporanScreen extends StatelessWidget {
                 _buildStatusBadge(reportData['status'] ?? 'Pending'),
               ],
             ),
+
             const SizedBox(height: 20),
 
-            // --- INFORMASI UTAMA ---
+            // INFORMASI PEKERJAAN
             _buildSectionTitle("Informasi Pekerjaan"),
+
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -83,7 +91,7 @@ class DetailLaporanScreen extends StatelessWidget {
                   _buildInfoRow("Mitra", reportData['mitra_pelaksana'] ?? '-'),
                   _buildInfoRow(
                     "STO / Witel",
-                    "${reportData['sto']} / ${reportData['witel']}",
+                    "${reportData['sto'] ?? '-'} / ${reportData['witel'] ?? '-'}",
                   ),
                   _buildInfoRow(
                     "Kategori",
@@ -98,10 +106,12 @@ class DetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
 
-            // --- LOKASI GPS ---
+            // LOKASI GPS
             _buildSectionTitle("Lokasi (GPS)"),
+
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -112,19 +122,21 @@ class DetailLaporanScreen extends StatelessWidget {
                 children: [
                   _buildInfoRow(
                     "Latitude",
-                    reportData['latitude'] ?? 'Tidak ada data',
+                    reportData['latitude']?.toString() ?? 'Tidak ada data',
                   ),
                   _buildInfoRow(
                     "Longitude",
-                    reportData['longitude'] ?? 'Tidak ada data',
+                    reportData['longitude']?.toString() ?? 'Tidak ada data',
                   ),
+
                   const SizedBox(height: 10),
+
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () => _openGoogleMaps(
-                        reportData['latitude'],
-                        reportData['longitude'],
+                        reportData['latitude']?.toString(),
+                        reportData['longitude']?.toString(),
                       ),
                       icon: const Icon(Icons.map, color: Colors.green),
                       label: const Text(
@@ -142,12 +154,16 @@ class DetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
 
-            // --- FOTO BUKTI ---
+            // FOTO
             _buildSectionTitle("Bukti Foto Pekerjaan"),
+
             _buildPhotoSection(context, "Foto Before", fotoBefore),
+
             _buildPhotoSection(context, "Foto Progress", fotoProgress),
+
             _buildPhotoSection(context, "Foto After", fotoAfter),
           ],
         ),
@@ -155,7 +171,6 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Widget Teks Judul Section
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -170,7 +185,6 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Widget Baris Informasi
   Widget _buildInfoRow(String label, String value, {bool isLongText = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -205,37 +219,21 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Widget Badge Status
   Widget _buildStatusBadge(String status) {
-    Color bgColor;
-    Color textColor;
-
-    switch (status.toLowerCase()) {
-      case 'verified':
-      case 'selesai':
-        bgColor = Colors.green.withOpacity(0.2);
-        textColor = Colors.green;
-        break;
-      case 'rejected':
-      case 'ditolak':
-        bgColor = Colors.red.withOpacity(0.2);
-        textColor = Colors.red;
-        break;
-      default: // Pending
-        bgColor = Colors.orange.withOpacity(0.2);
-        textColor = Colors.orange;
-    }
+    Color color = status.toLowerCase().contains('verif')
+        ? Colors.green
+        : Colors.orange;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status.toUpperCase(),
         style: TextStyle(
-          color: textColor,
+          color: color,
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
@@ -243,14 +241,14 @@ class DetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  // Widget Grid Foto
   Widget _buildPhotoSection(
     BuildContext context,
     String title,
     List<String> imageUrls,
   ) {
-    if (imageUrls.isEmpty)
-      return const SizedBox.shrink(); // Sembunyikan jika kosong
+    if (imageUrls.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +257,9 @@ class DetailLaporanScreen extends StatelessWidget {
           title,
           style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
+
         const SizedBox(height: 8),
+
         SizedBox(
           height: 100,
           child: ListView.builder(
@@ -282,13 +282,11 @@ class DetailLaporanScreen extends StatelessWidget {
                       child: Image.network(
                         imageUrls[index],
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
-                              ),
-                            ),
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(Icons.broken_image, color: Colors.grey),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -297,17 +295,17 @@ class DetailLaporanScreen extends StatelessWidget {
             },
           ),
         ),
+
         const SizedBox(height: 15),
       ],
     );
   }
 
-  // Fungsi untuk menampilkan gambar Full Screen dengan fitur Zoom (Sesuai Blackbox)
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => Scaffold(
+        builder: (_) => Scaffold(
           backgroundColor: Colors.black,
           appBar: AppBar(
             backgroundColor: Colors.black,
@@ -315,9 +313,8 @@ class DetailLaporanScreen extends StatelessWidget {
           ),
           body: Center(
             child: InteractiveViewer(
-              panEnabled: true,
               minScale: 0.5,
-              maxScale: 4.0,
+              maxScale: 4,
               child: Hero(tag: imageUrl, child: Image.network(imageUrl)),
             ),
           ),

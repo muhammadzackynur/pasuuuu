@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'notification_screen.dart';
+import 'api_config.dart'; // Import konfigurasi API terpusat
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -60,8 +61,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'KDM': 'KEDAMEAN',
   };
   // -----------------------------------------------------
-
-  final String serverUrl = 'http://192.168.1.142:8000/api';
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -126,7 +125,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchTechnicianData() async {
     try {
-      final url = Uri.parse('http://192.168.1.142:8000/api/users');
+      final url = Uri.parse('${ApiConfig.baseUrl}/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -165,13 +164,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       }
     } catch (e) {
-      print("Error fetch technicians: $e");
+      debugPrint("Error fetch technicians: $e");
     }
   }
 
   Future<void> _fetchUnreadCount() async {
     try {
-      final response = await http.get(Uri.parse('$serverUrl/notifications'));
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/notifications'),
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (mounted) {
@@ -190,9 +191,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       timer,
     ) async {
       try {
-        final url = Uri.parse(
-          'http://192.168.1.142:8000/api/maintenance/reports',
-        );
+        final url = Uri.parse('${ApiConfig.baseUrl}/maintenance/reports');
         final response = await http.get(url);
 
         if (response.statusCode == 200) {
@@ -208,7 +207,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } catch (e) {
-        print("Error Polling: $e");
+        debugPrint("Error Polling: $e");
       }
     });
   }
@@ -268,9 +267,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchAdminData() async {
     try {
-      final url = Uri.parse(
-        'http://192.168.1.142:8000/api/maintenance/reports',
-      );
+      final url = Uri.parse('${ApiConfig.baseUrl}/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -310,7 +307,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      print("Error koneksi: $e");
+      debugPrint("Error koneksi: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -326,7 +323,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final url = Uri.parse(
-        'http://192.168.1.142:8000/api/maintenance/reports/$reportId/status',
+        '${ApiConfig.baseUrl}/maintenance/reports/$reportId/status',
       );
 
       final response = await http.put(
@@ -364,7 +361,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      print("KONEKSI ERROR: $e");
+      debugPrint("KONEKSI ERROR: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Error koneksi ke server"),
@@ -563,7 +560,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           setStateDialog(() => isSubmitting = true);
                           try {
                             final url = Uri.parse(
-                              'http://192.168.1.142:8000/api/users/register',
+                              '${ApiConfig.baseUrl}/users/register',
                             );
                             final response = await http.post(
                               url,
@@ -2624,7 +2621,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
   ) {
-    const String baseUrl = "http://192.168.1.142:8000/storage/";
+    String storageBaseUrl = ApiConfig.baseUrl.replaceAll('/api', '/storage/');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2662,7 +2659,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ),
                 itemCount: paths.length,
                 itemBuilder: (context, index) {
-                  String fullUrl = "$baseUrl${paths[index]}";
+                  String fullUrl = "$storageBaseUrl${paths[index]}";
                   String heroTag = "admin_image_${label}_$index";
                   return GestureDetector(
                     onTap: () {
@@ -2740,7 +2737,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               InkWell(
                 onTap: () async {
                   final String fileUrl =
-                      'http://192.168.1.142:8000/storage/$path';
+                      '${ApiConfig.baseUrl.replaceAll('/api', '/storage/')}$path';
                   final Uri url = Uri.parse(fileUrl);
                   if (await canLaunchUrl(url))
                     await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -2832,7 +2829,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     try {
       final reportId = widget.reportData['id'];
       final url = Uri.parse(
-        'http://192.168.1.142:8000/api/maintenance/reports/$reportId',
+        '${ApiConfig.baseUrl}/maintenance/reports/$reportId',
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -3202,7 +3199,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('http://192.168.1.142:8000/api/users');
+      final url = Uri.parse('${ApiConfig.baseUrl}/users');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

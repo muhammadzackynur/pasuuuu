@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
+import 'api_config.dart'; // Import konfigurasi API terpusat
 
 class KonfirmasiLaporanScreen extends StatefulWidget {
   final String userName,
@@ -53,7 +53,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://192.168.1.142:8000/api/maintenance/report");
+      // PERBAIKAN: Menggunakan ApiConfig.baseUrl
+      var url = Uri.parse("${ApiConfig.baseUrl}/maintenance/report");
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({"Accept": "application/json"});
 
@@ -321,39 +322,34 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
             ),
           ),
           const Divider(color: Colors.white10, height: 20),
-          ...data.entries
-              .map(
-                (e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          e.key,
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      const Text(": ", style: TextStyle(color: Colors.grey)),
-                      Expanded(
-                        child: Text(
-                          e.value,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+          ...data.entries.map(
+            (e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      e.key,
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
                   ),
-                ),
-              )
-              .toList(),
+                  const Text(": ", style: TextStyle(color: Colors.grey)),
+                  Expanded(
+                    child: Text(
+                      e.value,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

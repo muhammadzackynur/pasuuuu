@@ -4,10 +4,11 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:camera/camera.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart'; // Pastikan OneSignal di-import
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 import 'dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'api_config.dart'; // Import file konfigurasi API yang baru dibuat
 
 class LoginScreen extends StatefulWidget {
   final String roleTitle;
@@ -36,8 +37,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  // URL SERVER (IP: 192.168.1.142)
-  final String serverUrl = 'http://192.168.1.142:8000/api';
+  // Variabel serverUrl dihapus dan digantikan oleh ApiConfig.baseUrl
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);
@@ -125,7 +125,8 @@ class _LoginScreenState extends State<LoginScreen>
       XFile picture = await _cameraController!.takePicture();
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$serverUrl/register-fingerprint'),
+        // Menggunakan ApiConfig.baseUrl
+        Uri.parse('${ApiConfig.baseUrl}/register-fingerprint'),
       );
       request.headers.addAll({'Accept': 'application/json'});
       request.fields['user_id'] = userId;
@@ -185,7 +186,8 @@ class _LoginScreenState extends State<LoginScreen>
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$serverUrl/login-fingerprint'),
+        // Menggunakan ApiConfig.baseUrl
+        Uri.parse('${ApiConfig.baseUrl}/login-fingerprint'),
       );
       request.headers.addAll({'Accept': 'application/json'});
       request.fields['user_id'] = currentSavedId;
@@ -226,7 +228,8 @@ class _LoginScreenState extends State<LoginScreen>
           ? "admin"
           : "tim_lapangan";
       final response = await http.post(
-        Uri.parse('$serverUrl/login'),
+        // Menggunakan ApiConfig.baseUrl
+        Uri.parse('${ApiConfig.baseUrl}/login'),
         headers: {'Accept': 'application/json'},
         body: {'user_id': userId, 'role': roleYangDikirim},
       );
