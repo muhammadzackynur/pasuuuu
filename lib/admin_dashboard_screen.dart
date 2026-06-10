@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'notification_screen.dart';
-import 'api_config.dart'; // Import konfigurasi API terpusat
+import 'api_config.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -32,11 +32,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _allReports = [];
   List<dynamic> _recentReports = [];
 
-  // Variabel untuk fitur Notifikasi
   int _unreadNotifCount = 0;
   Timer? _notificationTimer;
 
-  // --- VARIABEL UNTUK MENYIMPAN DATA TEKNISI PER STO ---
   Map<String, List<dynamic>> _stoTechnicians = {};
 
   final Map<String, String> _stoFullNames = {
@@ -60,7 +58,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'SKD': 'SUKODADI',
     'KDM': 'KEDAMEAN',
   };
-  // -----------------------------------------------------
 
   int _totalCount = 0;
   int _pendingCount = 0;
@@ -82,7 +79,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     _fetchAdminData();
     _fetchUnreadCount();
-    _fetchTechnicianData(); // Ambil data teknisi
+    _fetchTechnicianData();
     _startNotificationCheck();
   }
 
@@ -92,36 +89,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.dispose();
   }
 
-  // =========================================================================
-  // FUNGSI UNTUK MENDATA TEKNISI YANG SEDANG DITUGASKAN DI LAPORAN OPEN
-  // =========================================================================
   Set<String> _getBusyTechnicians() {
     Set<String> busyIds = {};
     for (var report in _allReports) {
       String status = (report['status'] ?? '').toString().toLowerCase();
 
-      // Jika statusnya verified/open, teknisi ditarik (maks 5)
-      if (status.contains('verif')) {
+      // Memasukkan CLOSE sebagai status yang sibuk juga (atau jika sudah CLOSE harusnya teknisi bebas, tapi kita asumsikan yang sudah verif/selesai)
+      if (status.contains('verif') || status == 'selesai') {
         String reportSto = (report['sto'] ?? '').toString().toUpperCase();
         if (_stoFullNames.containsKey(reportSto)) {
           reportSto = _stoFullNames[reportSto]!;
         }
 
-        List<dynamic> allTechsInSto = _stoTechnicians[reportSto] ?? [];
-        List<dynamic> assignedTechs = allTechsInSto
-            .take(5)
-            .toList(); // Auto-assign 5 org
+        // Teknisi pelapor dimasukkan sebagai sibuk
+        if (report['user_id'] != null) {
+          busyIds.add(report['user_id'].toString());
+        }
 
-        for (var tech in assignedTechs) {
-          if (tech['user_id'] != null) {
-            busyIds.add(tech['user_id'].toString());
+        List<dynamic> allTechsInSto = _stoTechnicians[reportSto] ?? [];
+        int added = 1;
+        for (var tech in allTechsInSto) {
+          if (tech['user_id']?.toString() != report['user_id']?.toString() &&
+              added < 5) {
+            if (tech['user_id'] != null) {
+              busyIds.add(tech['user_id'].toString());
+            }
+            added++;
           }
         }
       }
     }
-    return busyIds; // Mengembalikan list unik user_id yang sibuk
+    return busyIds;
   }
-  // =========================================================================
 
   Future<void> _fetchTechnicianData() async {
     try {
@@ -216,7 +215,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int p = 0, v = 0, r = 0;
     for (var report in newReports) {
       String status = (report['status'] ?? 'Pending').toString().toLowerCase();
-      if (status.contains('verif'))
+      // Hitung CLOSE sebagai Verified/Selesai di Analytics
+      if (status.contains('verif') || status == 'selesai' || status == 'close')
         v++;
       else if (status.contains('reject'))
         r++;
@@ -279,7 +279,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           String status = (report['status'] ?? 'Pending')
               .toString()
               .toLowerCase();
-          if (status.contains('verif')) {
+          // Hitung CLOSE sebagai bagian dari Verified
+          if (status.contains('verif') ||
+              status == 'selesai' ||
+              status == 'close') {
             v++;
           } else if (status.contains('reject')) {
             r++;
@@ -344,7 +347,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             content: Text(
               "Laporan MAINT-${reportId.toString().padLeft(3, '0')} berhasil di-$newStatus!",
             ),
-            backgroundColor: newStatus == 'Verified'
+            backgroundColor: newStatus == 'Verified' || newStatus == 'CLOSE'
                 ? Colors.green
                 : Colors.red,
           ),
@@ -389,7 +392,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: Text(
-            "Apakah Anda yakin ingin mengubah status laporan MAINT-${reportId.toString().padLeft(3, '0')} menjadi $newStatus?",
+            newStatus == 'CLOSE'
+                ? "Apakah Anda yakin data laporan MAINT-${reportId.toString().padLeft(3, '0')} sudah lengkap dan ingin Menutup Tiket (CLOSE)?"
+                : "Apakah Anda yakin ingin mengubah status laporan MAINT-${reportId.toString().padLeft(3, '0')} menjadi $newStatus?",
             style: const TextStyle(color: Colors.white70),
           ),
           actions: [
@@ -401,7 +406,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: newStatus == 'Verified'
                     ? Colors.green
-                    : Colors.red,
+                    : (newStatus == 'CLOSE' ? Colors.blueAccent : Colors.red),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -411,7 +416,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _updateStatus(reportId, newStatus);
               },
               child: Text(
-                newStatus == 'Verified' ? "Ya, Verifikasi" : "Ya, Tolak",
+                newStatus == 'Verified'
+                    ? "Ya, Verifikasi"
+                    : (newStatus == 'CLOSE' ? "Ya, Tutup Tiket" : "Ya, Tolak"),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -428,14 +435,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   List<dynamic> get _filteredReports {
     if (_selectedFilterIndex == 0) return _allReports;
-    String targetStatus = '';
-    if (_selectedFilterIndex == 1) targetStatus = 'pending';
-    if (_selectedFilterIndex == 2) targetStatus = 'verified';
-    if (_selectedFilterIndex == 3) targetStatus = 'rejected';
-
     return _allReports.where((report) {
       String status = (report['status'] ?? 'pending').toString().toLowerCase();
-      return status.contains(targetStatus);
+      if (_selectedFilterIndex == 1) return status.contains('pending');
+      if (_selectedFilterIndex == 2)
+        return status.contains('verif') ||
+            status == 'selesai' ||
+            status == 'close';
+      if (_selectedFilterIndex == 3) return status.contains('reject');
+      return true;
     }).toList();
   }
 
@@ -730,7 +738,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           : RefreshIndicator(
               onRefresh: () async {
                 await _fetchAdminData();
-                await _fetchTechnicianData(); // Refresh data user juga
+                await _fetchTechnicianData();
               },
               child: bodyContent,
             ),
@@ -1022,16 +1030,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ..sort((a, b) => b.value.compareTo(a.value));
     var top5Sto = sortedSto.take(5).toList();
 
-    Map<String, int> techCount = {};
-    for (var r in _allReports) {
-      String tech = (r['teknisi'] ?? 'Unknown').toString().trim();
-      if (tech.isEmpty) tech = 'Unknown';
-      techCount[tech] = (techCount[tech] ?? 0) + 1;
-    }
-    var sortedTech = techCount.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    var top5Tech = sortedTech.take(5).toList();
-
     Map<String, int> catCount = {};
     for (var r in _allReports) {
       String cat = (r['kategori_kegiatan'] ?? 'Lainnya').toString().trim();
@@ -1041,7 +1039,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     var sortedCat = catCount.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // --- LOGIKA RINGKASAN EKSEKUTIF ---
     String topStoName = top5Sto.isNotEmpty ? top5Sto.first.key : '-';
     int topStoCount = top5Sto.isNotEmpty ? top5Sto.first.value : 0;
 
@@ -1064,7 +1061,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         "Mayoritas laporan saat ini berada pada status $majorityStatus. "
         "Lokasi STO yang paling banyak menerima laporan adalah STO $topStoName ($topStoCount laporan), "
         "dengan jenis gangguan yang mendominasi yaitu $topCatName ($topCatCount kasus).";
-    // ----------------------------------
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -1087,7 +1083,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 20),
 
-          // --- UI RINGKASAN EKSEKUTIF ---
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1132,7 +1127,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 25),
 
-          // ------------------------------
           Row(
             children: [
               Expanded(
@@ -1602,7 +1596,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _buildNewProfileMenuItem(Icons.person_outline, "Edit Profil", () {}),
 
-          // --- MENU MENUJU JADWAL DENGAN PASSING DATA ---
           _buildNewProfileMenuItem(
             Icons.calendar_month,
             "Jadwal & Tim Lapangan (TLA)",
@@ -1610,15 +1603,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => JadwalScreen(
-                    busyTechIds: _getBusyTechnicians(),
-                  ), // Passing list sibuk
+                  builder: (context) =>
+                      JadwalScreen(busyTechIds: _getBusyTechnicians()),
                 ),
               );
             },
           ),
 
-          // ----------------------------------------------
           _buildNewProfileMenuItem(Icons.lock_outline, "Ganti Password", () {}),
           _buildNewProfileMenuItem(
             Icons.notifications_none,
@@ -1715,10 +1706,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String statusString = (data['status'] ?? '').toString().toLowerCase();
     bool isPending = statusString.contains('pending');
     bool isVerified = statusString.contains('verif');
+    bool isSelesai = statusString == 'selesai';
+    bool isClose = statusString == 'close'; // Status baru
 
-    Color statusColor = isPending
-        ? Colors.orange
-        : (isVerified ? Colors.green : Colors.red);
+    Color statusColor = isClose
+        ? Colors
+              .grey // Warna jika sudah ditutup
+        : (isSelesai
+              ? Colors.redAccent
+              : (isPending
+                    ? Colors.orange
+                    : (isVerified ? Colors.green : Colors.red)));
 
     String reportSto = (data['sto'] ?? '').toString().toUpperCase();
     if (_stoFullNames.containsKey(reportSto)) {
@@ -1726,17 +1724,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     List<dynamic> allTechsInSto = _stoTechnicians[reportSto] ?? [];
-    List<dynamic> assignedTechs = allTechsInSto.take(5).toList();
+    List<dynamic> assignedTechs = [];
+
+    assignedTechs.add({
+      'user_id': data['user_id']?.toString() ?? '-',
+      'name': data['teknisi']?.toString() ?? 'Teknisi Pelapor',
+    });
+
+    int maxWorkers = 5;
+    int added = 1;
+    for (var tech in allTechsInSto) {
+      if (tech['user_id']?.toString() != data['user_id']?.toString() &&
+          added < maxWorkers) {
+        assignedTechs.add(tech);
+        added++;
+      }
+    }
 
     int currentWorkers = assignedTechs.length;
-    int maxWorkers = 5;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: const Color(0xFF161F2E),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        // Garis Tepi Merah HANYA jika status = 'selesai'
+        border: Border.all(
+          color: isSelesai ? Colors.red : Colors.white.withOpacity(0.05),
+          width: isSelesai ? 2.0 : 1.0,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -1847,7 +1863,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ],
                         ),
-                        if (isVerified)
+                        // Menampilkan Badge "OPEN" atau "CLOSE" berdasarkan status
+                        if (isVerified || isSelesai || isClose)
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Row(
@@ -1858,16 +1875,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.blueAccent.withOpacity(0.2),
+                                    color: isClose
+                                        ? Colors.grey.withOpacity(0.2)
+                                        : Colors.blueAccent.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: Colors.blueAccent.withOpacity(0.5),
+                                      color: isClose
+                                          ? Colors.grey.withOpacity(0.5)
+                                          : Colors.blueAccent.withOpacity(0.5),
                                     ),
                                   ),
-                                  child: const Text(
-                                    "OPEN",
+                                  child: Text(
+                                    isClose ? "CLOSE" : "OPEN",
                                     style: TextStyle(
-                                      color: Colors.blueAccent,
+                                      color: isClose
+                                          ? Colors.grey
+                                          : Colors.blueAccent,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1931,7 +1954,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
 
-                    if (isVerified) ...[
+                    if (isVerified || isSelesai || isClose) ...[
                       const SizedBox(height: 15),
                       const Divider(color: Colors.white10),
                       const SizedBox(height: 10),
@@ -2067,6 +2090,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ]
+              // --- TAMBAHAN TOMBOL CLOSE JIKA STATUS SELESAI ---
+              else if (isSelesai) ...[
+                const Divider(color: Colors.white10, height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _confirmUpdateStatus(context, data['id'], 'CLOSE'),
+                      icon: const Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        "Tutup Tiket (CLOSE)",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -2207,12 +2263,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildActivityTile(dynamic data) {
-    Color statusColor =
-        (data['status'] ?? '').toString().toLowerCase().contains('verif')
-        ? Colors.green
-        : (data['status'] ?? '').toString().toLowerCase().contains('reject')
-        ? Colors.red
-        : Colors.orange;
+    String status = (data['status'] ?? '').toString().toLowerCase();
+    Color statusColor = status == 'close'
+        ? Colors.grey
+        : (status == 'selesai'
+              ? Colors.redAccent
+              : (status.contains('verif')
+                    ? Colors.green
+                    : (status.contains('reject')
+                          ? Colors.red
+                          : Colors.orange)));
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -2281,12 +2341,23 @@ class AdminDetailLaporanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String idData = "MAINT-${reportData['id'].toString().padLeft(3, '0')}";
-    String status = reportData['status'] ?? 'Pending';
-    Color statusColor = status.toLowerCase().contains('verif')
-        ? Colors.green
-        : status.toLowerCase().contains('reject')
-        ? Colors.red
-        : Colors.orange;
+    String statusString = (reportData['status'] ?? 'Pending')
+        .toString()
+        .toLowerCase();
+
+    bool isSelesai = statusString == 'selesai';
+    bool isClose = statusString == 'close';
+    bool isVerified = statusString.contains('verif');
+
+    Color statusColor = isClose
+        ? Colors.grey
+        : (isSelesai
+              ? Colors.redAccent
+              : (isVerified
+                    ? Colors.green
+                    : statusString.contains('reject')
+                    ? Colors.red
+                    : Colors.orange));
 
     String? latStr = reportData['latitude']?.toString();
     String? lngStr = reportData['longitude']?.toString();
@@ -2366,7 +2437,9 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      status.toUpperCase(),
+                      (reportData['status'] ?? 'Pending')
+                          .toString()
+                          .toUpperCase(),
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
@@ -3157,7 +3230,7 @@ class FullScreenImageScreen extends StatelessWidget {
 }
 
 class JadwalScreen extends StatefulWidget {
-  final Set<String> busyTechIds; // Variabel penampung daftar teknisi sibuk
+  final Set<String> busyTechIds;
 
   const JadwalScreen({super.key, required this.busyTechIds});
 
@@ -3358,7 +3431,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                 ),
                               ),
                             ),
-                            // --- TAMBAHAN KOLOM STATUS ---
                             DataColumn(
                               label: Text(
                                 'Status',
@@ -3368,12 +3440,10 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                 ),
                               ),
                             ),
-                            // -----------------------------
                           ],
                           rows: List.generate(usersInGroup.length, (rowIndex) {
                             final user = usersInGroup[rowIndex];
 
-                            // Cek apakah ID Teknisi ini ada di dalam List "Teknisi Sibuk"
                             bool isBusy = widget.busyTechIds.contains(
                               user['user_id'],
                             );
@@ -3404,7 +3474,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     style: const TextStyle(color: Colors.white),
                                   ),
                                 ),
-                                // --- DATA CELL STATUS ---
                                 DataCell(
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -3434,7 +3503,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     ),
                                   ),
                                 ),
-                                // ------------------------
                               ],
                             );
                           }),

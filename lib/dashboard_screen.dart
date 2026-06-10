@@ -7,8 +7,8 @@ import 'dart:io';
 
 import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
-import 'notification_screen.dart'; // <-- TAMBAHAN: Import screen notifikasi
-import 'api_config.dart'; // <-- TAMBAHAN: Import konfigurasi API terpusat
+import 'notification_screen.dart';
+import 'api_config.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -37,22 +37,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _verifiedCount = 0;
   int _rejectedCount = 0;
 
-  // --- TAMBAHAN: Variabel untuk fitur Notifikasi Lonceng ---
   int _unreadNotifCount = 0;
-  final String serverUrl = ApiConfig.baseUrl; // Menggunakan ApiConfig
-  // ---------------------------------------------------------
+  final String serverUrl = ApiConfig.baseUrl;
 
   @override
   void initState() {
     super.initState();
     _fetchReports();
-    _fetchUnreadCount(); // <-- TAMBAHAN: Panggil saat aplikasi dibuka
+    _fetchUnreadCount();
   }
 
-  // --- TAMBAHAN: Fungsi untuk mengambil jumlah notifikasi belum dibaca ---
   Future<void> _fetchUnreadCount() async {
     try {
-      // Mengirim userId milik teknisi ini agar yang ditarik hanya notif miliknya
       final response = await http.get(
         Uri.parse('$serverUrl/notifications?user_id=${widget.userId}'),
       );
@@ -68,14 +64,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint("Error get notif count: $e");
     }
   }
-  // -----------------------------------------------------------------------
 
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse(
-        '$serverUrl/maintenance/reports', // Menggunakan serverUrl (ApiConfig)
-      );
+      final url = Uri.parse('$serverUrl/maintenance/reports');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -85,7 +78,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         int p = 0, v = 0, r = 0;
         for (var report in fetchedReports) {
           String status = report['status'] ?? 'Pending';
-          if (status.toLowerCase().contains('verif')) {
+          if (status.toLowerCase().contains('verif') ||
+              status.toLowerCase() == 'selesai') {
             v++;
           } else if (status.toLowerCase().contains('reject')) {
             r++;
@@ -102,11 +96,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _isLoading = false;
         });
       } else {
-        print("Gagal mengambil data: ${response.statusCode}");
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      print("Error koneksi: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -171,12 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 IconButton(
                   onPressed: () {
                     _fetchReports();
-                    _fetchUnreadCount(); // Refresh notif saat refresh ditekan
+                    _fetchUnreadCount();
                   },
                   icon: const Icon(Icons.refresh, color: Colors.white),
                 ),
                 if (_selectedIndex != 2)
-                  // --- PERUBAHAN: Ikon Lonceng dengan Badge Notifikasi ---
                   IconButton(
                     onPressed: () async {
                       await Navigator.push(
@@ -186,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               NotificationScreen(userId: widget.userId),
                         ),
                       );
-                      _fetchUnreadCount(); // Refresh saat kembali dari layar notifikasi
+                      _fetchUnreadCount();
                     },
                     icon: Stack(
                       clipBehavior: Clip.none,
@@ -215,7 +206,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                // --------------------------------------------------------
               ],
             ),
       body: _isLoading
@@ -479,9 +469,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 StatusType type = StatusType.pending;
                 Color sColor = Colors.amber;
 
-                if (statusStr.toLowerCase().contains('verif')) {
+                if (statusStr.toLowerCase().contains('verif') ||
+                    statusStr.toLowerCase() == 'selesai') {
                   type = StatusType.verified;
-                  sColor = Colors.green;
+                  sColor = statusStr.toLowerCase() == 'selesai'
+                      ? Colors.redAccent
+                      : Colors.green;
                 } else if (statusStr.toLowerCase().contains('reject')) {
                   type = StatusType.rejected;
                   sColor = Colors.red;
@@ -555,9 +548,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String id = "MAINT-${data['id'].toString().padLeft(3, '0')}";
     String location = data['sto'] ?? 'STO -';
     String status = data['status'] ?? 'TERKIRIM';
-    Color statusColor = status.toLowerCase().contains('pend')
-        ? Colors.amber
-        : Colors.green;
+    Color statusColor = status.toLowerCase() == 'selesai'
+        ? Colors.redAccent
+        : (status.toLowerCase().contains('pend') ? Colors.amber : Colors.green);
 
     return InkWell(
       onTap: () {
@@ -975,6 +968,18 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
 
+  String get storageBaseUrl =>
+      ApiConfig.baseUrl.replaceAll('/api', '/storage/');
+
+  List<String> _getImagesByType(String type) {
+    if (widget.reportData['images'] == null) return [];
+    List<dynamic> allImages = widget.reportData['images'];
+    return allImages
+        .where((img) => img['type'] == type)
+        .map<String>((img) => img['image_path'].toString())
+        .toList();
+  }
+
   Future<void> _uploadPhotosForCategory(String kategori) async {
     try {
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
@@ -986,7 +991,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       String id = widget.reportData['id'].toString();
       var url = Uri.parse(
-        "${ApiConfig.baseUrl}/maintenance/report/$id/add-photos", // Menggunakan ApiConfig
+        "${ApiConfig.baseUrl}/maintenance/report/$id/add-photos",
       );
 
       var request = http.MultipartRequest('POST', url);
@@ -1030,6 +1035,75 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     }
   }
 
+  // --- FUNGSI BARU: MARK AS DONE ---
+  Future<void> _markAsDone() async {
+    final fotoBefore = _getImagesByType('before');
+    final fotoProgress = _getImagesByType('progress');
+    final fotoAfter = _getImagesByType('after');
+
+    if (fotoBefore.isEmpty || fotoProgress.isEmpty || fotoAfter.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text(
+            "Peringatan",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            "Data belum lengkap!\n\nAnda harus mengunggah setidaknya 1 foto untuk masing-masing kategori: Before, Progress, dan After sebelum menekan selesai.",
+            style: TextStyle(color: Colors.grey),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "Mengerti",
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+    try {
+      final url = Uri.parse(
+        '${ApiConfig.baseUrl}/maintenance/reports/${widget.reportData['id']}/status',
+      );
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'status': 'Selesai'}),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Laporan Pekerjaan Berhasil Diselesaikan!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (widget.onRefresh != null) widget.onRefresh!();
+        Navigator.pop(context);
+      } else {
+        throw Exception("Gagal menyelesaikan pekerjaan.");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+  // ---------------------------------
+
   @override
   Widget build(BuildContext context) {
     String idData =
@@ -1037,29 +1111,24 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     String status = widget.reportData['status']?.toString() ?? 'Pending';
 
     Color statusColor = Colors.amber;
-    if (status.toLowerCase().contains('verif')) {
+    if (status.toLowerCase() == 'selesai') {
+      statusColor = Colors.redAccent;
+    } else if (status.toLowerCase().contains('verif')) {
       statusColor = Colors.green;
     } else if (status.toLowerCase().contains('reject')) {
       statusColor = Colors.red;
     }
 
-    // Mengambil latitude dan longitude sebagai String secara aman (mencegah error 'double is not subtype of String')
     String? latStr = widget.reportData['latitude']?.toString();
     String? lngStr = widget.reportData['longitude']?.toString();
 
-    List<dynamic> allImages = widget.reportData['images'] ?? [];
-    List<String> beforePaths = allImages
-        .where((i) => i['type'] == 'before')
-        .map((i) => i['image_path'].toString())
-        .toList();
-    List<String> progressPaths = allImages
-        .where((i) => i['type'] == 'progress')
-        .map((i) => i['image_path'].toString())
-        .toList();
-    List<String> afterPaths = allImages
-        .where((i) => i['type'] == 'after')
-        .map((i) => i['image_path'].toString())
-        .toList();
+    final fotoBefore = _getImagesByType('before');
+    final fotoProgress = _getImagesByType('progress');
+    final fotoAfter = _getImagesByType('after');
+
+    bool isVerifiedAndNotDone =
+        status.toLowerCase().contains('verif') &&
+        status.toLowerCase() != 'selesai';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1623),
@@ -1131,7 +1200,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
             ),
             const SizedBox(height: 24),
 
-            // --- BAGIAN LOKASI YANG DIPERBARUI ---
             const Text(
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
@@ -1170,7 +1238,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
                   const Divider(color: Colors.white10, height: 30),
 
-                  // Menggunakan variabel String yang aman dari error
                   _buildDetailRow("Latitude", latStr ?? '-'),
                   _buildDetailRow("Longitude", lngStr ?? '-'),
 
@@ -1282,13 +1349,49 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
             ),
             const SizedBox(height: 12),
 
-            _buildPhotoCategory("Before", beforePaths),
+            _buildPhotoCategory("Before", fotoBefore),
             const SizedBox(height: 15),
-            _buildPhotoCategory("Progress", progressPaths),
+            _buildPhotoCategory("Progress", fotoProgress),
             const SizedBox(height: 15),
-            _buildPhotoCategory("After", afterPaths),
+            _buildPhotoCategory("After", fotoAfter),
 
             const SizedBox(height: 40),
+
+            // --- TAMBAHAN: TOMBOL SELESAI PEKERJAAN ---
+            if (isVerifiedAndNotDone)
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: _isUploading ? null : _markAsDone,
+                  icon: const Icon(Icons.check_circle, color: Colors.white),
+                  label: _isUploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Pekerjaan Selesai",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -1337,9 +1440,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   }
 
   Widget _buildPhotoCategory(String label, List<String> paths) {
-    // Menggunakan base URL storage dari ApiConfig
-    final String baseUrl = ApiConfig.baseUrl.replaceAll('/api', '/storage/');
-
     bool canAddPhoto =
         widget.currentUserId == widget.reportData['user_id'].toString();
 
@@ -1453,7 +1553,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                 );
               }
 
-              String fullUrl = baseUrl + paths[index];
+              String fullUrl = storageBaseUrl + paths[index];
               String heroTag = "image_${label}_$index";
 
               return GestureDetector(
@@ -1493,10 +1593,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     );
   }
 }
-
-// ======================================================================
-// --- HALAMAN FULL SCREEN IMAGE VIEWER DENGAN ZOOM ---
-// ======================================================================
 
 class FullScreenImageScreen extends StatelessWidget {
   final String imageUrl;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'role_selection_screen.dart'; // Mengubah import ke halaman role
+import 'role_selection_screen.dart';
 import 'api_config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -26,10 +26,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String currentUserName;
   bool isLoading = false;
 
+  // Variabel untuk Pencapaian (Achievements)
+  int totalSubmitted = 0;
+  int totalClosed = 0;
+  int currentStreak = 0;
+  bool isLoadingAchievements = true;
+
   @override
   void initState() {
     super.initState();
     currentUserName = widget.userName;
+    if (widget.role == 'Tim Lapangan') {
+      _fetchAchievements();
+    } else {
+      isLoadingAchievements = false;
+    }
+  }
+
+  // --- FUNGSI API FETCH ACHIEVEMENTS ---
+  Future<void> _fetchAchievements() async {
+    final url = Uri.parse(
+      '${ApiConfig.baseUrl}/user/achievements/${widget.userId}',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          if (mounted) {
+            setState(() {
+              totalSubmitted = data['data']['total_submitted'] ?? 0;
+              totalClosed = data['data']['total_closed'] ?? 0;
+              currentStreak = data['data']['current_streak'] ?? 0;
+              isLoadingAchievements = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoadingAchievements = false;
+        });
+      }
+    }
   }
 
   // --- FUNGSI API UPDATE PROFIL ---
@@ -38,7 +79,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isLoading = true;
     });
 
-    // PASTIKAN IP SESUAI DENGAN SERVER ANDA
     final url = Uri.parse(
       '${ApiConfig.baseUrl}/user/update/${widget.databaseId}',
     );
@@ -153,8 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              Navigator.pop(context); // Tutup dialog
-              // Arahkan ke halaman pemilihan role (RoleSelectionScreen) dan hapus riwayat rute sebelumnya
+              Navigator.pop(context);
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
@@ -287,6 +326,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 24),
 
+            // --- PENCAPAIAN SAYA (Hanya tampil untuk Tim Lapangan) ---
+            if (widget.role == 'Tim Lapangan') _buildAchievementsSection(),
+
             // --- MENU OPTIONS ---
             const Align(
               alignment: Alignment.centerLeft,
@@ -307,7 +349,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _showEditProfileDialog,
             ),
 
-            // MENU JADWAL TIM LAPANGAN (TLA)
             _buildMenuTile(
               icon: Icons.calendar_month,
               title: "Jadwal & Tim Lapangan (TLA)",
@@ -368,6 +409,122 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Widget Bagian Pencapaian
+  Widget _buildAchievementsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            "Pencapaian Saya",
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        isLoadingAchievements
+            ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildBadgeCard(
+                      title: "Kontributor Aktif",
+                      current: totalSubmitted,
+                      target: 50,
+                      icon: Icons.upload_file,
+                      activeColor: Colors.blue,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildBadgeCard(
+                      title: "Bintang Lapangan",
+                      current: totalClosed,
+                      target: 50,
+                      icon: Icons.star_rounded,
+                      activeColor: Colors.orange,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildBadgeCard(
+                      title: "Pekerja Tanpa Cacat",
+                      current: currentStreak,
+                      target: 20,
+                      icon: Icons.shield_rounded,
+                      activeColor: Colors.green,
+                    ),
+                  ],
+                ),
+              ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  // Widget Kartu Lencana Satuan
+  Widget _buildBadgeCard({
+    required String title,
+    required int current,
+    required int target,
+    required IconData icon,
+    required Color activeColor,
+  }) {
+    bool isAchieved = current >= target;
+    double progress = (current / target).clamp(0.0, 1.0);
+
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: isAchieved ? activeColor : Colors.white10,
+          width: isAchieved ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 40,
+            color: isAchieved ? activeColor : Colors.grey.withOpacity(0.5),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isAchieved ? Colors.white : Colors.grey,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.black26,
+            color: activeColor,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "$current / $target",
+            style: TextStyle(
+              color: isAchieved ? activeColor : Colors.grey,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuTile({
     required IconData icon,
     required String title,
@@ -392,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ======================================================================
 // --- HALAMAN JADWAL & DAFTAR TIM (BERUPA TABEL PER STO) ---
 // ======================================================================
-
+// (Kode JadwalScreen tetap sama seperti sebelumnya, dibiarkan apa adanya)
 class JadwalScreen extends StatefulWidget {
   const JadwalScreen({super.key});
 
@@ -422,7 +579,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
         Map<String, List<dynamic>> tempGroup = {};
 
         for (var user in users) {
-          // 1. FILTER: HANYA TAMPILKAN TIM LAPANGAN (TLA)
           String role = user['role']?.toString() ?? '';
           if (role != 'Tim Lapangan') {
             continue;
@@ -430,19 +586,16 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
           String userId = user['user_id']?.toString().toUpperCase() ?? '';
 
-          // 2. FILTER: HAPUS "LAINNYA" (Harus punya tanda '-' seperti KJR-001)
           if (!userId.contains('-')) {
             continue;
           }
 
-          // Mengambil kode unik STO (misal: "KJR" dari "KJR-001")
           String prefix = userId.split('-')[0];
 
           if (!tempGroup.containsKey(prefix)) {
             tempGroup[prefix] = [];
           }
 
-          // Masukkan ke grup STO yang sesuai
           tempGroup[prefix]!.add(user);
         }
 
@@ -472,7 +625,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil daftar STO dan mengurutkannya sesuai abjad (KDG, KJR, MGS, dst)
     List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
 
     return Scaffold(
@@ -505,7 +657,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- HEADER STO ---
                     Row(
                       children: [
                         Container(
@@ -537,8 +688,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-
-                    // --- TABEL DATA TEKNISI ---
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -604,7 +753,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 30), // Jarak antar STO
+                    const SizedBox(height: 30),
                   ],
                 );
               },

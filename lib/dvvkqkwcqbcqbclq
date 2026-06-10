@@ -1,0 +1,946 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+
+import '../../state/session_controller.dart';
+import '../premium/premium_screen.dart';
+import '../../data/services/api_client.dart';
+
+// --- MODEL UNTUK HISTORY TIMELINE ---
+class StayPoint {
+  final LatLng coord;
+  final DateTime arrivalTime;
+  DateTime departureTime;
+  String placeName;
+  bool isLoadingPlace;
+  double distanceFromPrevious;
+  bool isOnlineStart; // <-- Menandai ini adalah titik pertama saat user online
+
+  StayPoint({
+    required this.coord,
+    required this.arrivalTime,
+    required this.departureTime,
+    required this.placeName,
+    this.isLoadingPlace = true,
+    this.distanceFromPrevious = 0.0,
+    this.isOnlineStart = false,
+  });
+}
+
+class LocationHistoryScreen extends StatefulWidget {
+  const LocationHistoryScreen({super.key});
+
+  @override
+  State<LocationHistoryScreen> createState() => _LocationHistoryScreenState();
+}
+
+class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
+  final Color darkBrown = const Color(0xFF5B4D41);
+  final Color bgCream = const Color(0xFFFFFFFF);
+  final Color textLight = const Color(0xFF9E8E78);
+  final Color badgeCream = const Color(0xFFF6EDE2);
+
+  int selectedDateIndex = 6;
+  bool isLoading = false;
+
+  List<LatLng> rawRoutePoints = [];
+  List<StayPoint> timelineStays = [];
+
+  List<dynamic> circleMembers = [];
+  int? selectedUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  Future<void> _initializeData() async {
+    await _fetchCircleMembers();
+  }
+
+  Future<void> _fetchCircleMembers() async {
+    final session = context.read<SessionController>();
+    final currentCircle = session.currentCircle;
+    final currentUser = session.currentUser;
+
+    if (currentCircle == null) return;
+
+    try {
+      final response = await ApiClient().get(
+        '/circles/${currentCircle.id}/members',
+        requiresAuth: true,
+      );
+
+      List<dynamic> data = [];
+      if (response != null && response['data'] is List) {
+        data = response['data'] as List<dynamic>;
+      }
+
+      if (mounted) {
+        setState(() {
+          circleMembers = data;
+          if (circleMembers.isNotEmpty) {
+            final me = circleMembers.firstWhere(
+              (m) => m['user_id'] == currentUser?.id,
+              orElse: () => circleMembers.first,
+            );
+            selectedUserId = me['user_id'];
+          }
+        });
+        _fetchLocationHistory(selectedDateIndex);
+      }
+    } catch (e) {
+      debugPrint('Gagal mengambil daftar anggota: $e');
+      if (mounted) _fetchLocationHistory(selectedDateIndex);
+    }
+  }
+
+  Future<void> _fetchLocationHistory(int index) async {
+    final session = context.read<SessionController>();
+    final currentCircle = session.currentCircle;
+
+    if (currentCircle == null) return;
+
+    if (!session.isPremium) {
+      setState(() {
+        isLoading = false;
+        rawRoutePoints = [];
+        timelineStays = [];
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      rawRoutePoints = [];
+      timelineStays = [];
+    });
+
+    final now = DateTime.now();
+    final date = now.subtract(Duration(days: 6 - index));
+    final dateString = DateFormat('yyyy-MM-dd').format(date);
+
+    try {
+      String url =
+          '/circles/${currentCircle.id}/location-history?date=$dateString';
+      if (selectedUserId != null) url += '&user_id=$selectedUserId';
+
+      final response = await ApiClient().get(url, requiresAuth: true);
+
+      List<dynamic> rawData = [];
+      if (response != null && response['data'] is List) {
+        rawData = response['data'] as List<dynamic>;
+      }
+
+      List<dynamic> historyData = [];
+      for (var userNode in rawData) {
+        if (selectedUserId != null && userNode['user_id'] != selectedUserId)
+          continue;
+        if (userNode['history'] != null && userNode['history'] is List) {
+          historyData.addAll(userNode['history']);
+        }
+      }
+
+      // Filter hanya tanggal yang dipilih
+      historyData =
+          historyData.where((item) {
+            String dateStr =
+                item['recorded_at']?.toString() ??
+                item['updated_at']?.toString() ??
+                item['created_at']?.toString() ??
+                '';
+            DateTime? parsedTime = DateTime.tryParse(dateStr);
+            if (parsedTime != null) {
+              String localDate = DateFormat(
+                'yyyy-MM-dd',
+              ).format(parsedTime.toLocal());
+              return localDate == dateString;
+            }
+            return false;
+          }).toList();
+
+      if (historyData.isEmpty) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // Urutkan dari paling lama ke paling baru
+      historyData.sort((a, b) {
+        String dateAStr =
+            a['recorded_at']?.toString() ??
+            a['updated_at']?.toString() ??
+            a['created_at']?.toString() ??
+            '';
+        String dateBStr =
+            b['recorded_at']?.toString() ??
+            b['updated_at']?.toString() ??
+            b['created_at']?.toString() ??
+            '';
+        DateTime timeA = DateTime.tryParse(dateAStr) ?? DateTime.now();
+        DateTime timeB = DateTime.tryParse(dateBStr) ?? DateTime.now();
+        return timeA.compareTo(timeB);
+      });
+
+      final Distance distanceCalc = const Distance();
+      List<StayPoint> recordedPoints = [];
+      List<LatLng> routes = [];
+
+      // ----------------------------------------------------------------
+      // LOGIKA BARU:
+      // 1. Titik PERTAMA selalu dicatat sebagai "online start" (titik A)
+      // 2. Setiap pergerakan >= 20 meter dari titik terakhir dicatat
+      // 3. Gap waktu > 10 menit antar data = dianggap offline lalu online
+      //    lagi, sehingga titik berikutnya dicatat sebagai "online start"
+      // ----------------------------------------------------------------
+      LatLng? lastRecordedCoord;
+      DateTime? lastDataTime;
+      bool isFirstPoint = true;
+
+      // Threshold gap offline: jika jeda antar data > 10 menit,
+      // dianggap user sempat offline
+      const int offlineGapMinutes = 10;
+
+      for (var item in historyData) {
+        final double lat =
+            double.tryParse(item['latitude']?.toString() ?? '0') ?? 0.0;
+        final double lng =
+            double.tryParse(item['longitude']?.toString() ?? '0') ?? 0.0;
+        if (lat == 0.0 && lng == 0.0) continue;
+
+        final point = LatLng(lat, lng);
+        String dateStr =
+            item['recorded_at']?.toString() ??
+            item['updated_at']?.toString() ??
+            item['created_at']?.toString() ??
+            '';
+        final time = (DateTime.tryParse(dateStr) ?? DateTime.now()).toLocal();
+
+        routes.add(point);
+
+        // Cek apakah ini titik pertama atau setelah gap offline
+        bool isOnlineStart = false;
+        if (isFirstPoint) {
+          isOnlineStart = true;
+          isFirstPoint = false;
+        } else if (lastDataTime != null) {
+          final gapMinutes = time.difference(lastDataTime!).inMinutes;
+          if (gapMinutes >= offlineGapMinutes) {
+            // User sempat offline, lalu online lagi di titik ini
+            isOnlineStart = true;
+          }
+        }
+
+        // Hitung jarak dari titik terakhir yang DICATAT
+        double distFromLast = 0.0;
+        if (lastRecordedCoord != null) {
+          distFromLast =
+              distanceCalc.distance(lastRecordedCoord!, point) / 1000;
+        }
+
+        final bool movedEnough =
+            lastRecordedCoord == null ||
+            distanceCalc.distance(lastRecordedCoord!, point) >= 20.0;
+
+        // Catat titik jika:
+        // - Ini adalah titik pertama / online start (dari off ke on)
+        // - ATAU sudah bergerak >= 20 meter dari titik terakhir yang dicatat
+        if (isOnlineStart || movedEnough) {
+          recordedPoints.add(
+            StayPoint(
+              coord: point,
+              arrivalTime: time,
+              departureTime: time,
+              placeName: 'Memuat lokasi...',
+              isLoadingPlace: true,
+              distanceFromPrevious: distFromLast,
+              isOnlineStart: isOnlineStart,
+            ),
+          );
+          lastRecordedCoord = point;
+        }
+
+        lastDataTime = time;
+      }
+
+      if (recordedPoints.isEmpty) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // Balik urutan: terbaru di atas
+      final reversedPoints = recordedPoints.reversed.toList();
+
+      setState(() {
+        rawRoutePoints = routes;
+        timelineStays = reversedPoints;
+        isLoading = false;
+      });
+
+      _fetchPlaceNames(reversedPoints);
+    } catch (e) {
+      debugPrint('❌ Error fetch history: $e');
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchPlaceNames(List<StayPoint> stays) async {
+    for (int i = 0; i < stays.length; i++) {
+      if (!mounted) return;
+
+      bool success = false;
+      int retryCount = 0;
+
+      while (!success && retryCount < 3) {
+        try {
+          final url = Uri.parse(
+            'https://nominatim.openstreetmap.org/reverse'
+            '?format=json'
+            '&lat=${stays[i].coord.latitude}'
+            '&lon=${stays[i].coord.longitude}'
+            '&zoom=16'
+            '&addressdetails=1',
+          );
+
+          final response = await http
+              .get(url, headers: {'User-Agent': 'WhereTFApp/1.0'})
+              .timeout(const Duration(seconds: 10));
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final address = data['address'] as Map<String, dynamic>? ?? {};
+            final String placeName = _buildPlaceName(address);
+
+            if (mounted) {
+              setState(() {
+                stays[i].placeName = placeName;
+                stays[i].isLoadingPlace = false;
+              });
+            }
+            success = true;
+          } else {
+            retryCount++;
+            await Future.delayed(Duration(milliseconds: 800 * retryCount));
+          }
+        } catch (e) {
+          retryCount++;
+          debugPrint('Geocode error (attempt $retryCount): $e');
+          await Future.delayed(Duration(milliseconds: 800 * retryCount));
+        }
+      }
+
+      if (!success && mounted) {
+        setState(() {
+          stays[i].placeName =
+              '${stays[i].coord.latitude.toStringAsFixed(5)}, '
+              '${stays[i].coord.longitude.toStringAsFixed(5)}';
+          stays[i].isLoadingPlace = false;
+        });
+      }
+
+      await Future.delayed(const Duration(milliseconds: 700));
+    }
+  }
+
+  String _buildPlaceName(Map<String, dynamic> address) {
+    final specific =
+        address['amenity'] ??
+        address['shop'] ??
+        address['tourism'] ??
+        address['leisure'] ??
+        address['building'] ??
+        address['office'];
+
+    final road =
+        address['road'] ??
+        address['pedestrian'] ??
+        address['footway'] ??
+        address['path'];
+
+    final area =
+        address['neighbourhood'] ??
+        address['suburb'] ??
+        address['quarter'] ??
+        address['village'] ??
+        address['hamlet'];
+
+    final city =
+        address['town'] ??
+        address['city'] ??
+        address['municipality'] ??
+        address['county'];
+
+    final List<String> parts = [];
+    if (specific != null) parts.add(specific.toString());
+    if (road != null) parts.add(road.toString());
+    if (area != null && parts.length < 2) parts.add(area.toString());
+    if (city != null && parts.length < 2) parts.add(city.toString());
+
+    if (parts.isNotEmpty) return parts.join(', ');
+
+    return address['county']?.toString() ??
+        address['state']?.toString() ??
+        'Lokasi tidak diketahui';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<SessionController>();
+    final currentCircle = session.currentCircle;
+    final isPremium = session.isPremium;
+
+    return Scaffold(
+      backgroundColor: bgCream,
+      appBar: AppBar(
+        backgroundColor: bgCream,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.black87,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          children: [
+            Text(
+              'Location History',
+              style: GoogleFonts.inter(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              currentCircle?.displayName ?? 'No active circle',
+              style: GoogleFonts.inter(color: textLight, fontSize: 13),
+            ),
+          ],
+        ),
+        centerTitle: true,
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMemberSelector(),
+                  const SizedBox(height: 24),
+                  _buildDateSelector(isPremium),
+                  const SizedBox(height: 24),
+                  _buildMapArea(isPremium),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (!isPremium || isLoading) return const SizedBox.shrink();
+                  if (timelineStays.isEmpty)
+                    return _buildEmptyHistory(isPremium);
+                  return _buildTimelineItem(
+                    timelineStays[index],
+                    index == timelineStays.length - 1,
+                    index == 0,
+                  );
+                },
+                childCount:
+                    (!isPremium || isLoading)
+                        ? 0
+                        : (timelineStays.isEmpty ? 1 : timelineStays.length),
+              ),
+            ),
+          ),
+          if (isLoading && timelineStays.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF5B4D41)),
+                ),
+              ),
+            ),
+          if (!isPremium)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 40, bottom: 40),
+                child: Center(
+                  child: GestureDetector(
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PremiumScreen(),
+                          ),
+                        ),
+                    child: Text(
+                      'Upgrade to see history.',
+                      style: GoogleFonts.inter(
+                        color: textLight,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemberSelector() {
+    if (circleMembers.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'FRIENDS',
+              style: GoogleFonts.inter(
+                color: Colors.black54,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
+            ),
+            Text(
+              'See all >',
+              style: GoogleFonts.inter(
+                color: textLight,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 115,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: circleMembers.length,
+            itemBuilder: (context, index) {
+              final member = circleMembers[index];
+              final user = member['user'] ?? {};
+              final userId = member['user_id'];
+              final isSelected = userId == selectedUserId;
+
+              String name = user['name']?.toString() ?? 'User';
+              if (userId == context.read<SessionController>().currentUser?.id)
+                name = 'You';
+
+              final photoUrl = user['photo']?.toString();
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() => selectedUserId = userId);
+                  _fetchLocationHistory(selectedDateIndex);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 20),
+                  child: Column(
+                    children: [
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor:
+                                isSelected
+                                    ? darkBrown.withOpacity(0.2)
+                                    : Colors.grey.shade200,
+                            backgroundImage:
+                                photoUrl != null && photoUrl.isNotEmpty
+                                    ? NetworkImage(photoUrl)
+                                    : null,
+                            child:
+                                photoUrl == null || photoUrl.isEmpty
+                                    ? Text(
+                                      name[0].toUpperCase(),
+                                      style: GoogleFonts.inter(
+                                        color: darkBrown,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                    : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 4,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2EBA6F),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name.split(' ')[0],
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateSelector(bool isPremium) {
+    final now = DateTime.now();
+    final dates = List.generate(7, (index) {
+      final date = now.subtract(Duration(days: 6 - index));
+      final dayName =
+          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][date.weekday - 1];
+      return {'day': dayName, 'date': date.day.toString()};
+    });
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(dates.length, (index) {
+        final item = dates[index];
+        final bool isSelected = selectedDateIndex == index;
+        final bool isLocked = !isPremium && index < 6;
+
+        return GestureDetector(
+          onTap: () {
+            if (isLocked) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PremiumScreen()),
+              );
+              return;
+            }
+            setState(() => selectedDateIndex = index);
+            _fetchLocationHistory(index);
+          },
+          child: Container(
+            width: 44,
+            height: 60,
+            decoration: BoxDecoration(
+              color: isSelected ? darkBrown : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected ? darkBrown : Colors.grey.shade300,
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLocked)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 2),
+                    child: Icon(Icons.lock, size: 10, color: Colors.black26),
+                  )
+                else
+                  Text(
+                    item['day'].toString(),
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                Text(
+                  item['date'].toString(),
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color:
+                        isSelected
+                            ? Colors.white
+                            : (isLocked ? Colors.black26 : Colors.black87),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMapArea(bool isPremium) {
+    if (!isPremium) {
+      return Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: badgeCream,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE8D4BD), width: 1),
+        ),
+        child: Center(
+          child: Text(
+            'Map tidak tersedia',
+            style: GoogleFonts.inter(
+              color: textLight,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (isLoading) {
+      return Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: badgeCream,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF5B4D41)),
+        ),
+      );
+    }
+
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: badgeCream,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8D4BD), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child:
+            rawRoutePoints.isEmpty
+                ? Center(
+                  child: Text(
+                    'Tidak ada data lokasi',
+                    style: GoogleFonts.inter(color: textLight),
+                  ),
+                )
+                : FlutterMap(
+                  options: MapOptions(
+                    initialCenter:
+                        timelineStays.isNotEmpty
+                            ? timelineStays.first.coord
+                            : const LatLng(0, 0),
+                    initialZoom: 14.5,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.wheretf',
+                    ),
+                    PolylineLayer(
+                      polylines: <Polyline<Object>>[
+                        Polyline<Object>(
+                          points: rawRoutePoints,
+                          strokeWidth: 4.0,
+                          color: darkBrown.withOpacity(0.8),
+                          pattern: StrokePattern.dashed(
+                            segments: const [8.0, 6.0],
+                          ),
+                        ),
+                      ],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        if (timelineStays.isNotEmpty)
+                          Marker(
+                            point: timelineStays.last.coord,
+                            width: 14,
+                            height: 14,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2EBA6F),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        if (timelineStays.isNotEmpty)
+                          Marker(
+                            point: timelineStays.first.coord,
+                            width: 30,
+                            height: 30,
+                            alignment: Alignment.topCenter,
+                            child: Icon(
+                              Icons.location_on,
+                              color: darkBrown,
+                              size: 30,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(StayPoint stay, bool isLast, bool isLatest) {
+    // Label keterangan jarak / status titik
+    String distanceText;
+    if (stay.isOnlineStart && stay.distanceFromPrevious == 0.0) {
+      // Titik pertama hari itu
+      distanceText = 'Titik Awal (Started here)';
+    } else if (stay.isOnlineStart) {
+      // Online lagi setelah offline
+      distanceText = 'Online kembali';
+    } else if (stay.distanceFromPrevious > 0) {
+      if (stay.distanceFromPrevious < 1.0) {
+        distanceText =
+            '${(stay.distanceFromPrevious * 1000).toInt()} meter dari posisi sebelumnya';
+      } else {
+        distanceText =
+            '${stay.distanceFromPrevious.toStringAsFixed(1)} km dari posisi sebelumnya';
+      }
+    } else {
+      distanceText = 'Titik Awal (Started here)';
+    }
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Dot & garis timeline
+          Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color:
+                      isLatest
+                          ? const Color(0xFF2EBA6F)
+                          : stay.isOnlineStart
+                          ? darkBrown // warna berbeda untuk online start
+                          : const Color(0xFFD8B36A),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 1.5,
+                    color: const Color(0xFFD8B36A).withOpacity(0.5),
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          // Konten teks — TANPA badge durasi
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Jam saja, tanpa badge di sebelah kanan
+                  Text(
+                    DateFormat('hh:mm a').format(stay.arrivalTime),
+                    style: GoogleFonts.inter(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Nama tempat / shimmer
+                  stay.isLoadingPlace
+                      ? _buildPlaceNameShimmer()
+                      : Text(
+                        stay.placeName,
+                        style: GoogleFonts.inter(
+                          color: isLatest ? darkBrown : Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                  const SizedBox(height: 4),
+                  // Keterangan jarak
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          distanceText,
+                          style: GoogleFonts.inter(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceNameShimmer() {
+    return Container(
+      height: 18,
+      width: 180,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
+
+  Widget _buildEmptyHistory(bool isPremium) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Text(
+          isPremium
+              ? 'No location data found for this day.'
+              : 'Upgrade to see history.',
+          style: GoogleFonts.inter(color: textLight),
+        ),
+      ),
+    );
+  }
+}

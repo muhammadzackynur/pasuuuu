@@ -9,6 +9,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'api_config.dart'; // Import file konfigurasi API yang baru dibuat
+import 'role_selection_screen.dart'; // Wajib ditambahkan agar bisa kembali ke pemilihan role
 
 class LoginScreen extends StatefulWidget {
   final String roleTitle;
@@ -36,8 +37,6 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
-
-  // Variabel serverUrl dihapus dan digantikan oleh ApiConfig.baseUrl
 
   // ─── Color palette ───────────────────────────────────────────────────────
   static const Color _bgDeep = Color(0xFF080E1C);
@@ -125,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen>
       XFile picture = await _cameraController!.takePicture();
       var request = http.MultipartRequest(
         'POST',
-        // Menggunakan ApiConfig.baseUrl
         Uri.parse('${ApiConfig.baseUrl}/register-fingerprint'),
       );
       request.headers.addAll({'Accept': 'application/json'});
@@ -186,7 +184,6 @@ class _LoginScreenState extends State<LoginScreen>
 
       var request = http.MultipartRequest(
         'POST',
-        // Menggunakan ApiConfig.baseUrl
         Uri.parse('${ApiConfig.baseUrl}/login-fingerprint'),
       );
       request.headers.addAll({'Accept': 'application/json'});
@@ -228,7 +225,6 @@ class _LoginScreenState extends State<LoginScreen>
           ? "admin"
           : "tim_lapangan";
       final response = await http.post(
-        // Menggunakan ApiConfig.baseUrl
         Uri.parse('${ApiConfig.baseUrl}/login'),
         headers: {'Accept': 'application/json'},
         body: {'user_id': userId, 'role': roleYangDikirim},
@@ -242,13 +238,15 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  /// Hapus saved ID → kembali ke menu Input ID & Daftar Wajah.
+  /// Hapus saved ID → kembali ke menu Pemilihan Role & Input ID.
   Future<void> _clearSavedData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    // 1. Hapus data ID yang tersimpan di memori HP
     await prefs.remove('saved_user_id_${widget.roleTitle}');
 
     if (!mounted) return;
 
+    // 2. Matikan semua proses kamera dan loading
     setState(() {
       _hasSavedId = false;
       _savedUserId = '';
@@ -257,6 +255,13 @@ class _LoginScreenState extends State<LoginScreen>
       _isAutoScanning = false;
       _isLoading = false;
     });
+
+    // 3. Arahkan pengguna kembali ke halaman Role Selection (dan bersihkan tumpukan rute)
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const RoleSelectionScreen()),
+      (route) => false,
+    );
   }
 
   // =========================================================================
@@ -593,11 +598,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── REGISTER FACE BODY ────────────────────────────────────────────────────
   Widget _buildRegisterFaceBody() {
-    // Menghitung lebar dinamis agar memenuhi layar (dikurangi sedikit padding)
     double screenWidth = MediaQuery.of(context).size.width;
-    double cameraWidth =
-        screenWidth - 56; // 56 karena ada padding 28 di kiri dan kanan
-    double cameraHeight = cameraWidth * (4 / 3); // Rasio presisi 3:4 (Portrait)
+    double cameraWidth = screenWidth - 56;
+    double cameraHeight = cameraWidth * (4 / 3);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -614,7 +617,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 24),
 
-          // Camera Frame Portrait (Lebar memenuhi layar dengan Rasio 3:4) untuk Register
+          // Camera Frame Portrait
           Container(
             width: cameraWidth,
             height: cameraHeight,
@@ -631,11 +634,9 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(
-                27,
-              ), // Curve menyesuaikan border luar
+              borderRadius: BorderRadius.circular(27),
               child: AspectRatio(
-                aspectRatio: 3 / 4, // Rasio kamera Portrait standard
+                aspectRatio: 3 / 4,
                 child: CameraPreview(_cameraController!),
               ),
             ),
@@ -676,13 +677,20 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 14),
+
           TextButton(
-            onPressed: () => setState(() => _isRegisteringFace = false),
+            // Fungsi _clearSavedData dipanggil agar langsung kembali ke pemilihan role
+            onPressed: _clearSavedData,
             child: const Text(
-              'Batal',
-              style: TextStyle(color: _textSecondary, fontSize: 14),
+              'Ganti Akun / Batal',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 14,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
+
           const SizedBox(height: 16),
         ],
       ),
@@ -691,7 +699,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── AUTO SCAN BODY ────────────────────────────────────────────────────────
   Widget _buildAutoScanBody() {
-    // Menghitung lebar dinamis agar memenuhi layar dengan rasio presisi 3:4
     double screenWidth = MediaQuery.of(context).size.width;
     double cameraWidth = screenWidth - 56;
     double cameraHeight = cameraWidth * (4 / 3);
@@ -722,11 +729,10 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 20),
 
-          // Live Camera Preview Portrait (3:4) untuk Auto-Scan (Login)
+          // Live Camera Preview Portrait
           Stack(
             alignment: Alignment.center,
             children: [
-              // Frame Luar Animasi
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 width: cameraWidth + 12,
@@ -741,7 +747,6 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ),
               ),
-              // Frame Dalam & Kamera Live
               AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 width: cameraWidth,
@@ -904,7 +909,8 @@ class _LoginScreenState extends State<LoginScreen>
 
           // ── Tombol Ganti Akun ────────────────────────────────────────────
           TextButton(
-            onPressed: _isLoading ? null : _clearSavedData,
+            // Dilepas dari _isLoading agar pengguna bisa membatalkan / ganti akun KAPAN SAJA
+            onPressed: _clearSavedData,
             child: const Text(
               'Ganti Akun',
               style: TextStyle(
