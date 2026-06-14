@@ -9,6 +9,7 @@ import 'input_laporan_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
 import 'api_config.dart';
+import 'filter_laporan_screen.dart'; // --- IMPORT HALAMAN FILTER ---
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -40,6 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadNotifCount = 0;
   final String serverUrl = ApiConfig.baseUrl;
 
+  // --- STATE UNTUK MENYIMPAN DATA FILTER ---
+  Map<String, dynamic>? activeFilter;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +72,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('$serverUrl/maintenance/reports');
+      String urlStr = '$serverUrl/maintenance/reports';
+
+      // --- TAMBAHAN: MASUKKAN FILTER KE URL (QUERY PARAMS) JIKA ADA ---
+      if (activeFilter != null) {
+        List<String> queryParams = [];
+
+        // Parameter Role
+        if (activeFilter!['role'] != null) {
+          queryParams.add('role=${activeFilter!['role']}');
+        }
+
+        // Parameter Bulan
+        if (activeFilter!['bulan'] != null) {
+          queryParams.add('bulan=${activeFilter!['bulan']}');
+        }
+
+        // Parameter Gangguan (Array)
+        if (activeFilter!['gangguan'] != null) {
+          List<dynamic> gangguanList = activeFilter!['gangguan'];
+          for (String g in gangguanList) {
+            queryParams.add('gangguan[]=${Uri.encodeComponent(g)}');
+          }
+        }
+
+        // Gabungkan ke URL
+        if (queryParams.isNotEmpty) {
+          urlStr += '?${queryParams.join('&')}';
+        }
+      }
+
+      final url = Uri.parse(urlStr);
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -160,13 +194,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               centerTitle: true,
               actions: [
+                // --- 1. TOMBOL FILTER LAPORAN ---
+                IconButton(
+                  onPressed: () async {
+                    final filterData = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            FilterLaporanScreen(role: widget.role),
+                      ),
+                    );
+
+                    if (filterData != null) {
+                      setState(() {
+                        activeFilter = filterData;
+                      });
+                      _fetchReports(); // Refresh data dengan filter baru
+                    }
+                  },
+                  icon: Stack(
+                    children: [
+                      const Icon(Icons.tune, color: Colors.white),
+                      // Indikator titik merah jika filter sedang aktif
+                      if (activeFilter != null &&
+                          (activeFilter!['bulan'] != null ||
+                              (activeFilter!['gangguan'] as List).isNotEmpty))
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // --- 2. TOMBOL REFRESH ---
                 IconButton(
                   onPressed: () {
+                    setState(() {
+                      activeFilter = null; // Hapus filter saat manual refresh
+                    });
                     _fetchReports();
                     _fetchUnreadCount();
                   },
                   icon: const Icon(Icons.refresh, color: Colors.white),
                 ),
+
+                // --- 3. TOMBOL NOTIFIKASI ---
                 if (_selectedIndex != 2)
                   IconButton(
                     onPressed: () async {

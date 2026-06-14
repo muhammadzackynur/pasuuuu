@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'notification_screen.dart';
 import 'api_config.dart';
+import 'filter_laporan_screen.dart'; // --- IMPORT HALAMAN FILTER ---
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -73,6 +74,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ];
 
   int touchedPieIndex = -1;
+
+  // --- STATE UNTUK MENYIMPAN DATA FILTER ADVANCED ---
+  Map<String, dynamic>? activeFilter;
 
   @override
   void initState() {
@@ -263,6 +267,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _fetchAdminData() async {
+    setState(() => _isLoading = true);
     try {
       final url = Uri.parse('${ApiConfig.baseUrl}/maintenance/reports');
       final response = await http.get(url);
@@ -429,18 +434,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
+  // Helper untuk mengubah nama bulan ke format angka (01 - 12)
+  String _getMonthNumber(String monthName) {
+    switch (monthName) {
+      case 'Jan':
+        return '01';
+      case 'Feb':
+        return '02';
+      case 'Mar':
+        return '03';
+      case 'Apr':
+        return '04';
+      case 'Mei':
+        return '05';
+      case 'Jun':
+        return '06';
+      case 'Jul':
+        return '07';
+      case 'Agu':
+        return '08';
+      case 'Sep':
+        return '09';
+      case 'Okt':
+        return '10';
+      case 'Nov':
+        return '11';
+      case 'Des':
+        return '12';
+      default:
+        return '00';
+    }
+  }
+
+  // --- LOGIKA FILTER LOCAL DITERAPKAN DI SINI ---
   List<dynamic> get _filteredReports {
-    if (_selectedFilterIndex == 0) return _allReports;
-    return _allReports.where((report) {
-      String status = (report['status'] ?? 'pending').toString().toLowerCase();
-      if (_selectedFilterIndex == 1) return status.contains('pending');
-      if (_selectedFilterIndex == 2)
-        return status.contains('verif') ||
-            status == 'selesai' ||
-            status == 'close';
-      if (_selectedFilterIndex == 3) return status.contains('reject');
-      return true;
-    }).toList();
+    List<dynamic> result = _allReports;
+
+    // 1. Terapkan Advanced Filter (Bulan & Jenis Gangguan) jika ada
+    if (activeFilter != null) {
+      // Filter Bulan
+      if (activeFilter!['bulan'] != null) {
+        String selectedMonthStr = activeFilter!['bulan'];
+        String targetMonthNumber = _getMonthNumber(selectedMonthStr);
+
+        result = result.where((report) {
+          String dateStr = report['created_at']?.toString() ?? '';
+          if (dateStr.length >= 7) {
+            String reportMonth = dateStr.substring(
+              5,
+              7,
+            ); // Mengambil "MM" dari "YYYY-MM-DD..."
+            return reportMonth == targetMonthNumber;
+          }
+          return false;
+        }).toList();
+      }
+
+      // Filter Jenis Gangguan / Kategori Kegiatan
+      if (activeFilter!['gangguan'] != null &&
+          (activeFilter!['gangguan'] as List).isNotEmpty) {
+        List<dynamic> selectedGangguan = activeFilter!['gangguan'];
+        result = result.where((report) {
+          String kategori = report['kategori_kegiatan']?.toString() ?? '';
+          return selectedGangguan.contains(kategori);
+        }).toList();
+      }
+    }
+
+    // 2. Terapkan Tab Status Filter (Semua, Pending, Verified, Rejected)
+    if (_selectedFilterIndex != 0) {
+      result = result.where((report) {
+        String status = (report['status'] ?? 'pending')
+            .toString()
+            .toLowerCase();
+        if (_selectedFilterIndex == 1) return status.contains('pending');
+        if (_selectedFilterIndex == 2) {
+          return status.contains('verif') ||
+              status == 'selesai' ||
+              status == 'close';
+        }
+        if (_selectedFilterIndex == 3) return status.contains('reject');
+        return true;
+      }).toList();
+    }
+
+    return result;
   }
 
   void _showAddUserDialog(BuildContext context) {
@@ -682,6 +760,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         actions: [
+          // --- TOMBOL FILTER HANYA MUNCUL DI MENU DATA (INDEX 1) ---
+          if (_selectedIndex == 1)
+            IconButton(
+              onPressed: () async {
+                final filterData = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        FilterLaporanScreen(role: widget.role),
+                  ),
+                );
+
+                if (filterData != null) {
+                  setState(() {
+                    activeFilter = filterData;
+                  });
+                }
+              },
+              icon: Stack(
+                children: [
+                  const Icon(Icons.tune, color: Colors.white),
+                  if (activeFilter != null &&
+                      (activeFilter!['bulan'] != null ||
+                          (activeFilter!['gangguan'] as List).isNotEmpty))
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          // --- TOMBOL REFRESH MANUAL ---
+          IconButton(
+            onPressed: () {
+              setState(() {
+                activeFilter =
+                    null; // Menghapus filter yang aktif jika di refresh
+              });
+              _fetchAdminData();
+              _fetchUnreadCount();
+            },
+            icon: const Icon(Icons.refresh, color: Colors.white),
+          ),
           IconButton(
             onPressed: () async {
               await Navigator.push(
@@ -987,6 +1117,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
         ),
+
+        // --- BANNER INFORMASI FILTER ---
+        if (activeFilter != null &&
+            (activeFilter!['bulan'] != null ||
+                (activeFilter!['gangguan'] as List).isNotEmpty))
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            color: const Color(0xFF00D1F3).withOpacity(0.1),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    "Filter aktif diterapkan pada daftar laporan",
+                    style: const TextStyle(
+                      color: Color(0xFF00D1F3),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      activeFilter = null; // Menghapus filter
+                    });
+                  },
+                  child: const Text(
+                    "Hapus Filter",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         Expanded(
           child: currentData.isEmpty
               ? _buildEmptyState()
@@ -3541,7 +3710,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          headingRowColor: MaterialStateProperty.all(
+                          headingRowColor: WidgetStateProperty.all(
                             const Color(0xFF334155),
                           ),
                           dataRowMinHeight: 50,
