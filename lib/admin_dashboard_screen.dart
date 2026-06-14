@@ -94,14 +94,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     for (var report in _allReports) {
       String status = (report['status'] ?? '').toString().toLowerCase();
 
-      // Memasukkan CLOSE sebagai status yang sibuk juga (atau jika sudah CLOSE harusnya teknisi bebas, tapi kita asumsikan yang sudah verif/selesai)
       if (status.contains('verif') || status == 'selesai') {
         String reportSto = (report['sto'] ?? '').toString().toUpperCase();
         if (_stoFullNames.containsKey(reportSto)) {
           reportSto = _stoFullNames[reportSto]!;
         }
 
-        // Teknisi pelapor dimasukkan sebagai sibuk
         if (report['user_id'] != null) {
           busyIds.add(report['user_id'].toString());
         }
@@ -215,7 +213,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int p = 0, v = 0, r = 0;
     for (var report in newReports) {
       String status = (report['status'] ?? 'Pending').toString().toLowerCase();
-      // Hitung CLOSE sebagai Verified/Selesai di Analytics
       if (status.contains('verif') || status == 'selesai' || status == 'close')
         v++;
       else if (status.contains('reject'))
@@ -279,7 +276,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           String status = (report['status'] ?? 'Pending')
               .toString()
               .toLowerCase();
-          // Hitung CLOSE sebagai bagian dari Verified
           if (status.contains('verif') ||
               status == 'selesai' ||
               status == 'close') {
@@ -1707,11 +1703,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isPending = statusString.contains('pending');
     bool isVerified = statusString.contains('verif');
     bool isSelesai = statusString == 'selesai';
-    bool isClose = statusString == 'close'; // Status baru
+    bool isClose = statusString == 'close';
 
     Color statusColor = isClose
-        ? Colors
-              .grey // Warna jika sudah ditutup
+        ? Colors.grey
         : (isSelesai
               ? Colors.redAccent
               : (isPending
@@ -1748,7 +1743,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF161F2E),
         borderRadius: BorderRadius.circular(20),
-        // Garis Tepi Merah HANYA jika status = 'selesai'
         border: Border.all(
           color: isSelesai ? Colors.red : Colors.white.withOpacity(0.05),
           width: isSelesai ? 2.0 : 1.0,
@@ -1863,7 +1857,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ],
                         ),
-                        // Menampilkan Badge "OPEN" atau "CLOSE" berdasarkan status
                         if (isVerified || isSelesai || isClose)
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
@@ -2092,9 +2085,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ],
                   ),
                 ),
-              ]
-              // --- TAMBAHAN TOMBOL CLOSE JIKA STATUS SELESAI ---
-              else if (isSelesai) ...[
+              ] else if (isSelesai) ...[
                 const Divider(color: Colors.white10, height: 1),
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -2110,6 +2101,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       label: const Text(
                         "Tutup Tiket (CLOSE)",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ]
+              // --- TAMBAHAN TOMBOL EXPORT WORD DI CARD JIKA STATUS CLOSE ---
+              else if (isClose) ...[
+                const Divider(color: Colors.white10, height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final String docUrl =
+                            '${ApiConfig.baseUrl}/maintenance/reports/${data['id']}/export-word';
+                        final Uri url = Uri.parse(docUrl);
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(
+                            url,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Gagal mengunduh dokumen Word"),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.description,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        "Export Laporan (Word)",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -2387,7 +2428,11 @@ class AdminDetailLaporanScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Detail Laporan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
       ),
@@ -2414,14 +2459,14 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     children: [
                       const Text(
                         "ID Laporan",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         idData,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -2443,6 +2488,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -2455,7 +2501,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2483,28 +2529,30 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     reportData['witel']?.toString() ?? '-',
                   ),
                   _buildDetailRow("STO", reportData['sto']?.toString() ?? '-'),
+
                   const Divider(color: Colors.white10, height: 30),
+
                   _buildDetailRow("Latitude", latStr ?? '-'),
                   _buildDetailRow("Longitude", lngStr ?? '-'),
 
                   const SizedBox(height: 5),
                   const Text(
                     "Link Google Maps:",
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: Colors.grey, fontSize: 15),
                   ),
                   const SizedBox(height: 5),
                   SelectableText(
                     mapsUrl,
                     style: const TextStyle(
                       color: Colors.greenAccent,
-                      fontSize: 12,
+                      fontSize: 15,
                       decoration: TextDecoration.underline,
                     ),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
-                    height: 45,
+                    height: 50,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         if (latStr != null &&
@@ -2525,13 +2573,14 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       icon: const Icon(
                         Icons.map,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                       label: const Text(
                         "Buka di Google Maps",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -2547,11 +2596,12 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
+
             const Text(
               "Rincian Pekerjaan",
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2578,12 +2628,14 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     reportData['created_at']?.toString().substring(0, 10) ??
                         '-',
                   ),
+
                   const Divider(color: Colors.white10, height: 30),
+
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       "Uraian Pekerjaan:",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                      style: TextStyle(color: Colors.grey, fontSize: 15),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -2591,7 +2643,11 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       reportData['uraian_pekerjaan'] ?? '-',
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ],
@@ -2599,13 +2655,62 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            const Text(
-              "Bukti Foto Lapangan",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+            // --- HEADER FOTO DENGAN TOMBOL ZIP ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Bukti Foto Lapangan",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final String zipUrl =
+                        '${ApiConfig.baseUrl}/maintenance/reports/${reportData['id']}/download-zip';
+                    final Uri url = Uri.parse(zipUrl);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(
+                        url,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Gagal menghubungi server untuk mengunduh ZIP.",
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.folder_zip,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    "Unduh ZIP",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green, // Warna Hijau mencolok
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _buildPhotoCategory(context, "Before", beforePaths),
@@ -2615,11 +2720,12 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             _buildPhotoCategory(context, "After", afterPaths),
 
             const SizedBox(height: 24),
+
             const Text(
               "Lampiran Evidence",
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2652,6 +2758,52 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // --- TAMBAHAN: TOMBOL EXPORT WORD JIKA SUDAH CLOSE ---
+            if (isClose) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final String docUrl =
+                        '${ApiConfig.baseUrl}/maintenance/reports/${reportData['id']}/export-word';
+                    final Uri url = Uri.parse(docUrl);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(
+                        url,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Gagal mengunduh dokumen Word"),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.description, color: Colors.white),
+                  label: const Text(
+                    "Export Report ke Word (.docx)",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 40),
           ],
         ),
@@ -2669,7 +2821,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             flex: 2,
             child: Text(
               title,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: const TextStyle(color: Colors.grey, fontSize: 15),
             ),
           ),
           Expanded(
@@ -2679,7 +2831,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
-                fontSize: 14,
+                fontSize: 16,
               ),
               textAlign: TextAlign.right,
             ),
@@ -2703,7 +2855,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
           style: const TextStyle(
             color: Colors.blue,
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: 16,
           ),
         ),
         const SizedBox(height: 10),
@@ -2784,7 +2936,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
+          style: const TextStyle(color: Colors.white70, fontSize: 16),
         ),
         Row(
           children: [
@@ -2800,7 +2952,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 isUploaded ? "Terlampir" : "Kosong",
                 style: TextStyle(
                   color: isUploaded ? Colors.green : Colors.orange,
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -2823,7 +2975,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     );
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.2),
                     shape: BoxShape.circle,
@@ -2831,7 +2983,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   child: const Icon(
                     Icons.download,
                     color: Colors.blue,
-                    size: 18,
+                    size: 20,
                   ),
                 ),
               ),
