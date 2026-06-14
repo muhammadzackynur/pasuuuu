@@ -165,27 +165,50 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
   int _monthIndexFromName(String name) => months.indexOf(name) + 1;
 
   int _daysInMonth(int year, int month) {
+    // Mendapatkan hari terakhir dalam suatu bulan
     return DateTime(year, month + 1, 0).day;
   }
 
   void _onMonthTap(String m) {
     setState(() {
       if (selectedMonth == m) {
+        // Jika klik bulan yang sudah terpilih (untuk membatalkan pilihan)
         selectedMonth = null;
         if (!_dateSetManually) {
           dateFrom = null;
           dateTo = null;
         }
       } else {
+        // Jika klik bulan baru
         selectedMonth = m;
-        // Hanya auto-set tanggal jika user BELUM set manual
-        if (!_dateSetManually) {
+
+        bool shouldOverrideDates = true;
+
+        // Cek apakah user sudah mensetting tanggal secara manual
+        if (_dateSetManually) {
+          final monthNum = _monthIndexFromName(m);
+          // Jika bulan pada tanggal yang diset manual SAMA dengan bulan yang diklik,
+          // maka JANGAN ubah tanggal dari dan sampai (biarkan sesuai settingan user)
+          bool fromMatch = dateFrom != null && dateFrom!.month == monthNum;
+          bool toMatch = dateTo != null && dateTo!.month == monthNum;
+
+          if (fromMatch || toMatch) {
+            shouldOverrideDates = false;
+          }
+        }
+
+        // Jika tidak diset manual atau user memilih bulan yang berbeda dari tanggal manualnya
+        if (shouldOverrideDates) {
           final now = DateTime.now();
           final monthNum = _monthIndexFromName(m);
           final year = now.year;
           final lastDay = _daysInMonth(year, monthNum);
+
           dateFrom = DateTime(year, monthNum, 1);
           dateTo = DateTime(year, monthNum, lastDay);
+
+          // Reset flag manual karena tanggal dioverride otomatis oleh pilihan bulan
+          _dateSetManually = false;
         }
       }
     });
@@ -225,7 +248,7 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
     );
     if (picked != null) {
       setState(() {
-        _dateSetManually = true; // Tandai user set manual
+        _dateSetManually = true; // Tandai user bahwa tanggal diset manual
         if (isFrom) {
           dateFrom = picked;
         } else {
