@@ -116,13 +116,14 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _latitude = "GPS Mati";
           _longitude = "GPS Mati";
           _mapsLink = "-";
           _isFetchingLocation = false;
         });
+      }
       return;
     }
 
@@ -130,25 +131,27 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted)
+        if (mounted) {
           setState(() {
             _latitude = "Izin Ditolak";
             _longitude = "Izin Ditolak";
             _mapsLink = "-";
             _isFetchingLocation = false;
           });
+        }
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _latitude = "Izin Ditolak Permanen";
           _longitude = "Izin Ditolak Permanen";
           _mapsLink = "-";
           _isFetchingLocation = false;
         });
+      }
       return;
     }
 
@@ -166,13 +169,14 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _latitude = "Gagal";
           _longitude = "Gagal";
           _mapsLink = "-";
           _isFetchingLocation = false;
         });
+      }
     }
   }
 
@@ -189,10 +193,11 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Tidak bisa membuka Google Maps.")),
         );
+      }
     }
   }
 
@@ -203,12 +208,13 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       );
       if (pickedFiles.isNotEmpty) {
         setState(() {
-          if (type == "Before")
+          if (type == "Before") {
             _fotoBefore.addAll(pickedFiles);
-          else if (type == "Progress")
+          } else if (type == "Progress") {
             _fotoProgress.addAll(pickedFiles);
-          else if (type == "After")
+          } else if (type == "After") {
             _fotoAfter.addAll(pickedFiles);
+          }
         });
       }
     } catch (e) {
@@ -226,12 +232,13 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
       );
       if (pickedFile != null) {
         setState(() {
-          if (type == "Before")
+          if (type == "Before") {
             _fotoBefore.add(pickedFile);
-          else if (type == "Progress")
+          } else if (type == "Progress") {
             _fotoProgress.add(pickedFile);
-          else if (type == "After")
+          } else if (type == "After") {
             _fotoAfter.add(pickedFile);
+          }
         });
       }
     } catch (e) {
@@ -242,17 +249,24 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
   }
 
   void _showPickerOptions(String type) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color sheetBgColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: sheetBgColor,
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.blue),
-              title: const Text(
+              title: Text(
                 'Ambil Banyak dari Galeri',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 19,
+                ), // Diubah menjadi 19
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -261,9 +275,12 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera, color: Colors.green),
-              title: const Text(
+              title: Text(
                 'Buka Kamera (Tambah 1)',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 19,
+                ), // Diubah menjadi 19
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -299,7 +316,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
       if (_kategoriOptions.contains(predictedCategory)) {
         setState(() => _selectedKategori = predictedCategory);
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -308,8 +325,9 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               backgroundColor: Colors.green,
             ),
           );
+        }
       } else {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -318,15 +336,17 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               backgroundColor: Colors.red,
             ),
           );
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Error koneksi AI: $e"),
             backgroundColor: Colors.red,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isPredictingKategori = false);
     }
@@ -334,18 +354,28 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0D1424);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Input Laporan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 25, // Diubah menjadi 20
+          ),
         ),
       ),
       body: SafeArea(
@@ -354,7 +384,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel("LOKASI SAAT INI (GPS)"),
+              _buildFieldLabel("LOKASI SAAT INI (GPS)", isLightMode),
               const SizedBox(height: 5),
               _isFetchingLocation
                   ? const Center(child: CircularProgressIndicator())
@@ -363,13 +393,18 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: _buildGPSBox("Latitude", _latitude ?? "-"),
+                              child: _buildGPSBox(
+                                "Latitude",
+                                _latitude ?? "-",
+                                isLightMode,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: _buildGPSBox(
                                 "Longitude",
                                 _longitude ?? "-",
+                                isLightMode,
                               ),
                             ),
                           ],
@@ -389,13 +424,14 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.map, color: Colors.green, size: 18),
+                                Icon(Icons.map, color: Colors.green, size: 20),
                                 SizedBox(width: 8),
                                 Text(
                                   "Cek Lokasi di Google Maps",
                                   style: TextStyle(
                                     color: Colors.green,
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 19, // Diubah menjadi 19
                                   ),
                                 ),
                               ],
@@ -405,26 +441,29 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                       ],
                     ),
               const SizedBox(height: 15),
-              _buildFieldLabel("STO"),
+              _buildFieldLabel("STO", isLightMode),
               _buildDropdownField(
                 "Pilih STO",
                 _selectedSTO,
                 _stoOptions,
                 (val) => setState(() => _selectedSTO = val),
+                isLightMode,
               ),
               const SizedBox(height: 15),
-              _buildFieldLabel("MITRA PELAKSANA"),
+              _buildFieldLabel("MITRA PELAKSANA", isLightMode),
               _buildDropdownField(
                 "Pilih Mitra",
                 _selectedMitra,
                 _mitraOptions,
                 (val) => setState(() => _selectedMitra = val),
+                isLightMode,
               ),
               const SizedBox(height: 15),
-              _buildFieldLabel("URAIAN PEKERJAAN"),
+              _buildFieldLabel("URAIAN PEKERJAAN", isLightMode),
               _buildTextArea(
                 hint: "Contoh: Perbaikan tiang keropos",
                 controller: _uraianController,
+                isLightMode: isLightMode,
               ),
               const SizedBox(height: 8),
               Align(
@@ -445,42 +484,53 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                       : const Icon(
                           Icons.auto_awesome,
                           color: Colors.white,
-                          size: 18,
+                          size: 20,
                         ),
-                  label: Text(
-                    _isPredictingKategori
-                        ? "Sedang menganalisa..."
-                        : "Auto-Pilih Kategori (AI)",
-                    style: const TextStyle(color: Colors.white),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _isPredictingKategori
+                          ? "Sedang menganalisa..."
+                          : "Auto-Pilih Kategori (AI)",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 19, // Diubah menjadi 19
+                      ),
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00D1F3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
-              _buildFieldLabel("KATEGORI KEGIATAN"),
+              _buildFieldLabel("KATEGORI KEGIATAN", isLightMode),
               _buildDropdownField(
                 "Pilih Kategori",
                 _selectedKategori,
                 _kategoriOptions,
                 (val) => setState(() => _selectedKategori = val),
+                isLightMode,
               ),
               const SizedBox(height: 25),
-              _buildFieldLabel("BUKTI FOTO (Before Wajib Diisi)"),
+              _buildFieldLabel("BUKTI FOTO (Before Wajib Diisi)", isLightMode),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildPhotoPickerBox("Before", _fotoBefore),
-                  _buildPhotoPickerBox("Progress", _fotoProgress),
-                  _buildPhotoPickerBox("After", _fotoAfter),
+                  _buildPhotoPickerBox("Before", _fotoBefore, isLightMode),
+                  _buildPhotoPickerBox("Progress", _fotoProgress, isLightMode),
+                  _buildPhotoPickerBox("After", _fotoAfter, isLightMode),
                 ],
               ),
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
-                height: 55,
+                height: 60,
                 child: ElevatedButton(
                   onPressed: () {
                     // Validasi Data Teks
@@ -564,7 +614,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 20, // Diubah menjadi 20
                         ),
                       ),
                       SizedBox(width: 10),
@@ -580,72 +630,96 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     );
   }
 
-  // Widget Helper tetap sama
-  Widget _buildFieldLabel(String label) => Text(
-    label,
-    style: const TextStyle(
-      color: Colors.grey,
-      fontSize: 13,
-      fontWeight: FontWeight.bold,
+  // Widget Helper
+  Widget _buildFieldLabel(String label, bool isLightMode) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Text(
+      label,
+      style: TextStyle(
+        color: isLightMode ? Colors.grey[700] : Colors.grey,
+        fontSize: 19, // Diubah menjadi 19
+        fontWeight: FontWeight.bold,
+      ),
     ),
   );
 
-  Widget _buildGPSBox(String title, String value) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFF161F2E),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.blue.withOpacity(0.3)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _buildGPSBox(String title, String value, bool isLightMode) =>
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isLightMode ? Colors.white : const Color(0xFF161F2E),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+          boxShadow: isLightMode
+              ? [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.location_on, color: Colors.blue, size: 14),
-            const SizedBox(width: 5),
+            Row(
+              children: [
+                const Icon(Icons.location_on, color: Colors.blue, size: 18),
+                const SizedBox(width: 5),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isLightMode ? Colors.grey[600] : Colors.grey,
+                    fontSize: 19, // Diubah menjadi 19
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             Text(
-              title,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+              value,
+              style: TextStyle(
+                color: isLightMode ? Colors.black : Colors.white,
+                fontSize: 19, // Diubah menjadi 19
+                fontWeight: FontWeight.w600,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _buildDropdownField(
     String h,
     String? v,
     List<String> i,
     Function(String?) o,
+    bool isLightMode,
   ) => Container(
     margin: const EdgeInsets.only(top: 5),
     padding: const EdgeInsets.symmetric(horizontal: 12),
     decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
+      color: isLightMode ? Colors.white : const Color(0xFF1E293B),
       borderRadius: BorderRadius.circular(12),
+      border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
     ),
     child: DropdownButtonFormField<String>(
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: isLightMode ? Colors.white : const Color(0xFF1E293B),
       value: v,
       isExpanded: true,
-      hint: Text(h, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-      style: const TextStyle(color: Colors.white),
+      hint: Text(
+        h,
+        style: TextStyle(
+          color: isLightMode ? Colors.grey[500] : Colors.grey,
+          fontSize: 19, // Diubah menjadi 19
+        ),
+      ),
+      style: TextStyle(
+        color: isLightMode ? Colors.black : Colors.white,
+        fontSize: 19, // Diubah menjadi 19
+      ),
       items: i
           .map(
             (e) => DropdownMenuItem(
@@ -662,94 +736,114 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
   Widget _buildTextArea({
     required String hint,
     required TextEditingController controller,
+    required bool isLightMode,
   }) => Container(
     margin: const EdgeInsets.only(top: 5),
     decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
+      color: isLightMode ? Colors.white : const Color(0xFF1E293B),
       borderRadius: BorderRadius.circular(12),
+      border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
     ),
     child: TextField(
       controller: controller,
       maxLines: 4,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(
+        color: isLightMode ? Colors.black : Colors.white,
+        fontSize: 19, // Diubah menjadi 19
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.grey),
+        hintStyle: TextStyle(
+          color: isLightMode ? Colors.grey[400] : Colors.grey,
+          fontSize: 19, // Diubah menjadi 19
+        ),
         contentPadding: const EdgeInsets.all(15),
         border: InputBorder.none,
       ),
     ),
   );
 
-  Widget _buildPhotoPickerBox(String label, List<XFile> files) =>
-      GestureDetector(
-        onTap: () => _showPickerOptions(label),
-        child: Column(
-          children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: files.isNotEmpty
-                      ? Colors.blue
-                      : Colors.grey.withOpacity(0.5),
-                  width: 1.5,
-                ),
-              ),
-              child: files.isNotEmpty
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.file(
-                            File(files.last.path),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "+${files.length}",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_a_photo, color: Colors.grey, size: 30),
-                        SizedBox(height: 5),
-                        Text(
-                          "Upload",
-                          style: TextStyle(color: Colors.grey, fontSize: 10),
-                        ),
-                      ],
+  Widget _buildPhotoPickerBox(
+    String label,
+    List<XFile> files,
+    bool isLightMode,
+  ) => GestureDetector(
+    onTap: () => _showPickerOptions(label),
+    child: Column(
+      children: [
+        Container(
+          width: 100, // Diperbesar sedikit
+          height: 100, // Diperbesar sedikit
+          decoration: BoxDecoration(
+            color: isLightMode ? Colors.white : const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: files.isNotEmpty
+                  ? Colors.blue
+                  : (isLightMode
+                        ? Colors.grey[300]!
+                        : Colors.grey.withOpacity(0.5)),
+              width: 1.5,
+            ),
+          ),
+          child: files.isNotEmpty
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        File(files.last.path),
+                        fit: BoxFit.cover,
+                      ),
                     ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          "+${files.length}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24, // Diperbesar untuk visibilitas
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_a_photo,
+                      color: isLightMode ? Colors.grey[400] : Colors.grey,
+                      size: 36, // Ikon diperbesar
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Upload",
+                      style: TextStyle(
+                        color: isLightMode ? Colors.grey[500] : Colors.grey,
+                        fontSize: 14, // Teks dalam box menyesuaikan
+                      ),
+                    ),
+                  ],
+                ),
         ),
-      );
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: isLightMode ? Colors.black : Colors.white,
+            fontSize: 19, // Diubah menjadi 19
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  );
 }

@@ -24,10 +24,55 @@ class MaintenanceApp extends StatelessWidget {
     return MaterialApp(
       title: 'Maintenance Monitor',
       debugShowCheckedModeBanner: false,
+
+      // --- KONFIGURASI TEMA MENGIKUTI DEVICE ---
+      themeMode: ThemeMode
+          .system, // Otomatis menyesuaikan mode device (Terang / Gelap)
+      // --- PENGATURAN MODE CERAH (LIGHT MODE) ---
       theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(
+          0xFFF8FAFC,
+        ), // Warna putih keabu-abuan cerah untuk background
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        // Menyesuaikan warna teks utama agar terlihat jelas di background cerah
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Colors.black87),
+          bodyMedium: TextStyle(color: Colors.black87),
+        ),
       ),
+
+      // --- PENGATURAN MODE GELAP (DARK MODE) ---
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(
+          0xFF0F172A,
+        ), // Warna asli Anda (Biru sangat gelap)
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white70),
+        ),
+      ),
+
       home: RoleSelectionScreen(),
     );
   }

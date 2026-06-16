@@ -6,7 +6,12 @@ class RoleSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- DETEKSI MODE CERAH ATAU GELAP ---
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return Scaffold(
+      // Background Scaffold akan otomatis mengikuti konfigurasi di main.dart
       body: Stack(
         children: [
           Positioned(
@@ -17,7 +22,7 @@ class RoleSelectionScreen extends StatelessWidget {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.teal.withOpacity(0.15),
+                color: Colors.teal.withOpacity(isLightMode ? 0.1 : 0.15),
               ),
             ),
           ),
@@ -40,18 +45,21 @@ class RoleSelectionScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Maintenance Monitor',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 35,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: textColor, // Berubah otomatis
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Pilih Role Anda',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                    style: TextStyle(
+                      color: isLightMode ? Colors.grey[700] : Colors.grey,
+                      fontSize: 20, // Diperbesar menjadi 20
+                    ),
                   ),
                   const SizedBox(height: 48),
                   _buildRoleCard(
@@ -59,8 +67,10 @@ class RoleSelectionScreen extends StatelessWidget {
                     title: 'Tim Lapangan',
                     subtitle: 'Laporan Maintenance',
                     icon: Icons.groups,
-                    iconColor: Colors.cyanAccent,
+                    // Penyesuaian warna ikon agar lebih kontras di mode cerah
+                    iconColor: isLightMode ? Colors.teal : Colors.cyanAccent,
                     bgColor: Colors.teal.withOpacity(0.2),
+                    isLightMode: isLightMode,
                   ),
                   const SizedBox(height: 16),
                   _buildRoleCard(
@@ -68,25 +78,40 @@ class RoleSelectionScreen extends StatelessWidget {
                     title: 'Tim Administrasi',
                     subtitle: 'Kelola & Verifikasi Data',
                     icon: Icons.admin_panel_settings,
-                    iconColor: Colors.purpleAccent,
+                    iconColor: isLightMode
+                        ? Colors.deepPurple
+                        : Colors.purpleAccent,
                     bgColor: Colors.deepPurple.withOpacity(0.2),
+                    isLightMode: isLightMode,
                   ),
                   const Spacer(),
-                  const Text(
-                    'Belum punya akses? ',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const Text(
-                    'Hubungi Admin',
-                    style: TextStyle(
-                      color: Colors.cyan,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Belum punya akses? ',
+                        style: TextStyle(
+                          color: isLightMode ? Colors.grey[700] : Colors.grey,
+                          fontSize: 19, // Diperbesar menjadi 19
+                        ),
+                      ),
+                      Text(
+                        'Hubungi Admin',
+                        style: TextStyle(
+                          color: isLightMode ? Colors.cyan[700] : Colors.cyan,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 19, // Diperbesar menjadi 19
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 30),
-                  const Text(
+                  Text(
                     'Copyright © 2024 Maintenance Monitor',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: isLightMode ? Colors.grey[500] : Colors.grey,
+                      fontSize: 16, // Diperbesar agar mudah terbaca
+                    ),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -105,6 +130,7 @@ class RoleSelectionScreen extends StatelessWidget {
     required IconData icon,
     required Color iconColor,
     required Color bgColor,
+    required bool isLightMode,
   }) {
     return InkWell(
       // Menggunakan InkWell agar ada efek klik
@@ -120,8 +146,22 @@ class RoleSelectionScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          // Warna card berubah otomatis
+          color: isLightMode ? Colors.white : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(20),
+          // Tambahan shadow dan border untuk mode cerah agar card tidak menyatu dengan background
+          border: isLightMode
+              ? Border.all(color: Colors.grey.withOpacity(0.2))
+              : null,
+          boxShadow: isLightMode
+              ? [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
+              : [],
         ),
         child: Row(
           children: [
@@ -131,7 +171,11 @@ class RoleSelectionScreen extends StatelessWidget {
                 color: bgColor,
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Icon(icon, color: iconColor, size: 30),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 35,
+              ), // Ikon diperbesar sedikit untuk mengimbangi teks
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -140,20 +184,28 @@ class RoleSelectionScreen extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
+                    style: TextStyle(
+                      color: isLightMode ? Colors.black : Colors.white,
+                      fontSize: 22, // Diperbesar menjadi 22
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(
+                      color: isLightMode ? Colors.grey[700] : Colors.grey,
+                      fontSize: 19, // Diperbesar menjadi 19
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
+            Icon(
+              Icons.chevron_right,
+              color: isLightMode ? Colors.grey[500] : Colors.grey,
+              size: 28, // Panah diperbesar menyesuaikan teks
+            ),
           ],
         ),
       ),

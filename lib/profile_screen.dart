@@ -99,7 +99,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Profil Berhasil Diperbarui"),
+              content: Text(
+                "Profil Berhasil Diperbarui",
+                style: TextStyle(fontSize: 19), // Diubah menjadi 19
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -110,7 +113,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              "Error: $e",
+              style: const TextStyle(fontSize: 19), // Diubah menjadi 19
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -122,6 +131,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // --- DIALOG EDIT PROFIL ---
   void _showEditProfileDialog() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color dialogBgColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     TextEditingController nameController = TextEditingController(
       text: currentUserName,
     );
@@ -129,18 +142,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text("Edit Profil", style: TextStyle(color: Colors.white)),
+        backgroundColor: dialogBgColor,
+        title: Text(
+          "Edit Profil",
+          style: TextStyle(
+            color: textColor,
+            fontSize: 20, // Diubah menjadi 20
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: TextField(
           controller: nameController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: textColor, fontSize: 19), // Diubah menjadi 19
+          decoration: InputDecoration(
             labelText: "Nama Lengkap",
-            labelStyle: TextStyle(color: Colors.cyan),
-            enabledBorder: UnderlineInputBorder(
+            labelStyle: const TextStyle(
+              color: Colors.cyan,
+              fontSize: 19, // Diubah menjadi 19
+            ),
+            enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.grey),
             ),
-            focusedBorder: UnderlineInputBorder(
+            focusedBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.cyan),
             ),
           ),
@@ -148,7 +171,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              "Batal",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 19,
+              ), // Diubah menjadi 19
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -161,8 +190,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text(
               "Simpan",
               style: TextStyle(
-                color: Colors.black,
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
+                fontSize: 19, // Diubah menjadi 19
               ),
             ),
           ),
@@ -173,22 +203,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // --- FUNGSI LOGOUT ---
   void _logout(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color dialogBgColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
+        backgroundColor: dialogBgColor,
+        title: Text(
           "Konfirmasi Logout",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20, // Diubah menjadi 20
+          ),
         ),
-        content: const Text(
+        content: Text(
           "Apakah Anda yakin ingin keluar?",
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: isLightMode ? Colors.grey[700] : Colors.grey,
+            fontSize: 19, // Diubah menjadi 19
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              "Batal",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 19,
+              ), // Diubah menjadi 19
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -207,6 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
+                fontSize: 19, // Diubah menjadi 19
               ),
             ),
           ),
@@ -217,8 +265,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0D1424);
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424),
+      backgroundColor: bgColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -235,10 +290,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.cyan, width: 2),
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 50,
-                      backgroundColor: Color(0xFF1E293B),
-                      child: Icon(Icons.person, size: 50, color: Colors.white),
+                      backgroundColor: cardColor,
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: isLightMode ? Colors.grey : Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -247,9 +306,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? const CircularProgressIndicator(color: Colors.cyan)
                       : Text(
                           currentUserName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 24, // Tetap besar (judul utama)
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -257,8 +316,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
+                      horizontal: 16, // Sedikit diperlebar
+                      vertical: 6, // Sedikit ditinggikan
                     ),
                     decoration: BoxDecoration(
                       color: Colors.cyan.withOpacity(0.2),
@@ -268,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       widget.role,
                       style: const TextStyle(
                         color: Colors.cyan,
-                        fontSize: 12,
+                        fontSize: 19, // Diubah menjadi 19
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -283,8 +342,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: cardColor,
                 borderRadius: BorderRadius.circular(20),
+                boxShadow: isLightMode
+                    ? [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : [],
               ),
               child: Row(
                 children: [
@@ -294,22 +362,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Colors.blue.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.badge, color: Colors.blue),
+                    child: const Icon(
+                      Icons.badge,
+                      color: Colors.blue,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "User ID",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(
+                          color: isLightMode ? Colors.grey[600] : Colors.grey,
+                          fontSize: 19, // Diubah menjadi 19
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         widget.userId,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 20, // Diubah menjadi 20
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -318,7 +393,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Spacer(),
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.copy, color: Colors.grey, size: 20),
+                    icon: Icon(
+                      Icons.copy,
+                      color: isLightMode ? Colors.grey[600] : Colors.grey,
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
@@ -327,26 +406,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 24),
 
             // --- PENCAPAIAN SAYA (Hanya tampil untuk Tim Lapangan) ---
-            if (widget.role == 'Tim Lapangan') _buildAchievementsSection(),
+            if (widget.role == 'Tim Lapangan')
+              _buildAchievementsSection(isLightMode),
 
             // --- MENU OPTIONS ---
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 "Pengaturan Akun",
                 style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
+                  color: isLightMode ? Colors.grey[700] : Colors.grey,
+                  fontSize: 20, // Diubah menjadi 20
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
             _buildMenuTile(
               icon: Icons.person_outline,
               title: "Edit Profil",
               onTap: _showEditProfileDialog,
+              isLightMode: isLightMode,
             ),
 
             _buildMenuTile(
@@ -358,17 +439,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   MaterialPageRoute(builder: (context) => const JadwalScreen()),
                 );
               },
+              isLightMode: isLightMode,
             ),
 
             _buildMenuTile(
               icon: Icons.notifications_none,
               title: "Notifikasi",
               onTap: () {},
+              isLightMode: isLightMode,
             ),
             _buildMenuTile(
               icon: Icons.help_outline,
               title: "Bantuan & Support",
               onTap: () {},
+              isLightMode: isLightMode,
             ),
 
             const SizedBox(height: 40),
@@ -376,16 +460,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // --- LOGOUT BUTTON ---
             SizedBox(
               width: double.infinity,
-              height: 55,
+              height: 60, // Diperbesar
               child: ElevatedButton.icon(
                 onPressed: () => _logout(context),
-                icon: const Icon(Icons.logout, color: Colors.white),
+                icon: const Icon(Icons.logout, color: Colors.white, size: 24),
                 label: const Text(
                   "Keluar Akun",
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 20, // Diubah menjadi 20
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -399,10 +483,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             const SizedBox(height: 20),
-            const Text(
+            Text(
               "Versi Aplikasi 1.0.0",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(
+                color: isLightMode ? Colors.grey[600] : Colors.grey,
+                fontSize: 19, // Diubah menjadi 19
+              ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -410,17 +498,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Widget Bagian Pencapaian
-  Widget _buildAchievementsSection() {
+  Widget _buildAchievementsSection(bool isLightMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text(
             "Pencapaian Saya",
             style: TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
+              color: isLightMode ? Colors.grey[700] : Colors.grey,
+              fontSize: 20, // Diubah menjadi 20
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -428,34 +516,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
         isLoadingAchievements
             ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
-            : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildBadgeCard(
-                      title: "Kontributor Aktif",
-                      current: totalSubmitted,
-                      target: 50,
-                      icon: Icons.upload_file,
-                      activeColor: Colors.blue,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildBadgeCard(
-                      title: "Bintang Lapangan",
-                      current: totalClosed,
-                      target: 50,
-                      icon: Icons.star_rounded,
-                      activeColor: Colors.orange,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildBadgeCard(
-                      title: "Pekerja Tanpa Cacat",
-                      current: currentStreak,
-                      target: 20,
-                      icon: Icons.shield_rounded,
-                      activeColor: Colors.green,
-                    ),
-                  ],
+            : Center(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildBadgeCard(
+                        title: "Kontributor Aktif",
+                        current: totalSubmitted,
+                        target: 50,
+                        icon: Icons.upload_file,
+                        activeColor: Colors.blue,
+                        isLightMode: isLightMode,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildBadgeCard(
+                        title: "Bintang Lapangan",
+                        current: totalClosed,
+                        target: 50,
+                        icon: Icons.star_rounded,
+                        activeColor: Colors.orange,
+                        isLightMode: isLightMode,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildBadgeCard(
+                        title: "Pekerja Tanpa Cacat",
+                        current: currentStreak,
+                        target: 20,
+                        icon: Icons.shield_rounded,
+                        activeColor: Colors.green,
+                        isLightMode: isLightMode,
+                      ),
+                    ],
+                  ),
                 ),
               ),
         const SizedBox(height: 24),
@@ -470,20 +564,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required int target,
     required IconData icon,
     required Color activeColor,
+    required bool isLightMode,
   }) {
     bool isAchieved = current >= target;
     double progress = (current / target).clamp(0.0, 1.0);
 
     return Container(
-      width: 140,
-      padding: const EdgeInsets.all(12),
+      width: 165, // Diperbesar dari 140 agar font ukuran 19 muat
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: isLightMode ? Colors.white : const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: isAchieved ? activeColor : Colors.white10,
+          color: isAchieved
+              ? activeColor
+              : (isLightMode ? Colors.grey[300]! : Colors.white10),
           width: isAchieved ? 2 : 1,
         ),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -491,32 +597,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Icon(
             icon,
             size: 40,
-            color: isAchieved ? activeColor : Colors.grey.withOpacity(0.5),
+            color: isAchieved
+                ? activeColor
+                : (isLightMode
+                      ? Colors.grey[400]
+                      : Colors.grey.withOpacity(0.5)),
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isAchieved ? Colors.white : Colors.grey,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isAchieved
+                    ? (isLightMode ? Colors.black : Colors.white)
+                    : Colors.grey,
+                fontSize: 19, // Diubah menjadi 19
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: Colors.black26,
+            backgroundColor: isLightMode ? Colors.grey[200] : Colors.black26,
             color: activeColor,
-            minHeight: 6,
+            minHeight: 8, // Dipertebal sedikit
             borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             "$current / $target",
             style: TextStyle(
               color: isAchieved ? activeColor : Colors.grey,
-              fontSize: 11,
+              fontSize: 19, // Diubah menjadi 19
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -529,18 +644,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    required bool isLightMode,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: isLightMode ? Colors.white : const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(15),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
       ),
       child: ListTile(
         onTap: onTap,
-        leading: Icon(icon, color: Colors.cyan),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Icon(icon, color: Colors.cyan, size: 28),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isLightMode ? Colors.black : Colors.white,
+            fontSize: 19, // Diubah menjadi 19
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: isLightMode ? Colors.grey[600] : Colors.grey,
+        ),
       ),
     );
   }
@@ -549,7 +684,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ======================================================================
 // --- HALAMAN JADWAL & DAFTAR TIM (BERUPA TABEL PER STO) ---
 // ======================================================================
-// (Kode JadwalScreen tetap sama seperti sebelumnya, dibiarkan apa adanya)
 class JadwalScreen extends StatefulWidget {
   const JadwalScreen({super.key});
 
@@ -618,33 +752,53 @@ class _JadwalScreenState extends State<JadwalScreen> {
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(fontSize: 19),
+          ), // Diubah menjadi 19
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0D1424);
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1424),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
+        iconTheme: IconThemeData(color: textColor),
+        title: Text(
           'Daftar Tim Lapangan (TLA)',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20, // Diubah menjadi 20
+          ),
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
           : _groupedTlaUsers.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 "Belum ada data tim lapangan",
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: isLightMode ? Colors.grey[700] : Colors.grey,
+                  fontSize: 19, // Diubah menjadi 19
+                ),
               ),
             )
           : ListView.builder(
@@ -661,8 +815,8 @@ class _JadwalScreenState extends State<JadwalScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 16,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.cyan.withOpacity(0.2),
@@ -673,43 +827,60 @@ class _JadwalScreenState extends State<JadwalScreen> {
                             style: const TextStyle(
                               color: Colors.cyan,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 20, // Diubah menjadi 20
                             ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Text(
                           "${usersInGroup.length} Teknisi",
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
+                          style: TextStyle(
+                            color: isLightMode ? Colors.grey[700] : Colors.grey,
+                            fontSize: 19, // Diubah menjadi 19
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 15),
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: cardColor,
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.white10),
+                        border: Border.all(
+                          color: isLightMode
+                              ? Colors.grey[300]!
+                              : Colors.white10,
+                        ),
+                        boxShadow: isLightMode
+                            ? [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.15),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
                       ),
+                      clipBehavior: Clip.hardEdge,
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
                           headingRowColor: MaterialStateProperty.all(
-                            const Color(0xFF161F2E),
+                            isLightMode
+                                ? Colors.grey[200]
+                                : const Color(0xFF161F2E),
                           ),
-                          dataRowMinHeight: 60,
-                          dataRowMaxHeight: 60,
+                          dataRowMinHeight: 70, // Disesuaikan untuk font besar
+                          dataRowMaxHeight: 70,
                           headingTextStyle: const TextStyle(
                             color: Colors.cyan,
                             fontWeight: FontWeight.bold,
+                            fontSize: 19, // Diubah menjadi 19
                           ),
-                          dataTextStyle: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+                          dataTextStyle: TextStyle(
+                            color: textColor,
+                            fontSize: 19, // Diubah menjadi 19
                           ),
                           columns: const [
                             DataColumn(label: Text('NO')),
@@ -722,7 +893,9 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               color: MaterialStateProperty.all(
                                 rowIndex % 2 == 0
                                     ? Colors.transparent
-                                    : Colors.black12,
+                                    : (isLightMode
+                                          ? Colors.grey[50]
+                                          : Colors.black12),
                               ),
                               cells: [
                                 DataCell(Text('${rowIndex + 1}')),
@@ -730,7 +903,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
-                                      vertical: 4,
+                                      vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.cyan.withOpacity(0.15),
@@ -741,7 +914,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                       style: const TextStyle(
                                         color: Colors.cyan,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                                        fontSize: 19, // Diubah menjadi 19
                                       ),
                                     ),
                                   ),
@@ -753,7 +926,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 35),
                   ],
                 );
               },

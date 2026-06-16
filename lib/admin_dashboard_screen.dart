@@ -8,7 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'notification_screen.dart';
 import 'api_config.dart';
-import 'filter_laporan_screen.dart'; // --- IMPORT HALAMAN FILTER ---
+import 'filter_laporan_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
@@ -74,8 +74,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ];
 
   int touchedPieIndex = -1;
-
-  // --- STATE UNTUK MENYIMPAN DATA FILTER ADVANCED ---
   Map<String, dynamic>? activeFilter;
 
   @override
@@ -246,7 +244,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Expanded(
               child: Text(
                 "Laporan Baru Masuk dari Tim Lapangan!",
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
               ),
             ),
           ],
@@ -347,6 +345,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           SnackBar(
             content: Text(
               "Laporan MAINT-${reportId.toString().padLeft(3, '0')} berhasil di-$newStatus!",
+              style: const TextStyle(fontSize: 19),
             ),
             backgroundColor: newStatus == 'Verified' || newStatus == 'CLOSE'
                 ? Colors.green
@@ -357,7 +356,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Gagal: ${response.statusCode} - ${response.body}"),
+            content: Text(
+              "Gagal: ${response.statusCode} - ${response.body}",
+              style: const TextStyle(fontSize: 19),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -368,7 +370,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       debugPrint("KONEKSI ERROR: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Error koneksi ke server"),
+          content: Text(
+            "Error koneksi ke server",
+            style: TextStyle(fontSize: 19),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -380,28 +385,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int reportId,
     String newStatus,
   ) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color dialogBgColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF161F2E),
+          backgroundColor: dialogBgColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
+          title: Text(
             "Konfirmasi Tindakan",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
           ),
           content: Text(
             newStatus == 'CLOSE'
                 ? "Apakah Anda yakin data laporan MAINT-${reportId.toString().padLeft(3, '0')} sudah lengkap dan ingin Menutup Tiket (CLOSE)?"
                 : "Apakah Anda yakin ingin mengubah status laporan MAINT-${reportId.toString().padLeft(3, '0')} menjadi $newStatus?",
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(
+              color: isLightMode ? Colors.grey[700] : Colors.white70,
+              fontSize: 19,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                "Batal",
+                style: TextStyle(color: Colors.grey, fontSize: 19),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -423,6 +442,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 19,
                 ),
               ),
             ),
@@ -434,7 +454,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  // Helper untuk mengubah nama bulan ke format angka (01 - 12)
   String _getMonthNumber(String monthName) {
     switch (monthName) {
       case 'Jan':
@@ -466,13 +485,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  // --- LOGIKA FILTER LOCAL DITERAPKAN DI SINI ---
   List<dynamic> get _filteredReports {
     List<dynamic> result = _allReports;
 
-    // 1. Terapkan Advanced Filter (Bulan & Jenis Gangguan) jika ada
     if (activeFilter != null) {
-      // Filter Bulan
       if (activeFilter!['bulan'] != null) {
         String selectedMonthStr = activeFilter!['bulan'];
         String targetMonthNumber = _getMonthNumber(selectedMonthStr);
@@ -480,17 +496,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         result = result.where((report) {
           String dateStr = report['created_at']?.toString() ?? '';
           if (dateStr.length >= 7) {
-            String reportMonth = dateStr.substring(
-              5,
-              7,
-            ); // Mengambil "MM" dari "YYYY-MM-DD..."
+            String reportMonth = dateStr.substring(5, 7);
             return reportMonth == targetMonthNumber;
           }
           return false;
         }).toList();
       }
 
-      // Filter Jenis Gangguan / Kategori Kegiatan
       if (activeFilter!['gangguan'] != null &&
           (activeFilter!['gangguan'] as List).isNotEmpty) {
         List<dynamic> selectedGangguan = activeFilter!['gangguan'];
@@ -501,7 +513,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
 
-    // 2. Terapkan Tab Status Filter (Semua, Pending, Verified, Rejected)
     if (_selectedFilterIndex != 0) {
       result = result.where((report) {
         String status = (report['status'] ?? 'pending')
@@ -531,18 +542,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        bool isLightMode = Theme.of(context).brightness == Brightness.light;
+        Color dialogBgColor = isLightMode
+            ? Colors.white
+            : const Color(0xFF161F2E);
+        Color textColor = isLightMode ? Colors.black : Colors.white;
+        Color borderColor = isLightMode
+            ? Colors.grey[400]!
+            : Colors.white.withOpacity(0.3);
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              backgroundColor: const Color(0xFF161F2E),
+              backgroundColor: dialogBgColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text(
+              title: Text(
                 "Daftarkan Pengguna",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontWeight: FontWeight.bold,
+                  fontSize: 20,
                 ),
               ),
               content: SingleChildScrollView(
@@ -551,43 +572,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     TextField(
                       controller: nameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: textColor, fontSize: 19),
                       decoration: InputDecoration(
                         labelText: "Nama Lengkap",
-                        labelStyle: const TextStyle(color: Colors.grey),
+                        labelStyle: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 19,
+                        ),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
+                          borderSide: BorderSide(color: borderColor),
                         ),
                       ),
                     ),
                     const SizedBox(height: 15),
                     TextField(
                       controller: idController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: textColor, fontSize: 19),
                       decoration: InputDecoration(
                         labelText: "User ID (Unik)",
-                        labelStyle: const TextStyle(color: Colors.grey),
+                        labelStyle: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 19,
+                        ),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
+                          borderSide: BorderSide(color: borderColor),
                         ),
                       ),
                     ),
                     const SizedBox(height: 25),
                     DropdownButtonFormField<String>(
                       value: selectedRole,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: isLightMode
+                          ? Colors.white
+                          : const Color(0xFF1E293B),
+                      style: TextStyle(color: textColor, fontSize: 19),
                       decoration: InputDecoration(
                         labelText: "Jabatan / Role",
-                        labelStyle: const TextStyle(color: Colors.grey),
+                        labelStyle: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 19,
+                        ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
+                          borderSide: BorderSide(color: borderColor),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
@@ -614,7 +640,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   onPressed: isSubmitting ? null : () => Navigator.pop(context),
                   child: const Text(
                     "Batal",
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.grey, fontSize: 19),
                   ),
                 ),
                 ElevatedButton(
@@ -633,6 +659,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               const SnackBar(
                                 content: Text(
                                   "Nama dan User ID tidak boleh kosong!",
+                                  style: TextStyle(fontSize: 19),
                                 ),
                                 backgroundColor: Colors.red,
                               ),
@@ -660,6 +687,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 const SnackBar(
                                   content: Text(
                                     "Pengguna berhasil didaftarkan!",
+                                    style: TextStyle(fontSize: 19),
                                   ),
                                   backgroundColor: Colors.green,
                                 ),
@@ -669,6 +697,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 const SnackBar(
                                   content: Text(
                                     "Gagal. Pastikan User ID belum dipakai!",
+                                    style: TextStyle(fontSize: 19),
                                   ),
                                   backgroundColor: Colors.red,
                                 ),
@@ -678,7 +707,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             setStateDialog(() => isSubmitting = false);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text("Error: $e"),
+                                content: Text(
+                                  "Error: $e",
+                                  style: const TextStyle(fontSize: 19),
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -698,6 +730,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
+                            fontSize: 19,
                           ),
                         ),
                 ),
@@ -711,6 +744,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color iconAndTextColor = isLightMode ? Colors.black : Colors.white;
+
     Widget bodyContent;
 
     if (_selectedIndex == 0) {
@@ -725,21 +761,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       bodyContent = const Center(
         child: Text(
           "Halaman belum tersedia",
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: Colors.grey, fontSize: 19),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A101D),
+      backgroundColor: isLightMode
+          ? const Color(0xFFF8FAFC)
+          : const Color(0xFF0A101D),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 20.0),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20.0),
           child: CircleAvatar(
-            backgroundColor: Color(0xFF1E293B),
-            child: Icon(Icons.person, color: Colors.white),
+            backgroundColor: isLightMode
+                ? Colors.grey[200]
+                : const Color(0xFF1E293B),
+            child: Icon(Icons.person, color: iconAndTextColor, size: 24),
           ),
         ),
         title: Column(
@@ -747,20 +787,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             const Text(
               'Good Morning,',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
             Text(
               widget.userName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+              style: TextStyle(
+                color: iconAndTextColor,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
         actions: [
-          // --- TOMBOL FILTER HANYA MUNCUL DI MENU DATA (INDEX 1) ---
           if (_selectedIndex == 1)
             IconButton(
               onPressed: () async {
@@ -780,7 +819,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               },
               icon: Stack(
                 children: [
-                  const Icon(Icons.tune, color: Colors.white),
+                  Icon(Icons.tune, color: iconAndTextColor),
                   if (activeFilter != null &&
                       (activeFilter!['bulan'] != null ||
                           (activeFilter!['gangguan'] as List).isNotEmpty))
@@ -800,17 +839,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-          // --- TOMBOL REFRESH MANUAL ---
           IconButton(
             onPressed: () {
               setState(() {
-                activeFilter =
-                    null; // Menghapus filter yang aktif jika di refresh
+                activeFilter = null;
               });
               _fetchAdminData();
               _fetchUnreadCount();
             },
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: iconAndTextColor),
           ),
           IconButton(
             onPressed: () async {
@@ -826,7 +863,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.notifications, color: Colors.white),
+                Icon(Icons.notifications, color: iconAndTextColor),
                 if (_unreadNotifCount > 0)
                   Positioned(
                     right: -4,
@@ -869,18 +906,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: bodyContent,
             ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF0F1623),
+        backgroundColor: isLightMode ? Colors.white : const Color(0xFF0F1623),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF00D1F3),
-        unselectedItemColor: Colors.grey.shade600,
+        unselectedItemColor: isLightMode ? Colors.grey : Colors.grey.shade600,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         showSelectedLabels: true,
         showUnselectedLabels: true,
         selectedLabelStyle: const TextStyle(
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
+        unselectedLabelStyle: const TextStyle(fontSize: 14),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.dataset), label: 'Data'),
@@ -895,6 +933,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildHomeContent() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
@@ -919,7 +960,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       "Total Reports",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 20,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -932,7 +973,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: const Icon(
                         Icons.insert_chart,
                         color: Colors.white,
-                        size: 20,
+                        size: 24,
                       ),
                     ),
                   ],
@@ -975,11 +1016,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
           const SizedBox(height: 35),
-          const Text(
+          Text(
             "Quick Actions",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+              color: textColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1014,11 +1055,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Recent Activity",
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
+                  color: textColor,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1026,7 +1067,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 onPressed: () => _onItemTapped(1),
                 child: const Text(
                   "See All",
-                  style: TextStyle(color: Color(0xFF00D1F3)),
+                  style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
                 ),
               ),
             ],
@@ -1036,7 +1077,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const Center(
               child: Text(
                 "No recent activity.",
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: Colors.grey, fontSize: 19),
               ),
             )
           else
@@ -1067,15 +1108,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDataContent() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     List<dynamic> currentData = _filteredReports;
+
     return Column(
       children: [
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-          decoration: const BoxDecoration(
-            color: Color(0xFF0A101D),
-            border: Border(bottom: BorderSide(color: Colors.white10)),
+          decoration: BoxDecoration(
+            color: isLightMode ? Colors.white : const Color(0xFF0A101D),
+            border: Border(
+              bottom: BorderSide(
+                color: isLightMode ? Colors.grey[200]! : Colors.white10,
+              ),
+            ),
+            boxShadow: isLightMode
+                ? [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1095,16 +1151,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? const Color(0xFF00D1F3)
-                            : const Color(0xFF1E293B),
+                            : (isLightMode
+                                  ? Colors.grey[100]
+                                  : const Color(0xFF1E293B)),
                         borderRadius: BorderRadius.circular(20),
                         border: isSelected
                             ? null
-                            : Border.all(color: Colors.white10),
+                            : Border.all(
+                                color: isLightMode
+                                    ? Colors.grey[300]!
+                                    : Colors.white10,
+                              ),
                       ),
                       child: Text(
                         _filterOptions[index],
                         style: TextStyle(
                           color: isSelected ? Colors.black : Colors.grey,
+                          fontSize: 16,
                           fontWeight: isSelected
                               ? FontWeight.bold
                               : FontWeight.normal,
@@ -1118,7 +1181,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
 
-        // --- BANNER INFORMASI FILTER ---
         if (activeFilter != null &&
             (activeFilter!['bulan'] != null ||
                 (activeFilter!['gangguan'] as List).isNotEmpty))
@@ -1129,18 +1191,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
+                  child: const Text(
                     "Filter aktif diterapkan pada daftar laporan",
-                    style: const TextStyle(
-                      color: Color(0xFF00D1F3),
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
                   ),
                 ),
                 InkWell(
                   onTap: () {
                     setState(() {
-                      activeFilter = null; // Menghapus filter
+                      activeFilter = null;
                     });
                   },
                   child: const Text(
@@ -1148,7 +1207,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     style: TextStyle(
                       color: Colors.redAccent,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -1172,11 +1231,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildAnalyticsContent() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+
     if (_allReports.isEmpty) {
       return const Center(
         child: Text(
           "Belum ada data untuk dianalisis",
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: Colors.grey, fontSize: 19),
         ),
       );
     }
@@ -1233,10 +1296,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Descriptive Analytics",
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -1244,7 +1307,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 5),
           const Text(
             "Overview & performa pemeliharaan",
-            style: TextStyle(color: Colors.grey, fontSize: 14),
+            style: TextStyle(color: Colors.grey, fontSize: 19),
           ),
           const SizedBox(height: 20),
 
@@ -1265,7 +1328,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Icon(
                       Icons.lightbulb_outline,
                       color: Color(0xFF00D1F3),
-                      size: 20,
+                      size: 24,
                     ),
                     SizedBox(width: 8),
                     Text(
@@ -1273,7 +1336,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: TextStyle(
                         color: Color(0xFF00D1F3),
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 20,
                       ),
                     ),
                   ],
@@ -1281,9 +1344,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 10),
                 Text(
                   summaryText,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
+                  style: TextStyle(
+                    color: isLightMode ? Colors.black87 : Colors.white70,
+                    fontSize: 19,
                     height: 1.5,
                   ),
                 ),
@@ -1298,26 +1361,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF161F2E),
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    boxShadow: isLightMode
+                        ? [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 5,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.task_alt, color: Colors.green),
+                      const Icon(Icons.task_alt, color: Colors.green, size: 28),
                       const SizedBox(height: 10),
                       Text(
                         "${completionRate.toStringAsFixed(1)}%",
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: textColor,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const Text(
                         "Completion Rate",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
                     ],
                   ),
@@ -1328,28 +1400,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF161F2E),
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: const Color(0xFF00D1F3).withOpacity(0.3),
                     ),
+                    boxShadow: isLightMode
+                        ? [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 5,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.analytics, color: Color(0xFF00D1F3)),
+                      const Icon(
+                        Icons.analytics,
+                        color: Color(0xFF00D1F3),
+                        size: 28,
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         "$_totalCount",
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: textColor,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const Text(
                         "Total Laporan",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
                     ],
                   ),
@@ -1359,11 +1444,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 30),
 
-          const Text(
+          Text(
             "Distribusi Status Pekerjaan",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+              color: textColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1372,8 +1457,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             height: 250,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F2E),
+              color: cardColor,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: isLightMode
+                  ? [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : [],
             ),
             child: Row(
               children: [
@@ -1452,11 +1546,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 30),
 
-          const Text(
+          Text(
             "Lokasi Kritis (Top 5 STO)",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+              color: textColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1470,14 +1564,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               bottom: 10,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F2E),
+              color: cardColor,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: isLightMode
+                  ? [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : [],
             ),
             child: top5Sto.isEmpty
                 ? const Center(
                     child: Text(
                       "Tidak ada data",
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: Colors.grey, fontSize: 19),
                     ),
                   )
                 : BarChart(
@@ -1503,7 +1606,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   title,
                                   style: const TextStyle(
                                     color: Colors.grey,
-                                    fontSize: 10,
+                                    fontSize: 12,
                                   ),
                                 ),
                               );
@@ -1518,7 +1621,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               val.toInt().toString(),
                               style: const TextStyle(
                                 color: Colors.grey,
-                                fontSize: 10,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -1534,8 +1637,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         show: true,
                         drawVerticalLine: false,
                         horizontalInterval: 1,
-                        getDrawingHorizontalLine: (value) =>
-                            FlLine(color: Colors.white10, strokeWidth: 1),
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: isLightMode
+                              ? Colors.grey[200]
+                              : Colors.white10,
+                          strokeWidth: 1,
+                        ),
                       ),
                       borderData: FlBorderData(show: false),
                       barGroups: List.generate(top5Sto.length, (i) {
@@ -1558,11 +1665,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 30),
 
-          const Text(
+          Text(
             "Distribusi Jenis Gangguan",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+              color: textColor,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1570,15 +1677,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F2E),
+              color: cardColor,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: isLightMode
+                  ? [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : [],
             ),
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: sortedCat.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(color: Colors.white10, height: 24),
+              separatorBuilder: (context, index) => Divider(
+                color: isLightMode ? Colors.grey[300] : Colors.white10,
+                height: 24,
+              ),
               itemBuilder: (context, index) {
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1586,9 +1704,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Expanded(
                       child: Text(
                         sortedCat[index].key,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
+                        style: TextStyle(
+                          color: isLightMode
+                              ? Colors.grey[800]
+                              : Colors.white70,
+                          fontSize: 19,
                         ),
                       ),
                     ),
@@ -1606,7 +1726,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         style: const TextStyle(
                           color: Color(0xFF00D1F3),
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 16,
                         ),
                       ),
                     ),
@@ -1634,7 +1754,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           text,
           style: const TextStyle(
             color: Colors.grey,
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1643,6 +1763,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildProfileContent() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
       child: Column(
@@ -1653,17 +1777,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFF00D1F3), width: 2),
-              color: const Color(0xFF161F2E),
+              color: isLightMode ? Colors.grey[200] : const Color(0xFF161F2E),
             ),
-            child: const Icon(Icons.person, size: 60, color: Colors.white),
+            child: Icon(
+              Icons.person,
+              size: 60,
+              color: isLightMode ? Colors.grey : Colors.white,
+            ),
           ),
           const SizedBox(height: 15),
 
           Text(
             widget.userName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1678,7 +1806,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               widget.role,
               style: const TextStyle(
                 color: Color(0xFF00D1F3),
-                fontSize: 12,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1688,8 +1816,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F2E),
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
+              boxShadow: isLightMode
+                  ? [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : [],
             ),
             child: Row(
               children: [
@@ -1699,7 +1836,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: const Color(0xFF00D1F3).withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.badge, color: Color(0xFF00D1F3)),
+                  child: const Icon(
+                    Icons.badge,
+                    color: Color(0xFF00D1F3),
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1708,14 +1849,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       const Text(
                         "User ID",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.userId ?? 'ADMIN-PST',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1729,12 +1870,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("User ID berhasil disalin!"),
+                        content: Text(
+                          "User ID berhasil disalin!",
+                          style: TextStyle(fontSize: 19),
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );
                   },
-                  icon: const Icon(Icons.copy, color: Colors.grey),
+                  icon: const Icon(Icons.copy, color: Colors.grey, size: 24),
                 ),
               ],
             ),
@@ -1747,7 +1891,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               "Pengaturan Akun & Admin",
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: 14,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1812,16 +1956,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     VoidCallback onTap, {
     bool isDestructive = false,
   }) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+    Color textColor = isDestructive
+        ? Colors.redAccent
+        : (isLightMode ? Colors.black : Colors.white);
+    Color borderColor = isDestructive
+        ? Colors.red.withOpacity(0.3)
+        : (isLightMode ? Colors.grey[200]! : Colors.transparent);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF161F2E),
+        color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDestructive
-              ? Colors.red.withOpacity(0.3)
-              : Colors.transparent,
-        ),
+        border: Border.all(color: borderColor),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
       ),
       child: Material(
         color: Colors.transparent,
@@ -1837,15 +1995,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: isDestructive
                       ? Colors.redAccent
                       : const Color(0xFF00D1F3),
-                  size: 24,
+                  size: 28,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isDestructive ? Colors.redAccent : Colors.white,
-                      fontSize: 16,
+                      color: textColor,
+                      fontSize: 19,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1855,7 +2013,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: isDestructive
                       ? Colors.transparent
                       : Colors.grey.withOpacity(0.5),
-                  size: 16,
+                  size: 20,
                 ),
               ],
             ),
@@ -1866,6 +2024,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDataCard(dynamic data) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     String idStr = "MAINT-${data['id'].toString().padLeft(3, '0')}";
 
     String statusString = (data['status'] ?? '').toString().toLowerCase();
@@ -1907,18 +2066,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     int currentWorkers = assignedTechs.length;
 
+    Color cardBgColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+    Color headerBgColor = isLightMode
+        ? Colors.grey[100]!
+        : const Color(0xFF1E293B).withOpacity(0.5);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF161F2E),
+        color: cardBgColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSelesai ? Colors.red : Colors.white.withOpacity(0.05),
+          color: isSelesai
+              ? Colors.red
+              : (isLightMode
+                    ? Colors.grey[300]!
+                    : Colors.white.withOpacity(0.05)),
           width: isSelesai ? 2.0 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: isLightMode
+                ? Colors.grey.withOpacity(0.2)
+                : Colors.black.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -1943,7 +2114,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B).withOpacity(0.5),
+                  color: headerBgColor,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(20),
                   ),
@@ -1957,9 +2128,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       children: [
                         Text(
                           idStr,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1969,7 +2140,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               '-',
                           style: const TextStyle(
                             color: Colors.grey,
-                            fontSize: 12,
+                            fontSize: 16,
                           ),
                         ),
                       ],
@@ -2000,7 +2171,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               icon: const Icon(
                                 Icons.edit,
                                 color: Colors.blue,
-                                size: 20,
+                                size: 24,
                               ),
                             ),
                             Container(
@@ -2019,7 +2190,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 (data['status'] ?? 'PENDING').toUpperCase(),
                                 style: TextStyle(
                                   color: statusColor,
-                                  fontSize: 11,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -2053,7 +2224,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       color: isClose
                                           ? Colors.grey
                                           : Colors.blueAccent,
-                                      fontSize: 10,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -2064,14 +2235,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     const Icon(
                                       Icons.group,
                                       color: Colors.grey,
-                                      size: 14,
+                                      size: 18,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       "$currentWorkers/$maxWorkers",
                                       style: const TextStyle(
                                         color: Colors.grey,
-                                        fontSize: 12,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -2094,45 +2265,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Icons.person,
                       "Pelapor",
                       data['teknisi'] ?? 'Teknisi Pelapor',
+                      isLightMode,
                     ),
                     const SizedBox(height: 10),
-                    _buildInfoRow(Icons.map, "Witel", data['witel'] ?? '-'),
+                    _buildInfoRow(
+                      Icons.map,
+                      "Witel",
+                      data['witel'] ?? '-',
+                      isLightMode,
+                    ),
                     const SizedBox(height: 10),
-                    _buildInfoRow(Icons.location_on, "STO", data['sto'] ?? '-'),
+                    _buildInfoRow(
+                      Icons.location_on,
+                      "STO",
+                      data['sto'] ?? '-',
+                      isLightMode,
+                    ),
                     const SizedBox(height: 10),
                     _buildInfoRow(
                       Icons.category,
                       "Kategori",
                       data['kategori_kegiatan'] ?? '-',
+                      isLightMode,
                     ),
                     const SizedBox(height: 15),
                     const Text(
                       "Uraian Pekerjaan:",
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       data['uraian_pekerjaan'] ?? '-',
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(color: textColor, fontSize: 19),
                     ),
 
                     if (isVerified || isSelesai || isClose) ...[
                       const SizedBox(height: 15),
-                      const Divider(color: Colors.white10),
+                      Divider(
+                        color: isLightMode ? Colors.grey[300] : Colors.white10,
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           const Icon(
                             Icons.engineering,
                             color: Colors.blueAccent,
-                            size: 16,
+                            size: 20,
                           ),
                           const SizedBox(width: 8),
                           const Text(
-                            "Teknisi Ditugaskan (Auto-Assign):",
+                            "Teknisi Ditugaskan :",
                             style: TextStyle(
                               color: Colors.blueAccent,
-                              fontSize: 12,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2144,7 +2329,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           "Belum ada data teknisi tersedia di STO ini.",
                           style: TextStyle(
                             color: Colors.orangeAccent,
-                            fontSize: 12,
+                            fontSize: 16,
                             fontStyle: FontStyle.italic,
                           ),
                         )
@@ -2153,9 +2338,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.3),
+                            color: isLightMode
+                                ? Colors.grey[100]
+                                : Colors.black.withOpacity(0.3),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white10),
+                            border: Border.all(
+                              color: isLightMode
+                                  ? Colors.grey[300]!
+                                  : Colors.white10,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2168,15 +2359,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                         const Icon(
                                           Icons.circle,
                                           color: Colors.green,
-                                          size: 8,
+                                          size: 10,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             "${tech['user_id']}  -  ${tech['name']}",
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
+                                            style: TextStyle(
+                                              color: isLightMode
+                                                  ? Colors.grey[800]
+                                                  : Colors.white70,
+                                              fontSize: 16,
                                             ),
                                           ),
                                         ),
@@ -2192,7 +2385,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               if (isPending) ...[
-                const Divider(color: Colors.white10, height: 1),
+                Divider(
+                  color: isLightMode ? Colors.grey[200] : Colors.white10,
+                  height: 1,
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -2207,11 +2403,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           icon: const Icon(
                             Icons.close,
                             color: Colors.redAccent,
-                            size: 18,
+                            size: 24,
                           ),
                           label: const Text(
                             "Tolak",
-                            style: TextStyle(color: Colors.redAccent),
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 19,
+                            ),
                           ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.redAccent),
@@ -2233,13 +2432,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           icon: const Icon(
                             Icons.check,
                             color: Colors.white,
-                            size: 18,
+                            size: 24,
                           ),
-                          label: const Text(
-                            "Verifikasi",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "Verifikasi",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 19,
+                              ),
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
@@ -2255,24 +2458,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
               ] else if (isSelesai) ...[
-                const Divider(color: Colors.white10, height: 1),
+                Divider(
+                  color: isLightMode ? Colors.grey[200] : Colors.white10,
+                  height: 1,
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
                     width: double.infinity,
+                    height: 55,
                     child: ElevatedButton.icon(
                       onPressed: () =>
                           _confirmUpdateStatus(context, data['id'], 'CLOSE'),
                       icon: const Icon(
                         Icons.check_circle,
                         color: Colors.white,
-                        size: 18,
+                        size: 24,
                       ),
-                      label: const Text(
-                        "Tutup Tiket (CLOSE)",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Tutup Tiket (CLOSE)",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -2285,14 +2496,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                 ),
-              ]
-              // --- TAMBAHAN TOMBOL EXPORT WORD DI CARD JIKA STATUS CLOSE ---
-              else if (isClose) ...[
-                const Divider(color: Colors.white10, height: 1),
+              ] else if (isClose) ...[
+                Divider(
+                  color: isLightMode ? Colors.grey[200] : Colors.white10,
+                  height: 1,
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
                     width: double.infinity,
+                    height: 55,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         final String docUrl =
@@ -2307,7 +2520,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Gagal mengunduh dokumen Word"),
+                                content: Text(
+                                  "Gagal mengunduh dokumen Word",
+                                  style: TextStyle(fontSize: 19),
+                                ),
                               ),
                             );
                           }
@@ -2316,13 +2532,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       icon: const Icon(
                         Icons.description,
                         color: Colors.white,
-                        size: 18,
+                        size: 24,
                       ),
-                      label: const Text(
-                        "Export Laporan (Word)",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Export Laporan (Word)",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -2343,25 +2563,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String title, String value) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String title,
+    String value,
+    bool isLightMode,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF00D1F3), size: 16),
+        Icon(icon, color: const Color(0xFF00D1F3), size: 24),
         const SizedBox(width: 10),
         SizedBox(
-          width: 70,
+          width: 85,
           child: Text(
             title,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: const TextStyle(color: Colors.grey, fontSize: 19),
           ),
         ),
-        const Text(":", style: TextStyle(color: Colors.grey, fontSize: 13)),
+        const Text(":", style: TextStyle(color: Colors.grey, fontSize: 19)),
         const SizedBox(width: 5),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: TextStyle(
+              color: isLightMode ? Colors.black : Colors.white,
+              fontSize: 19,
+            ),
           ),
         ),
       ],
@@ -2369,6 +2597,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildEmptyState() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -2379,18 +2608,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             color: Colors.grey.withOpacity(0.5),
           ),
           const SizedBox(height: 15),
-          const Text(
+          Text(
             "Tidak ada data ditemukan",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+              color: isLightMode ? Colors.black : Colors.white,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 5),
           const Text(
             "Coba ubah filter kategori Anda.",
-            style: TextStyle(color: Colors.grey, fontSize: 14),
+            style: TextStyle(color: Colors.grey, fontSize: 19),
           ),
         ],
       ),
@@ -2403,23 +2632,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color color,
     IconData icon,
   ) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF161F2E),
+          color: isLightMode ? Colors.white : const Color(0xFF161F2E),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: isLightMode
+              ? Border.all(color: Colors.grey[200]!)
+              : Border.all(color: Colors.white.withOpacity(0.05)),
+          boxShadow: isLightMode
+              ? [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 28),
+            Icon(icon, color: color, size: 32),
             const SizedBox(height: 12),
             Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
+              style: TextStyle(
+                color: isLightMode ? Colors.black : Colors.white,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2428,7 +2669,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title,
               style: const TextStyle(
                 color: Colors.grey,
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -2444,6 +2685,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color bgColor,
     VoidCallback onTap,
   ) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     return Column(
       children: [
         InkWell(
@@ -2456,15 +2698,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: bgColor.withOpacity(0.3)),
             ),
-            child: Icon(icon, color: bgColor, size: 28),
+            child: Icon(icon, color: bgColor, size: 32),
           ),
         ),
         const SizedBox(height: 10),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
+          style: TextStyle(
+            color: isLightMode ? Colors.black87 : Colors.white70,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -2473,6 +2715,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildActivityTile(dynamic data) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
     String status = (data['status'] ?? '').toString().toLowerCase();
     Color statusColor = status == 'close'
         ? Colors.grey
@@ -2487,14 +2730,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF161F2E),
+        color: isLightMode ? Colors.white : const Color(0xFF161F2E),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
       ),
       child: Row(
         children: [
           Container(
-            width: 12,
-            height: 12,
+            width: 16,
+            height: 16,
             decoration: BoxDecoration(
               color: statusColor,
               shape: BoxShape.circle,
@@ -2514,9 +2766,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Text(
                   data['kategori_kegiatan'] ?? 'Unknown',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                  style: TextStyle(
+                    color: isLightMode ? Colors.black : Colors.white,
+                    fontSize: 19,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
@@ -2525,7 +2777,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   "Report ID: MAINT-${data['id'].toString().padLeft(3, '0')}",
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: const TextStyle(color: Colors.grey, fontSize: 16),
                 ),
               ],
             ),
@@ -2534,7 +2786,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             (data['status'] ?? 'PENDING').toUpperCase(),
             style: TextStyle(
               color: statusColor,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -2550,6 +2802,13 @@ class AdminDetailLaporanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0A101D);
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     String idData = "MAINT-${reportData['id'].toString().padLeft(3, '0')}";
     String statusString = (reportData['status'] ?? 'Pending')
         .toString()
@@ -2590,15 +2849,15 @@ class AdminDetailLaporanScreen extends StatelessWidget {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A101D),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
+        iconTheme: IconThemeData(color: textColor),
+        title: Text(
           'Detail Laporan',
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -2613,12 +2872,21 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF161F2E),
+                color: cardColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: statusColor.withOpacity(0.5),
                   width: 1,
                 ),
+                boxShadow: isLightMode
+                    ? [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : [],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2626,15 +2894,18 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "ID Laporan",
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        style: TextStyle(
+                          color: isLightMode ? Colors.grey[600] : Colors.grey,
+                          fontSize: 19,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         idData,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: textColor,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
@@ -2657,7 +2928,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 16,
                       ),
                     ),
                   ),
@@ -2666,11 +2937,11 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            const Text(
+            Text(
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
+                color: textColor,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2678,9 +2949,18 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF161F2E),
+                color: cardColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                boxShadow: isLightMode
+                    ? [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : [],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2688,40 +2968,56 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   _buildDetailRow(
                     "Area",
                     reportData['area']?.toString() ?? '-',
+                    isLightMode,
                   ),
                   _buildDetailRow(
                     "District",
                     reportData['district']?.toString() ?? '-',
+                    isLightMode,
                   ),
                   _buildDetailRow(
                     "Witel",
                     reportData['witel']?.toString() ?? '-',
+                    isLightMode,
                   ),
-                  _buildDetailRow("STO", reportData['sto']?.toString() ?? '-'),
+                  _buildDetailRow(
+                    "STO",
+                    reportData['sto']?.toString() ?? '-',
+                    isLightMode,
+                  ),
 
-                  const Divider(color: Colors.white10, height: 30),
+                  Divider(
+                    color: isLightMode ? Colors.grey[300] : Colors.white10,
+                    height: 30,
+                  ),
 
-                  _buildDetailRow("Latitude", latStr ?? '-'),
-                  _buildDetailRow("Longitude", lngStr ?? '-'),
+                  _buildDetailRow("Latitude", latStr ?? '-', isLightMode),
+                  _buildDetailRow("Longitude", lngStr ?? '-', isLightMode),
 
                   const SizedBox(height: 5),
-                  const Text(
+                  Text(
                     "Link Google Maps:",
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
+                    style: TextStyle(
+                      color: isLightMode ? Colors.grey[600] : Colors.grey,
+                      fontSize: 19,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   SelectableText(
                     mapsUrl,
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 15,
+                    style: TextStyle(
+                      color: isLightMode
+                          ? Colors.blue[700]
+                          : Colors.greenAccent,
+                      fontSize: 19,
                       decoration: TextDecoration.underline,
                     ),
                   ),
+
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 55,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         if (latStr != null &&
@@ -2742,14 +3038,17 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       icon: const Icon(
                         Icons.map,
                         color: Colors.white,
-                        size: 20,
+                        size: 24,
                       ),
-                      label: const Text(
-                        "Buka di Google Maps",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Buka di Google Maps",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -2766,135 +3065,71 @@ class AdminDetailLaporanScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            const Text(
+            Text(
               "Rincian Pekerjaan",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
+                color: textColor,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF161F2E),
-                borderRadius: BorderRadius.circular(20),
+            _buildDetailCard([
+              _buildDetailRow(
+                "Kategori Kegiatan",
+                reportData['kategori_kegiatan']?.toString() ?? '-',
+                isLightMode,
               ),
-              child: Column(
-                children: [
-                  _buildDetailRow(
-                    "Kategori",
-                    reportData['kategori_kegiatan'] ?? '-',
-                  ),
-                  _buildDetailRow(
-                    "Mitra",
-                    reportData['mitra_pelaksana'] ?? '-',
-                  ),
-                  _buildDetailRow("Pelapor", reportData['teknisi'] ?? '-'),
-                  _buildDetailRow(
-                    "Waktu Input",
-                    reportData['created_at']?.toString().substring(0, 10) ??
-                        '-',
-                  ),
-
-                  const Divider(color: Colors.white10, height: 30),
-
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Uraian Pekerjaan:",
-                      style: TextStyle(color: Colors.grey, fontSize: 15),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      reportData['uraian_pekerjaan'] ?? '-',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
+              _buildDetailRow(
+                "Uraian Pekerjaan",
+                reportData['uraian_pekerjaan']?.toString() ?? '-',
+                isLightMode,
               ),
-            ),
+              _buildDetailRow(
+                "Mitra Pelaksana",
+                reportData['mitra_pelaksana']?.toString() ?? '-',
+                isLightMode,
+              ),
+              _buildDetailRow(
+                "Teknisi",
+                reportData['teknisi']?.toString() ?? '-',
+                isLightMode,
+              ),
+              _buildDetailRow(
+                "Waktu Laporan",
+                reportData['created_at']?.toString().substring(0, 10) ?? '-',
+                isLightMode,
+              ),
+            ], isLightMode),
             const SizedBox(height: 24),
-
-            // --- HEADER FOTO DENGAN TOMBOL ZIP ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Bukti Foto Lapangan",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final String zipUrl =
-                        '${ApiConfig.baseUrl}/maintenance/reports/${reportData['id']}/download-zip';
-                    final Uri url = Uri.parse(zipUrl);
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(
-                        url,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              "Gagal menghubungi server untuk mengunduh ZIP.",
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(
-                    Icons.folder_zip,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  label: const Text(
-                    "Unduh ZIP",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green, // Warna Hijau mencolok
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              "Bukti Foto Lapangan",
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            _buildPhotoCategory(context, "Before", beforePaths),
-            const SizedBox(height: 15),
-            _buildPhotoCategory(context, "Progress", progressPaths),
-            const SizedBox(height: 15),
-            _buildPhotoCategory(context, "After", afterPaths),
 
-            const SizedBox(height: 24),
+            _buildPhotoCategory(context, "Before", beforePaths, isLightMode),
+            const SizedBox(height: 15),
+            _buildPhotoCategory(
+              context,
+              "Progress",
+              progressPaths,
+              isLightMode,
+            ),
+            const SizedBox(height: 15),
+            _buildPhotoCategory(context, "After", afterPaths, isLightMode),
 
-            const Text(
+            const SizedBox(height: 40),
+
+            Text(
               "Lampiran Evidence",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
+                color: textColor,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2902,8 +3137,17 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF161F2E),
+                color: cardColor,
                 borderRadius: BorderRadius.circular(20),
+                boxShadow: isLightMode
+                    ? [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : [],
               ),
               child: Column(
                 children: [
@@ -2911,24 +3155,32 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     context,
                     "Material Tiba",
                     reportData['evidence_material'],
+                    isLightMode,
                   ),
-                  const Divider(color: Colors.white10, height: 24),
+                  Divider(
+                    color: isLightMode ? Colors.grey[300] : Colors.white10,
+                    height: 24,
+                  ),
                   _buildEvidenceStatus(
                     context,
                     "Hasil Ukur",
                     reportData['evidence_ukur'],
+                    isLightMode,
                   ),
-                  const Divider(color: Colors.white10, height: 24),
+                  Divider(
+                    color: isLightMode ? Colors.grey[300] : Colors.white10,
+                    height: 24,
+                  ),
                   _buildEvidenceStatus(
                     context,
                     "Pendukung/BA",
                     reportData['evidence_pendukung'],
+                    isLightMode,
                   ),
                 ],
               ),
             ),
 
-            // --- TAMBAHAN: TOMBOL EXPORT WORD JIKA SUDAH CLOSE ---
             if (isClose) ...[
               const SizedBox(height: 20),
               SizedBox(
@@ -2948,19 +3200,29 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Gagal mengunduh dokumen Word"),
+                            content: Text(
+                              "Gagal mengunduh dokumen Word",
+                              style: TextStyle(fontSize: 19),
+                            ),
                           ),
                         );
                       }
                     }
                   },
-                  icon: const Icon(Icons.description, color: Colors.white),
-                  label: const Text(
-                    "Export Report ke Word (.docx)",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  icon: const Icon(
+                    Icons.description,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      "Export Report ke Word (.docx)",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -2980,7 +3242,27 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String title, String value) {
+  Widget _buildDetailCard(List<Widget> children, bool isLightMode) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isLightMode ? Colors.white : const Color(0xFF161F2E),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDetailRow(String title, String value, bool isLightMode) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -2990,17 +3272,20 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             flex: 2,
             child: Text(
               title,
-              style: const TextStyle(color: Colors.grey, fontSize: 15),
+              style: TextStyle(
+                color: isLightMode ? Colors.grey[700] : Colors.grey,
+                fontSize: 19,
+              ),
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: isLightMode ? Colors.black : Colors.white,
                 fontWeight: FontWeight.w500,
-                fontSize: 16,
+                fontSize: 19,
               ),
               textAlign: TextAlign.right,
             ),
@@ -3014,8 +3299,12 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     BuildContext context,
     String label,
     List<String> paths,
+    bool isLightMode,
   ) {
     String storageBaseUrl = ApiConfig.baseUrl.replaceAll('/api', '/storage/');
+    Color boxBg = isLightMode ? Colors.grey[200]! : const Color(0xFF1E293B);
+    Color borderColor = isLightMode ? Colors.grey[300]! : Colors.white10;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3024,22 +3313,23 @@ class AdminDetailLaporanScreen extends StatelessWidget {
           style: const TextStyle(
             color: Colors.blue,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 20,
           ),
         ),
         const SizedBox(height: 10),
         paths.isEmpty
             ? Container(
-                width: 90,
-                height: 90,
+                width: 100,
+                height: 100,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: boxBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: borderColor),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.image_not_supported,
-                  color: Colors.grey,
+                  color: isLightMode ? Colors.grey[400] : Colors.grey,
+                  size: 32,
                 ),
               )
             : GridView.builder(
@@ -3070,7 +3360,11 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white24),
+                        border: Border.all(
+                          color: isLightMode
+                              ? Colors.grey[300]!
+                              : Colors.white24,
+                        ),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
@@ -3098,6 +3392,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     BuildContext context,
     String title,
     dynamic path,
+    bool isLightMode,
   ) {
     bool isUploaded = path != null && path.toString().isNotEmpty;
     return Row(
@@ -3105,12 +3400,15 @@ class AdminDetailLaporanScreen extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(color: Colors.white70, fontSize: 16),
+          style: TextStyle(
+            color: isLightMode ? Colors.grey[800] : Colors.white70,
+            fontSize: 19,
+          ),
         ),
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: isUploaded
                     ? Colors.green.withOpacity(0.2)
@@ -3121,7 +3419,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 isUploaded ? "Terlampir" : "Kosong",
                 style: TextStyle(
                   color: isUploaded ? Colors.green : Colors.orange,
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -3138,13 +3436,16 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   else
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("Tidak dapat membuka file"),
+                        content: Text(
+                          "Tidak dapat membuka file",
+                          style: TextStyle(fontSize: 19),
+                        ),
                         backgroundColor: Colors.red,
                       ),
                     );
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.2),
                     shape: BoxShape.circle,
@@ -3152,7 +3453,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   child: const Icon(
                     Icons.download,
                     color: Colors.blue,
-                    size: 20,
+                    size: 24,
                   ),
                 ),
               ),
@@ -3293,7 +3594,10 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Data & Bukti berhasil diperbarui!"),
+            content: Text(
+              "Data & Bukti berhasil diperbarui!",
+              style: TextStyle(fontSize: 19),
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -3303,6 +3607,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
           const SnackBar(
             content: Text(
               "Gagal menyimpan data ke server. Pastikan batas di php.ini sudah diubah!",
+              style: TextStyle(fontSize: 19),
             ),
             backgroundColor: Colors.red,
           ),
@@ -3311,24 +3616,33 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     } catch (e) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("Error: $e", style: const TextStyle(fontSize: 19)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0A101D);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A101D),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
+        iconTheme: IconThemeData(color: textColor),
+        title: Text(
           'Edit Laporan & Upload Bukti',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
+            color: textColor,
+            fontSize: 20, // Diubah menjadi 20
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -3339,26 +3653,28 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildFieldLabel("STO"),
-            _buildTextField(_stoController),
+            _buildTextField(_stoController, isLightMode),
             const SizedBox(height: 20),
             _buildFieldLabel("Kategori Kegiatan"),
-            _buildTextField(_kategoriController),
+            _buildTextField(_kategoriController, isLightMode),
             const SizedBox(height: 20),
             _buildFieldLabel("Mitra Pelaksana"),
-            _buildTextField(_mitraController),
+            _buildTextField(_mitraController, isLightMode),
             const SizedBox(height: 20),
             _buildFieldLabel("Uraian Pekerjaan"),
             Container(
               margin: const EdgeInsets.only(top: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF161F2E),
+                color: isLightMode ? Colors.white : const Color(0xFF161F2E),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white10),
+                border: Border.all(
+                  color: isLightMode ? Colors.grey[300]! : Colors.white10,
+                ),
               ),
               child: TextField(
                 controller: _uraianController,
                 maxLines: 4,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor, fontSize: 19),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.all(15),
                   border: InputBorder.none,
@@ -3366,13 +3682,13 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            const Divider(color: Colors.white10),
+            Divider(color: isLightMode ? Colors.grey[300] : Colors.white10),
             const SizedBox(height: 15),
-            const Text(
+            Text(
               "Upload Evidence (.zip/.rar)",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+                color: textColor,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -3382,16 +3698,19 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               "Evidence Material Tiba",
               _fileMaterialTiba,
               () => _pickFile(1),
+              isLightMode,
             ),
             _buildFilePicker(
               "Evidence Hasil Ukur",
               _fileHasilUkur,
               () => _pickFile(2),
+              isLightMode,
             ),
             _buildFilePicker(
               "Evidence Pendukung/BA",
               _filePendukung,
               () => _pickFile(3),
+              isLightMode,
             ),
 
             const SizedBox(height: 40),
@@ -3408,12 +3727,15 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
                 ),
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        "Simpan Semua Perubahan",
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                    : const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Simpan Semua Perubahan",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20, // Diubah menjadi 20
+                          ),
                         ),
                       ),
               ),
@@ -3428,22 +3750,27 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     label,
     style: const TextStyle(
       color: Colors.grey,
-      fontSize: 13,
+      fontSize: 19, // Diubah menjadi 19
       fontWeight: FontWeight.bold,
     ),
   );
 
-  Widget _buildTextField(TextEditingController controller) {
+  Widget _buildTextField(TextEditingController controller, bool isLightMode) {
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF161F2E),
+        color: isLightMode ? Colors.white : const Color(0xFF161F2E),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(
+          color: isLightMode ? Colors.grey[300]! : Colors.white10,
+        ),
       ),
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: isLightMode ? Colors.black : Colors.white,
+          fontSize: 19,
+        ),
         decoration: const InputDecoration(
           contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 15),
           border: InputBorder.none,
@@ -3456,6 +3783,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     String label,
     PlatformFile? file,
     VoidCallback onTap,
+    bool isLightMode,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3464,7 +3792,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
           label,
           style: const TextStyle(
             color: Colors.grey,
-            fontSize: 13,
+            fontSize: 19,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -3475,14 +3803,17 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
           child: Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F2E),
+              color: isLightMode ? Colors.white : const Color(0xFF161F2E),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(
+                color: isLightMode ? Colors.grey[300]! : Colors.white10,
+              ),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.folder_zip,
+                  size: 24,
                   color: file != null ? Colors.green : const Color(0xFF00D1F3),
                 ),
                 const SizedBox(width: 10),
@@ -3490,15 +3821,17 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
                   child: Text(
                     file != null ? file.name : "Pilih File...",
                     style: TextStyle(
-                      color: file != null ? Colors.white : Colors.grey,
-                      fontSize: 14,
+                      color: file != null
+                          ? (isLightMode ? Colors.black : Colors.white)
+                          : Colors.grey,
+                      fontSize: 19,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (file != null)
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 24),
               ],
             ),
           ),
@@ -3648,24 +3981,38 @@ class _JadwalScreenState extends State<JadwalScreen> {
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(message, style: const TextStyle(fontSize: 19)),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color bgColor = isLightMode
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0A101D);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+    Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
+
     List<String> groupKeys = _groupedTlaUsers.keys.toList()..sort();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A101D),
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
+        iconTheme: IconThemeData(color: textColor),
+        title: Text(
           'Manajemen Tim Lapangan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
       ),
       body: _isLoading
@@ -3673,10 +4020,10 @@ class _JadwalScreenState extends State<JadwalScreen> {
               child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
             )
           : _groupedTlaUsers.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 "Belum ada data tim lapangan",
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: Colors.grey, fontSize: 19),
               ),
             )
           : ListView.builder(
@@ -3695,7 +4042,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                       style: const TextStyle(
                         color: Color(0xFF00D1F3),
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 20,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -3703,25 +4050,39 @@ class _JadwalScreenState extends State<JadwalScreen> {
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: cardColor,
                         borderRadius: BorderRadius.circular(10),
+                        boxShadow: isLightMode
+                            ? [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : [],
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(
-                            const Color(0xFF334155),
+                          headingRowColor: MaterialStateProperty.all(
+                            isLightMode
+                                ? Colors.grey[200]
+                                : const Color(0xFF334155),
                           ),
-                          dataRowMinHeight: 50,
-                          dataRowMaxHeight: 50,
-                          columns: const [
+                          dataRowMinHeight: 60,
+                          dataRowMaxHeight: 60,
+                          columns: [
                             DataColumn(
                               label: Text(
                                 'No',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: isLightMode
+                                      ? Colors.black87
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                             ),
@@ -3729,8 +4090,11 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               label: Text(
                                 'STO',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: isLightMode
+                                      ? Colors.black87
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                             ),
@@ -3738,8 +4102,11 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               label: Text(
                                 'ID Tim Lapangan',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: isLightMode
+                                      ? Colors.black87
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                             ),
@@ -3747,8 +4114,11 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               label: Text(
                                 'Nama',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: isLightMode
+                                      ? Colors.black87
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                             ),
@@ -3756,8 +4126,11 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               label: Text(
                                 'Status',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: isLightMode
+                                      ? Colors.black87
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                             ),
@@ -3770,36 +4143,55 @@ class _JadwalScreenState extends State<JadwalScreen> {
                             );
 
                             return DataRow(
+                              color: MaterialStateProperty.all(
+                                rowIndex % 2 == 0
+                                    ? Colors.transparent
+                                    : (isLightMode
+                                          ? Colors.grey[50]
+                                          : Colors.black12),
+                              ),
                               cells: [
                                 DataCell(
                                   Text(
                                     '${rowIndex + 1}',
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 19,
+                                    ),
                                   ),
                                 ),
                                 DataCell(
                                   Text(
                                     fullStoName,
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 19,
+                                    ),
                                   ),
                                 ),
                                 DataCell(
                                   Text(
                                     user['user_id'] ?? '-',
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 19,
+                                    ),
                                   ),
                                 ),
                                 DataCell(
                                   Text(
                                     user['name'] ?? '-',
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 19,
+                                    ),
                                   ),
                                 ),
                                 DataCell(
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
+                                      horizontal: 12,
+                                      vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
                                       color: isBusy
@@ -3816,9 +4208,13 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                       isBusy ? "Ditugaskan" : "Tersedia",
                                       style: TextStyle(
                                         color: isBusy
-                                            ? Colors.orangeAccent
-                                            : Colors.greenAccent,
-                                        fontSize: 11,
+                                            ? (isLightMode
+                                                  ? Colors.orange[800]
+                                                  : Colors.orangeAccent)
+                                            : (isLightMode
+                                                  ? Colors.green[800]
+                                                  : Colors.greenAccent),
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
