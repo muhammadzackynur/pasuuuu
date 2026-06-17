@@ -111,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SnackBar(
               content: Text(
                 "Profil Berhasil Diperbarui",
-                style: TextStyle(fontSize: 19), // Diubah menjadi 19
+                style: TextStyle(fontSize: 19),
               ),
               backgroundColor: Colors.green,
             ),
@@ -124,10 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              "Error: $e",
-              style: const TextStyle(fontSize: 19), // Diubah menjadi 19
-            ),
+            content: Text("Error: $e", style: const TextStyle(fontSize: 19)),
             backgroundColor: Colors.red,
           ),
         );
@@ -157,19 +154,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           "Edit Profil",
           style: TextStyle(
             color: textColor,
-            fontSize: 20, // Diubah menjadi 20
+            fontSize: 24, // Diperbesar dari 20 agar lebih terlihat
             fontWeight: FontWeight.bold,
           ),
         ),
         content: TextField(
           controller: nameController,
-          style: TextStyle(color: textColor, fontSize: 19), // Diubah menjadi 19
+          style: TextStyle(color: textColor, fontSize: 19),
           decoration: InputDecoration(
             labelText: "Nama Lengkap",
-            labelStyle: const TextStyle(
-              color: Colors.cyan,
-              fontSize: 19, // Diubah menjadi 19
-            ),
+            labelStyle: const TextStyle(color: Colors.cyan, fontSize: 19),
             enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.grey),
             ),
@@ -183,10 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text(
               "Batal",
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 19,
-              ), // Diubah menjadi 19
+              style: TextStyle(color: Colors.grey, fontSize: 19),
             ),
           ),
           ElevatedButton(
@@ -202,7 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
               ),
             ),
           ),
@@ -226,14 +217,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.bold,
-            fontSize: 20, // Diubah menjadi 20
+            fontSize: 24, // Diperbesar dari 20
           ),
         ),
         content: Text(
           "Apakah Anda yakin ingin keluar?",
           style: TextStyle(
             color: isLightMode ? Colors.grey[700] : Colors.grey,
-            fontSize: 19, // Diubah menjadi 19
+            fontSize: 19,
           ),
         ),
         actions: [
@@ -241,10 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text(
               "Batal",
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 19,
-              ), // Diubah menjadi 19
+              style: TextStyle(color: Colors.grey, fontSize: 19),
             ),
           ),
           ElevatedButton(
@@ -264,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
               ),
             ),
           ),
@@ -316,18 +304,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? const CircularProgressIndicator(color: Colors.cyan)
                       : Text(
                           currentUserName,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: textColor,
-                            fontSize: 24, // Tetap besar (judul utama)
+                            fontSize:
+                                32, // DIUBAH: Diperbesar dari 24 agar sangat jelas terbaca
                             fontWeight: FontWeight.bold,
                           ),
                         ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8), // Sedikit dinaikkan jaraknya
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16, // Sedikit diperlebar
-                      vertical: 6, // Sedikit ditinggikan
+                      horizontal: 16,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.cyan.withOpacity(0.2),
@@ -337,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       widget.role,
                       style: const TextStyle(
                         color: Colors.cyan,
-                        fontSize: 19, // Diubah menjadi 19
+                        fontSize: 19,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -386,7 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         "User ID",
                         style: TextStyle(
                           color: isLightMode ? Colors.grey[600] : Colors.grey,
-                          fontSize: 19, // Diubah menjadi 19
+                          fontSize: 19,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -394,7 +384,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         widget.userId,
                         style: TextStyle(
                           color: textColor,
-                          fontSize: 20, // Diubah menjadi 20
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -426,7 +416,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 "Pengaturan Akun",
                 style: TextStyle(
                   color: isLightMode ? Colors.grey[700] : Colors.grey,
-                  fontSize: 20, // Diubah menjadi 20
+                  fontSize:
+                      22, // DIUBAH: Diperbesar dari 20 untuk membedakan section header
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -470,7 +461,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // --- LOGOUT BUTTON ---
             SizedBox(
               width: double.infinity,
-              height: 60, // Diperbesar
+              height: 60,
               child: ElevatedButton.icon(
                 onPressed: () => _logout(context),
                 icon: const Icon(Icons.logout, color: Colors.white, size: 24),
@@ -479,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 20, // Diubah menjadi 20
+                    fontSize: 20,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -497,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               "Versi Aplikasi 1.0.0",
               style: TextStyle(
                 color: isLightMode ? Colors.grey[600] : Colors.grey,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
               ),
             ),
             const SizedBox(height: 20),
@@ -518,7 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             "Pencapaian Saya",
             style: TextStyle(
               color: isLightMode ? Colors.grey[700] : Colors.grey,
-              fontSize: 20, // Diubah menjadi 20
+              fontSize: 22, // DIUBAH: Diperbesar dari 20 agar seimbang
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -537,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildBadgeCard(
                           title: "Kontributor Aktif",
                           current: totalSubmitted,
-                          target: 50,
+                          target: 25,
                           activeColor: Colors.blue,
                           isLightMode: isLightMode,
                         ),
@@ -545,7 +536,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildBadgeCard(
                           title: "Bintang Lapangan",
                           current: totalClosed,
-                          target: 50,
+                          target: 25,
                           activeColor: Colors.orange,
                           isLightMode: isLightMode,
                         ),
@@ -553,7 +544,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildBadgeCard(
                           title: "Pekerja Tanpa Cacat",
                           current: currentStreak,
-                          target: 20,
+                          target: 25,
                           activeColor: Colors.green,
                           isLightMode: isLightMode,
                         ),
@@ -580,7 +571,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String badgeRank = _calculateBadgeRank(current, target);
 
     return Container(
-      width: 165, // Diperbesar dari 140 agar font ukuran 19 muat
+      width: 165,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isLightMode ? Colors.white : const Color(0xFF1E293B),
@@ -614,7 +605,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               size: 72,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
@@ -624,7 +615,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: isAchieved
                     ? (isLightMode ? Colors.black : Colors.white)
                     : Colors.grey,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -634,7 +625,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: progress,
             backgroundColor: isLightMode ? Colors.grey[200] : Colors.black26,
             color: activeColor,
-            minHeight: 8, // Dipertebal sedikit
+            minHeight: 8,
             borderRadius: BorderRadius.circular(10),
           ),
           const SizedBox(height: 8),
@@ -642,7 +633,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             "$current / $target",
             style: TextStyle(
               color: isAchieved ? activeColor : Colors.grey,
-              fontSize: 19, // Diubah menjadi 19
+              fontSize: 19,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -680,7 +671,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title,
           style: TextStyle(
             color: isLightMode ? Colors.black : Colors.white,
-            fontSize: 19, // Diubah menjadi 19
+            fontSize: 19,
           ),
         ),
         trailing: Icon(
@@ -764,10 +755,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(fontSize: 19),
-          ), // Diubah menjadi 19
+          content: Text(message, style: const TextStyle(fontSize: 19)),
           backgroundColor: Colors.red,
         ),
       );
@@ -796,7 +784,8 @@ class _JadwalScreenState extends State<JadwalScreen> {
           style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.bold,
-            fontSize: 20, // Diubah menjadi 20
+            fontSize:
+                26, // DIUBAH: Diperbesar dari 20 agar AppBar title terlihat tegas dan jelas
           ),
         ),
       ),
@@ -808,7 +797,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                 "Belum ada data tim lapangan",
                 style: TextStyle(
                   color: isLightMode ? Colors.grey[700] : Colors.grey,
-                  fontSize: 19, // Diubah menjadi 19
+                  fontSize: 19,
                 ),
               ),
             )
@@ -838,7 +827,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                             style: const TextStyle(
                               color: Colors.cyan,
                               fontWeight: FontWeight.bold,
-                              fontSize: 20, // Diubah menjadi 20
+                              fontSize: 20,
                             ),
                           ),
                         ),
@@ -847,7 +836,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                           "${usersInGroup.length} Teknisi",
                           style: TextStyle(
                             color: isLightMode ? Colors.grey[700] : Colors.grey,
-                            fontSize: 19, // Diubah menjadi 19
+                            fontSize: 19,
                           ),
                         ),
                       ],
@@ -882,16 +871,16 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                 ? Colors.grey[200]
                                 : const Color(0xFF161F2E),
                           ),
-                          dataRowMinHeight: 70, // Disesuaikan untuk font besar
+                          dataRowMinHeight: 70,
                           dataRowMaxHeight: 70,
                           headingTextStyle: const TextStyle(
                             color: Colors.cyan,
                             fontWeight: FontWeight.bold,
-                            fontSize: 19, // Diubah menjadi 19
+                            fontSize: 19,
                           ),
                           dataTextStyle: TextStyle(
                             color: textColor,
-                            fontSize: 19, // Diubah menjadi 19
+                            fontSize: 19,
                           ),
                           columns: const [
                             DataColumn(label: Text('NO')),
@@ -925,7 +914,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                       style: const TextStyle(
                                         color: Colors.cyan,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 19, // Diubah menjadi 19
+                                        fontSize: 19,
                                       ),
                                     ),
                                   ),
