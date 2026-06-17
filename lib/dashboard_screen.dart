@@ -109,7 +109,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           String statusLower = status.toLowerCase();
 
           if (statusLower == 'close') {
-            c++;
+            // PERBAIKAN: Cek apakah user adalah pelapor atau teknisi yang diutus
+            bool isReporter = report['user_id'].toString() == widget.userId;
+            bool isAssigned = false;
+
+            if (report['assigned_technicians'] != null) {
+              var assigned = report['assigned_technicians'];
+              if (assigned is List) {
+                isAssigned = assigned.any(
+                  (id) => id.toString() == widget.userId,
+                );
+              } else if (assigned is String) {
+                isAssigned = assigned.contains(widget.userId);
+              }
+            }
+
+            // HANYA hitung (c++) jika user ini yang melapor atau yang ditugaskan
+            if (isReporter || isAssigned) {
+              c++;
+            }
           } else if (statusLower.contains('verif') ||
               statusLower == 'selesai') {
             v++;
@@ -376,16 +394,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ======================================================================
   // ===== WIDGET: HALAMAN HISTORY PEKERJAAN (STATUS CLOSE) ===============
   // ======================================================================
+  // ======================================================================
+  // ===== WIDGET: HALAMAN HISTORY PEKERJAAN (STATUS CLOSE) ===============
+  // ======================================================================
   Widget _buildHistoryContent(bool isLightMode) {
-    final closedReports = _reports
-        .where((d) => (d['status'] ?? '').toString().toLowerCase() == 'close')
-        .toList();
+    // FILTER: Hanya ambil yang status CLOSE dan User terkait dengan laporan
+    final closedReports = _reports.where((d) {
+      bool isClose = (d['status'] ?? '').toString().toLowerCase() == 'close';
+
+      bool isReporter = d['user_id'].toString() == widget.userId;
+      bool isAssigned = false;
+
+      if (d['assigned_technicians'] != null) {
+        var assigned = d['assigned_technicians'];
+        if (assigned is List) {
+          isAssigned = assigned.any((id) => id.toString() == widget.userId);
+        } else if (assigned is String) {
+          isAssigned = assigned.contains(widget.userId);
+        }
+      }
+
+      // Harus CLOSE dan (Harus Pelapor ATAU Teknisi yang ditugaskan)
+      return isClose && (isReporter || isAssigned);
+    }).toList();
 
     Color textColor = isLightMode ? Colors.black : Colors.white;
-    Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
-    Color subtleColor = isLightMode
-        ? const Color(0xFFF1F5F9)
-        : const Color(0xFF1E293B);
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -393,69 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ===== BANNER RINGKASAN HISTORY =====
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blueAccent.shade700, Colors.blue.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blueAccent.withOpacity(0.35),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.done_all,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pekerjaan Selesai',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${closedReports.length} Laporan Ditutup',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Data pekerjaan yang telah di-CLOSE oleh Admin',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+          // Banner Ringkasan Pekerjaan Selesai telah dihapus di sini
 
           // ===== JUDUL DAFTAR =====
           Row(
@@ -807,9 +778,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           _buildGreetingCard(isLightMode),
           const SizedBox(height: 24),
-          // ===== RINGKASAN SINGKAT DI HOME =====
-          _buildHomeSummaryRow(isLightMode),
-          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -853,93 +821,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildTipCard(isLightMode),
           const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  /// Baris ringkasan stat di Home
-  Widget _buildHomeSummaryRow(bool isLightMode) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildMiniStatCard(
-            Icons.more_horiz,
-            _pendingCount.toString(),
-            'Pending',
-            Colors.amber,
-            isLightMode,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildMiniStatCard(
-            Icons.check_circle_outline,
-            _verifiedCount.toString(),
-            'Verified',
-            Colors.green,
-            isLightMode,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildMiniStatCard(
-            Icons.done_all,
-            _closedCount.toString(),
-            'Close',
-            Colors.blueAccent,
-            isLightMode,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMiniStatCard(
-    IconData icon,
-    String count,
-    String label,
-    Color color,
-    bool isLightMode,
-  ) {
-    Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
-    Color textColor = isLightMode ? Colors.black : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
-        boxShadow: isLightMode
-            ? [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : [],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            count,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: isLightMode ? Colors.grey[600] : Colors.grey,
-            ),
-          ),
         ],
       ),
     );
@@ -1237,47 +1118,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 20),
 
           // ===== BANNER SHORTCUT KE HISTORY dari Status =====
-          if (_closedCount > 0)
-            GestureDetector(
-              onTap: () => setState(() => _selectedIndex = 3),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.done_all,
-                      color: Colors.blueAccent,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '$_closedCount pekerjaan sudah CLOSE — Lihat di tab History',
-                        style: const TextStyle(
-                          color: Colors.blueAccent,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Colors.blueAccent,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
