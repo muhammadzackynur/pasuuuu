@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'role_selection_screen.dart';
 import 'api_config.dart';
+import 'achievement_widget.dart'; // Sesuaikan path-nya jika perlu
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -41,6 +42,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else {
       isLoadingAchievements = false;
     }
+  }
+
+  // --- LOGIKA PENENTU RANK PER-BADGE (berdasarkan progress current/target) ---
+  String _calculateBadgeRank(int current, int target) {
+    if (target <= 0) return 'bronze';
+    double progress = current / target;
+    if (progress >= 1.0) return 'crown';
+    if (progress >= 0.5) return 'silver';
+    return 'bronze';
   }
 
   // --- FUNGSI API FETCH ACHIEVEMENTS ---
@@ -497,7 +507,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Widget Bagian Pencapaian
+  // Widget Bagian Pencapaian (gabungan animasi rank Lottie + badge progress)
   Widget _buildAchievementsSection(bool isLightMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,41 +526,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
         isLoadingAchievements
             ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
-            : Center(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildBadgeCard(
-                        title: "Kontributor Aktif",
-                        current: totalSubmitted,
-                        target: 50,
-                        icon: Icons.upload_file,
-                        activeColor: Colors.blue,
-                        isLightMode: isLightMode,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildBadgeCard(
-                        title: "Bintang Lapangan",
-                        current: totalClosed,
-                        target: 50,
-                        icon: Icons.star_rounded,
-                        activeColor: Colors.orange,
-                        isLightMode: isLightMode,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildBadgeCard(
-                        title: "Pekerja Tanpa Cacat",
-                        current: currentStreak,
-                        target: 20,
-                        icon: Icons.shield_rounded,
-                        activeColor: Colors.green,
-                        isLightMode: isLightMode,
-                      ),
-                    ],
+            : Column(
+                children: [
+                  // ===== BADGE PROGRESS PER KATEGORI =====
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildBadgeCard(
+                          title: "Kontributor Aktif",
+                          current: totalSubmitted,
+                          target: 50,
+                          activeColor: Colors.blue,
+                          isLightMode: isLightMode,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildBadgeCard(
+                          title: "Bintang Lapangan",
+                          current: totalClosed,
+                          target: 50,
+                          activeColor: Colors.orange,
+                          isLightMode: isLightMode,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildBadgeCard(
+                          title: "Pekerja Tanpa Cacat",
+                          current: currentStreak,
+                          target: 20,
+                          activeColor: Colors.green,
+                          isLightMode: isLightMode,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
         const SizedBox(height: 24),
       ],
@@ -562,12 +572,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required int current,
     required int target,
-    required IconData icon,
     required Color activeColor,
     required bool isLightMode,
   }) {
     bool isAchieved = current >= target;
     double progress = (current / target).clamp(0.0, 1.0);
+    String badgeRank = _calculateBadgeRank(current, target);
 
     return Container(
       width: 165, // Diperbesar dari 140 agar font ukuran 19 muat
@@ -594,16 +604,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 40,
-            color: isAchieved
-                ? activeColor
-                : (isLightMode
-                      ? Colors.grey[400]
-                      : Colors.grey.withOpacity(0.5)),
+          // ===== ANIMASI RANK (BRONZE/SILVER/CROWN) PER KATEGORI =====
+          SizedBox(
+            height: 72,
+            width: 72,
+            child: AchievementWidget(
+              rank: badgeRank,
+              showLabel: false,
+              size: 72,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
