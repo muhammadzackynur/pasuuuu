@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
 import 'api_config.dart';
+import 'ecc_helper.dart'; // Sesuaikan path jika berbeda
 
 class KonfirmasiLaporanScreen extends StatefulWidget {
   final String userName,
@@ -57,20 +58,34 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({"Accept": "application/json"});
 
-      request.fields['user_id'] = widget.userId;
-      request.fields['area'] = widget.area;
-      request.fields['district'] = widget.district;
-      request.fields['witel'] = widget.witel;
-      request.fields['sto'] = widget.sto;
-      request.fields['mitra_pelaksana'] = widget.mitraPelaksana;
-      request.fields['kategori_kegiatan'] = widget.kategoriKegiatan;
-      request.fields['uraian_pekerjaan'] = widget.uraianPekerjaan;
-      request.fields['teknisi'] = widget.userName;
-      request.fields['latitude'] = widget.latitude ?? "";
-      request.fields['longitude'] = widget.longitude ?? "";
+      // Proses Enkripsi di Flutter sebelum dikirim
+      request.fields['user_id'] =
+          widget.userId; // user_id biarkan asli untuk relasi database
 
-      // MENGIRIM LINK MAPS KE KOLOM LOKASI PEKERJAAN DI DATABASE
-      request.fields['lokasi_pekerjaan'] = widget.mapsLink ?? "";
+      request.fields['area'] = await EccHelper.encryptData(widget.area);
+      request.fields['district'] = await EccHelper.encryptData(widget.district);
+      request.fields['witel'] = await EccHelper.encryptData(widget.witel);
+      request.fields['sto'] = await EccHelper.encryptData(widget.sto);
+      request.fields['mitra_pelaksana'] = await EccHelper.encryptData(
+        widget.mitraPelaksana,
+      );
+      request.fields['kategori_kegiatan'] = await EccHelper.encryptData(
+        widget.kategoriKegiatan,
+      );
+      request.fields['uraian_pekerjaan'] = await EccHelper.encryptData(
+        widget.uraianPekerjaan,
+      );
+      request.fields['teknisi'] = await EccHelper.encryptData(widget.userName);
+
+      request.fields['latitude'] = await EccHelper.encryptData(
+        widget.latitude ?? "",
+      );
+      request.fields['longitude'] = await EccHelper.encryptData(
+        widget.longitude ?? "",
+      );
+      request.fields['lokasi_pekerjaan'] = await EccHelper.encryptData(
+        widget.mapsLink ?? "",
+      );
 
       for (String p in widget.fotoBeforePaths) {
         request.files.add(
