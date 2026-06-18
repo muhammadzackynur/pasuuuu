@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ApiConfig {
   // Pastikan IP ini adalah IP laptop Anda yang terhubung ke WiFi saat ini
-  static const String baseUrl = 'http://10.253.128.75:8000/api';
+  static const String baseUrl = 'http://192.168.1.19:8000/api';
 
   // Fungsi history ini HARUS berada di DALAM kurung kurawal class ApiConfig
   static Future<List<dynamic>> getHistoryPekerjaan(String userId) async {
