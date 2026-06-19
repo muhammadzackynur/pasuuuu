@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiConfig {
-  // Pastikan IP ini adalah IP laptop Anda yang terhubung ke WiFi saat ini
-  static const String baseUrl = 'http://10.253.128.245:8000/api';
+  // Ganti baseUrl menggunakan URL Ngrok Anda ditambah '/api'
+  static const String baseUrl =
+      'https://creation-catatonic-phoenix.ngrok-free.dev/api';
 
-  // Fungsi history ini HARUS berada di DALAM kurung kurawal class ApiConfig
   static Future<List<dynamic>> getHistoryPekerjaan(String userId) async {
     final url = Uri.parse('$baseUrl/maintenance/history/$userId');
 
@@ -14,7 +14,8 @@ class ApiConfig {
         url,
         headers: {
           'Accept': 'application/json',
-          // 'Authorization': 'Bearer $token', // Buka komentar ini jika API Anda memakai token
+          // Header ini WAJIB ditambahkan untuk melewati halaman peringatan keamanan Ngrok
+          'ngrok-skip-browser-warning': 'true',
         },
       );
 
