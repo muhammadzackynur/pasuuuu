@@ -4307,6 +4307,120 @@ class AdminDetailLaporanScreen extends StatelessWidget {
   }
 }
 
+Widget _buildEvidenceStatus(
+  BuildContext context,
+  String title,
+  dynamic path,
+  bool isLightMode,
+) {
+  bool isUploaded = path != null && path.toString().isNotEmpty;
+  String pathStr = path?.toString() ?? '';
+  bool isImage = isUploaded &&
+      RegExp(r'\.(jpg|jpeg|png|gif|webp)$', caseSensitive: false)
+          .hasMatch(pathStr);
+  String fullUrl = isUploaded
+      ? '${ApiConfig.baseUrl.replaceAll('/api', '/storage/')}$pathStr'
+      : '';
+  String heroTag = 'admin_evidence_${title.hashCode}';
+
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      if (isImage)
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FullScreenImageScreen(
+                    imageUrl: fullUrl,
+                    heroTag: heroTag,
+                  ),
+                ),
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Hero(
+                tag: heroTag,
+                child: Image.network(
+                  fullUrl,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) =>
+                      const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+        ),
+      Expanded(
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isLightMode ? Colors.grey[800] : Colors.white70,
+            fontSize: 19,
+          ),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isUploaded
+              ? Colors.green.withOpacity(0.2)
+              : Colors.orange.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          isUploaded ? "Terlampir" : "Kosong",
+          style: TextStyle(
+            color: isUploaded ? Colors.green : Colors.orange,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      if (isUploaded) ...[
+        const SizedBox(width: 10),
+        InkWell(
+          onTap: () async {
+            final Uri url = Uri.parse(fullUrl);
+            if (await canLaunchUrl(url)) {
+              await launchUrl(url, mode: LaunchMode.externalApplication);
+            } else {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    "Tidak dapat membuka file",
+                    style: TextStyle(fontSize: 19),
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.download,
+              color: Colors.blue,
+              size: 24,
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
 class AdminEditLaporanScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
   const AdminEditLaporanScreen({super.key, required this.reportData});

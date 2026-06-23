@@ -203,9 +203,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_selectedIndex == 3) appBarTitle = 'History Pekerjaan';
 
     return Scaffold(
-      backgroundColor: isLightMode
-          ? const Color(0xFFF8FAFC)
-          : const Color(0xFF0F1623),
+      backgroundColor:
+          isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623),
       appBar: _selectedIndex == 4
           ? null
           : AppBar(
@@ -277,14 +276,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : (_selectedIndex == 4
-                ? bodyContent
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      await _fetchReports();
-                      await _fetchUnreadCount();
-                    },
-                    child: bodyContent,
-                  )),
+              ? bodyContent
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    await _fetchReports();
+                    await _fetchUnreadCount();
+                  },
+                  child: bodyContent,
+                )),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: isLightMode ? Colors.white : const Color(0xFF0F1623),
         type: BottomNavigationBarType.fixed,
@@ -389,7 +388,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-
           if (closedReports.isEmpty)
             _buildHistoryEmptyState(isLightMode)
           else
@@ -552,13 +550,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 14),
-
                 Divider(
                   color: isLightMode ? Colors.grey[200] : Colors.white10,
                   height: 1,
                 ),
                 const SizedBox(height: 14),
-
                 _buildHistoryInfoRow(
                   Icons.location_city,
                   Colors.blue,
@@ -604,9 +600,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   textColor,
                   subtleText,
                 ),
-
                 const SizedBox(height: 14),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -675,9 +669,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int maxLines = 1,
   }) {
     return Row(
-      crossAxisAlignment: maxLines > 1
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
+      crossAxisAlignment:
+          maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Icon(icon, size: 15, color: iconColor),
         const SizedBox(width: 8),
@@ -1046,7 +1039,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1210,12 +1202,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Color statusColor = statusLower == 'close'
         ? Colors.blueAccent
         : (statusLower == 'selesai'
-              ? Colors.redAccent
-              : (statusLower.contains('pend')
-                    ? Colors.amber
-                    : (statusLower.contains('reject')
-                          ? Colors.red
-                          : Colors.green)));
+            ? Colors.redAccent
+            : (statusLower.contains('pend')
+                ? Colors.amber
+                : (statusLower.contains('reject')
+                    ? Colors.red
+                    : Colors.green)));
 
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
     Color textColor = isLightMode ? Colors.black : Colors.white;
@@ -1338,9 +1330,8 @@ class FilterChipWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color inactiveColor = isLightMode
-        ? const Color(0xFFF1F5F9)
-        : const Color(0xFF1E2738);
+    Color inactiveColor =
+        isLightMode ? const Color(0xFFF1F5F9) : const Color(0xFF1E2738);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return GestureDetector(
@@ -1350,9 +1341,8 @@ class FilterChipWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFF00D1F3) : inactiveColor,
           borderRadius: BorderRadius.circular(20),
-          border: isActive
-              ? null
-              : Border.all(color: Colors.grey.withOpacity(0.3)),
+          border:
+              isActive ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -1413,9 +1403,8 @@ class StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color itemColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0F1623);
+    Color itemColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return Container(
@@ -1504,32 +1493,31 @@ class TimelineItem extends StatelessWidget {
                       color: type == StatusType.rejected
                           ? Colors.red
                           : (type == StatusType.closed
-                                ? Colors.blueAccent
-                                : const Color(0xFF00D1F3)),
+                              ? Colors.blueAccent
+                              : const Color(0xFF00D1F3)),
                       width: 2,
                     ),
                   ),
                   child: CircleAvatar(
                     radius: 12,
-                    backgroundColor: isLightMode
-                        ? Colors.white
-                        : Colors.transparent,
+                    backgroundColor:
+                        isLightMode ? Colors.white : Colors.transparent,
                     child: Icon(
                       type == StatusType.pending
                           ? Icons.circle
                           : type == StatusType.verified
-                          ? Icons.check
-                          : type == StatusType.closed
-                          ? Icons.done_all
-                          : Icons.close,
+                              ? Icons.check
+                              : type == StatusType.closed
+                                  ? Icons.done_all
+                                  : Icons.close,
                       size: 12,
                       color: type == StatusType.pending
                           ? Colors.amber
                           : type == StatusType.verified
-                          ? Colors.green
-                          : type == StatusType.closed
-                          ? Colors.blueAccent
-                          : Colors.red,
+                              ? Colors.green
+                              : type == StatusType.closed
+                                  ? Colors.blueAccent
+                                  : Colors.red,
                     ),
                   ),
                 ),
@@ -1660,9 +1648,8 @@ class TimelineItem extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Divider(
-                          color: isLightMode
-                              ? Colors.grey[300]
-                              : Colors.white10,
+                          color:
+                              isLightMode ? Colors.grey[300] : Colors.white10,
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -1671,9 +1658,8 @@ class TimelineItem extends StatelessWidget {
                             Icon(
                               Icons.description,
                               size: 16,
-                              color: isLightMode
-                                  ? Colors.grey[600]
-                                  : Colors.grey,
+                              color:
+                                  isLightMode ? Colors.grey[600] : Colors.grey,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -1722,7 +1708,10 @@ class DetailLaporanScreen extends StatefulWidget {
 
   @override
   State<DetailLaporanScreen> createState() => _DetailLaporanScreenState();
+
+  
 }
+
 
 class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   bool _isUploading = false;
@@ -1795,13 +1784,237 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     }
   }
 
+  Widget _buildEvidenceUploadBox(
+    String label,
+    String fieldName,
+    bool required,
+    bool isLightMode,
+  ) {
+    bool canAddPhoto =
+        widget.currentUserId == widget.reportData['user_id'].toString();
+    String path = widget.reportData[fieldName]?.toString() ?? '';
+    bool hasImage = path.isNotEmpty;
+    String fullUrl = hasImage ? storageBaseUrl + path : '';
+    String heroTag = "evidence_$fieldName";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        const SizedBox(height: 10),
+        hasImage
+            ? GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FullScreenImageScreen(
+                        imageUrl: fullUrl,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                              isLightMode ? Colors.grey[300]! : Colors.white24,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Hero(
+                          tag: heroTag,
+                          child: Image.network(
+                            fullUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (canAddPhoto)
+                      Positioned(
+                        right: 4,
+                        bottom: 4,
+                        child: GestureDetector(
+                          onTap: _isUploading
+                              ? null
+                              : () => _uploadEvidenceImage(fieldName),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                            ),
+                            child: _isUploading
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            : (canAddPhoto
+                ? InkWell(
+                    onTap: _isUploading
+                        ? null
+                        : () => _uploadEvidenceImage(fieldName),
+                    child: Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue, width: 1.5),
+                      ),
+                      child: _isUploading
+                          ? const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(
+                                  Icons.add_a_photo,
+                                  color: Colors.blue,
+                                  size: 24,
+                                ),
+                                SizedBox(height: 5),
+                                Text(
+                                  "Upload",
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  )
+                : Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: isLightMode
+                          ? Colors.grey[200]
+                          : const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color:
+                            isLightMode ? Colors.grey[300]! : Colors.white10,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.image_not_supported,
+                      color: isLightMode ? Colors.grey[400] : Colors.grey,
+                      size: 30,
+                    ),
+                  )),
+      ],
+    );
+  }
+
+  Future<void> _uploadEvidenceImage(String fieldName) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (pickedFile == null) return;
+
+      setState(() => _isUploading = true);
+
+      String id = widget.reportData['id'].toString();
+      var url = Uri.parse('${ApiConfig.baseUrl}/maintenance/reports/$id');
+
+      var request = http.MultipartRequest('POST', url);
+      request.headers.addAll({"Accept": "application/json"});
+      request.fields['_method'] = 'PUT';
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, pickedFile.path),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          if (data['data'] != null && data['data'][fieldName] != null) {
+            widget.reportData[fieldName] = data['data'][fieldName];
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Foto evidence berhasil diunggah!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (widget.onRefresh != null) widget.onRefresh!();
+      } else {
+        throw Exception("Gagal upload: ${response.body}");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
   Future<void> _markAsDone() async {
     final fotoBefore = _getImagesByType('before');
     final fotoProgress = _getImagesByType('progress');
     final fotoAfter = _getImagesByType('after');
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
 
-    if (fotoBefore.isEmpty || fotoProgress.isEmpty || fotoAfter.isEmpty) {
+    final materialPath =
+        widget.reportData['evidence_material']?.toString() ?? '';
+
+    if (fotoBefore.isEmpty ||
+        fotoProgress.isEmpty ||
+        fotoAfter.isEmpty ||
+        materialPath.isEmpty) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -1815,7 +2028,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
             ),
           ),
           content: Text(
-            "Data belum lengkap!\n\nAnda harus mengunggah setidaknya 1 foto untuk masing-masing kategori: Before, Progress, dan After sebelum menekan selesai.",
+            "Data belum lengkap!\n\nAnda harus mengunggah setidaknya 1 foto untuk masing-masing kategori: Before, Progress, After, serta foto Material (wajib), sebelum menekan selesai.",
             style: TextStyle(
               color: isLightMode ? Colors.grey[800] : Colors.grey,
               fontSize: 16,
@@ -1884,12 +2097,12 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     Color statusColor = statusLower == 'close'
         ? Colors.blueAccent
         : (statusLower == 'selesai'
-              ? Colors.redAccent
-              : (statusLower.contains('pend')
-                    ? Colors.amber
-                    : (statusLower.contains('reject')
-                          ? Colors.red
-                          : Colors.green)));
+            ? Colors.redAccent
+            : (statusLower.contains('pend')
+                ? Colors.amber
+                : (statusLower.contains('reject')
+                    ? Colors.red
+                    : Colors.green)));
 
     String? latStr = widget.reportData['latitude']?.toString();
     String? lngStr = widget.reportData['longitude']?.toString();
@@ -1898,14 +2111,12 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     final fotoProgress = _getImagesByType('progress');
     final fotoAfter = _getImagesByType('after');
 
-    bool isVerifiedAndNotDone =
-        status.toLowerCase().contains('verif') &&
+    bool isVerifiedAndNotDone = status.toLowerCase().contains('verif') &&
         status.toLowerCase() != 'selesai';
 
     return Scaffold(
-      backgroundColor: isLightMode
-          ? const Color(0xFFF8FAFC)
-          : const Color(0xFF0F1623),
+      backgroundColor:
+          isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1954,7 +2165,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                   ],
                 ),
               ),
-
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -2020,7 +2230,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
             Text(
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
@@ -2089,9 +2298,8 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                         ? "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr"
                         : "Koordinat belum tersedia",
                     style: TextStyle(
-                      color: isLightMode
-                          ? Colors.blue[700]
-                          : Colors.greenAccent,
+                      color:
+                          isLightMode ? Colors.blue[700] : Colors.greenAccent,
                       fontSize: 14,
                       decoration: TextDecoration.underline,
                     ),
@@ -2143,7 +2351,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
             Text(
               "Rincian Pekerjaan",
@@ -2182,7 +2389,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                 isLightMode,
               ),
             ], isLightMode),
-
             const SizedBox(height: 24),
             Text(
               "Bukti Foto Lapangan",
@@ -2198,6 +2404,41 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
             _buildPhotoCategory("Progress", fotoProgress, isLightMode),
             const SizedBox(height: 15),
             _buildPhotoCategory("After", fotoAfter, isLightMode),
+
+            const SizedBox(height: 24),
+            Text(
+              "Upload Evidence Tambahan",
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                _buildEvidenceUploadBox(
+                  "Foto Material",
+                  "evidence_material",
+                  false,
+                  isLightMode,
+                ),
+                _buildEvidenceUploadBox(
+                  "Foto Hasil Ukur",
+                  "evidence_ukur",
+                  false,
+                  isLightMode,
+                ),
+                _buildEvidenceUploadBox(
+                  "Foto Pendukung/BA",
+                  "evidence_pendukung",
+                  false,
+                  isLightMode,
+                ),
+              ],
+            ),
 
             const SizedBox(height: 40),
 
@@ -2233,7 +2474,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                   ),
                 ),
               ),
-
             const SizedBox(height: 30),
           ],
         ),
@@ -2314,7 +2554,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
           ),
         ),
         const SizedBox(height: 10),
-
         if (paths.isEmpty)
           canAddPhoto
               ? InkWell(
