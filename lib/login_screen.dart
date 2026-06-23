@@ -395,6 +395,7 @@ class _LoginScreenState extends State<LoginScreen>
             userName: data['user']['name'],
             role: data['user']['role'],
             userId: userIdStr,
+            databaseId: data['user']['id'],
           ),
         ),
       );

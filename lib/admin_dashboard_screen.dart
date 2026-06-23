@@ -9,17 +9,22 @@ import 'dart:async';
 import 'notification_screen.dart';
 import 'api_config.dart';
 import 'filter_laporan_screen.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String userName;
   final String role;
   final String? userId;
+  final int? databaseId;
 
   const AdminDashboardScreen({
     super.key,
     required this.userName,
     required this.role,
     this.userId,
+    this.databaseId,
   });
 
   @override
@@ -29,6 +34,12 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
   bool _isLoading = true;
+
+  File? _profileImage;
+  String? _photoUrl;
+  final ImagePicker _picker = ImagePicker();
+  bool _isUploadingPhoto = false;
+  int? _adminDatabaseId;
 
   List<dynamic> _allReports = [];
   List<dynamic> _recentReports = [];
@@ -82,9 +93,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _adminDatabaseId = widget.databaseId;
     _fetchAdminData();
     _fetchUnreadCount();
     _fetchTechnicianData();
+    _fetchUserPhoto();
     _startNotificationCheck();
   }
 
@@ -168,6 +181,133 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     } catch (e) {
       debugPrint("Error fetch technicians: $e");
+    }
+  }
+
+  // ===========================================================================
+  // FOTO PROFIL ADMIN
+  // ===========================================================================
+  Future<void> _fetchUserPhoto() async {
+    try {
+      final url = Uri.parse('${ApiConfig.baseUrl}/users');
+      final response = await http.get(url);
+      if (response.statusCode != 200) return;
+
+      final data = json.decode(response.body);
+      final List<dynamic> users = data['data'] ?? [];
+
+      for (var u in users) {
+        final bool matchById =
+            _adminDatabaseId != null && u['id'] == _adminDatabaseId;
+        final bool matchByUserId = widget.userId != null &&
+            u['user_id']?.toString().toUpperCase() ==
+                widget.userId!.toUpperCase();
+
+        if (matchById || matchByUserId) {
+          if (!mounted) return;
+          setState(() {
+            _adminDatabaseId = u['id'];
+            if (u['photo'] != null) {
+              String photoPath = u['photo'].toString();
+              if (photoPath.startsWith('http')) {
+                _photoUrl = photoPath;
+              } else {
+                String host =
+                    ApiConfig.baseUrl.replaceAll(RegExp(r'/api$'), '');
+                _photoUrl = '$host/storage/$photoPath';
+              }
+            }
+          });
+          break;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetch foto admin: $e');
+    }
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final XFile? pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (pickedFile == null) return;
+
+    if (_adminDatabaseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "ID pengguna belum terdeteksi, coba refresh halaman lalu ulangi.",
+            style: TextStyle(fontSize: 16),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _profileImage = File(pickedFile.path);
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      String? token = prefs.getString('token');
+
+      if (token == null || token.isEmpty) {
+        throw Exception(
+            "Token tidak ditemukan. Silakan logout dan login ulang.");
+      }
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/user/update-photo/$_adminDatabaseId'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      request.files.add(
+        await http.MultipartFile.fromPath('photo', pickedFile.path),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() => _photoUrl = data['photo_url'] ?? _photoUrl);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Foto profil berhasil diperbarui!",
+                style: TextStyle(fontSize: 17),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception("Sesi habis (401). Silakan logout dan login ulang.");
+      } else {
+        throw Exception(
+          "Server error: ${response.statusCode} — ${response.body}",
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Gagal upload foto: $e",
+              style: const TextStyle(fontSize: 16),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
     }
   }
 
@@ -2355,18 +2495,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     Widget userInfoWidget = Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF00D1F3), width: 2),
-            color: isLightMode ? Colors.grey[200] : const Color(0xFF161F2E),
-          ),
-          child: Icon(
-            Icons.person,
-            size: 60,
-            color: isLightMode ? Colors.grey : Colors.white,
+        GestureDetector(
+          onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF00D1F3), width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor:
+                      isLightMode ? Colors.grey[200] : const Color(0xFF161F2E),
+                  backgroundImage: _profileImage != null
+                      ? FileImage(_profileImage!) as ImageProvider
+                      : (_photoUrl != null ? NetworkImage(_photoUrl!) : null),
+                  child: (_profileImage == null && _photoUrl == null)
+                      ? Icon(
+                          Icons.person,
+                          size: 50,
+                          color: isLightMode ? Colors.grey : Colors.white,
+                        )
+                      : null,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00D1F3),
+                  shape: BoxShape.circle,
+                ),
+                child: _isUploadingPhoto
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.camera_alt,
+                        color: Colors.white, size: 18),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 15),
