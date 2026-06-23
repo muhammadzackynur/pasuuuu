@@ -142,9 +142,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0D1424);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0D1424);
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
@@ -170,22 +169,26 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _buildInfoCard("Data Laporan", {
-              "Area": widget.area,
-              "District": widget.district,
-              "Witel": widget.witel,
-              "STO": widget.sto,
-              "Teknisi": widget.userName,
-            }, isLightMode),
+            _buildInfoCard(
+                "Data Laporan",
+                {
+                  "Area": widget.area,
+                  "District": widget.district,
+                  "Witel": widget.witel,
+                  "STO": widget.sto,
+                  "Teknisi": widget.userName,
+                },
+                isLightMode),
             const SizedBox(height: 15),
-
-            _buildInfoCard("Rincian Pekerjaan", {
-              "Mitra": widget.mitraPelaksana,
-              "Kategori": widget.kategoriKegiatan,
-              "Uraian": widget.uraianPekerjaan,
-            }, isLightMode),
+            _buildInfoCard(
+                "Rincian Pekerjaan",
+                {
+                  "Mitra": widget.mitraPelaksana,
+                  "Kategori": widget.kategoriKegiatan,
+                  "Uraian": widget.uraianPekerjaan,
+                },
+                isLightMode),
             const SizedBox(height: 15),
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -236,9 +239,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
                   SelectableText(
                     widget.mapsLink ?? "-",
                     style: TextStyle(
-                      color: isLightMode
-                          ? Colors.blue[700]
-                          : Colors.greenAccent,
+                      color:
+                          isLightMode ? Colors.blue[700] : Colors.greenAccent,
                       fontSize: 19, // Diubah menjadi 19
                       decoration: TextDecoration.underline,
                     ),
@@ -292,7 +294,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
               ),
             ),
             const SizedBox(height: 15),
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -348,7 +349,6 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
               ),
             ),
             const SizedBox(height: 40),
-
             SizedBox(
               width: double.infinity,
               height: 60,
@@ -467,9 +467,8 @@ class _KonfirmasiLaporanScreenState extends State<KonfirmasiLaporanScreen> {
     bool isLightMode,
   ) {
     Color boxBg = isLightMode ? Colors.grey[200]! : const Color(0xFF0D1424);
-    Color borderColor = isLightMode
-        ? Colors.grey[300]!
-        : Colors.grey.withOpacity(0.3);
+    Color borderColor =
+        isLightMode ? Colors.grey[300]! : Colors.grey.withOpacity(0.3);
 
     return Column(
       children: [

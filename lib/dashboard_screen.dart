@@ -1811,6 +1811,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
               ),
             ),
             const SizedBox(width: 8),
+
           ],
         ),
         const SizedBox(height: 10),
