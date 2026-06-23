@@ -742,13 +742,119 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // --- KOMPONEN KHUSUS SIDEBAR DESKTOP ---
+  Widget _buildSidebar(bool isLightMode) {
+    Color sidebarColor = isLightMode ? Colors.white : const Color(0xFF0F1623);
+    Color selectedColor = const Color(0xFF00D1F3);
+    Color unselectedColor = isLightMode ? Colors.grey : Colors.grey.shade600;
+
+    return Container(
+      width: 250,
+      color: sidebarColor,
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.admin_panel_settings, color: selectedColor, size: 32),
+              const SizedBox(width: 10),
+              Text(
+                "Admin Panel",
+                style: TextStyle(
+                  color: isLightMode ? Colors.black : Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 50),
+          _buildSidebarItem(
+            Icons.home_filled,
+            'Home',
+            0,
+            isLightMode,
+            selectedColor,
+            unselectedColor,
+          ),
+          _buildSidebarItem(
+            Icons.dataset,
+            'Data',
+            1,
+            isLightMode,
+            selectedColor,
+            unselectedColor,
+          ),
+          _buildSidebarItem(
+            Icons.pie_chart,
+            'Analytics',
+            2,
+            isLightMode,
+            selectedColor,
+            unselectedColor,
+          ),
+          _buildSidebarItem(
+            Icons.person,
+            'Profile',
+            3,
+            isLightMode,
+            selectedColor,
+            unselectedColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarItem(
+    IconData icon,
+    String title,
+    int index,
+    bool isLightMode,
+    Color selectedColor,
+    Color unselectedColor,
+  ) {
+    bool isSelected = _selectedIndex == index;
+    return InkWell(
+      onTap: () => _onItemTapped(index),
+      child: Container(
+        color: isSelected ? selectedColor.withOpacity(0.1) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 30),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? selectedColor : unselectedColor,
+              size: 24,
+            ),
+            const SizedBox(width: 15),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? selectedColor : unselectedColor,
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // ---------------------------------------
+
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color iconAndTextColor = isLightMode ? Colors.black : Colors.white;
 
-    Widget bodyContent;
+    // DETEKSI LEBAR LAYAR UNTUK RESPONSIVE
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800; // Anggap > 800px adalah Desktop/Windows
 
+    // KONTEN UTAMA BEDASARKAN TAB
+    Widget bodyContent;
     if (_selectedIndex == 0) {
       bodyContent = _buildHomeContent();
     } else if (_selectedIndex == 1) {
@@ -766,145 +872,178 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: isLightMode
-          ? const Color(0xFFF8FAFC)
-          : const Color(0xFF0A101D),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 20.0),
-          child: CircleAvatar(
-            backgroundColor: isLightMode
-                ? Colors.grey[200]
-                : const Color(0xFF1E293B),
-            child: Icon(Icons.person, color: iconAndTextColor, size: 24),
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Good Morning,',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            Text(
-              widget.userName,
-              style: TextStyle(
-                color: iconAndTextColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (_selectedIndex == 1)
-            IconButton(
-              onPressed: () async {
-                final filterData = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        FilterLaporanScreen(role: widget.role),
-                  ),
-                );
-
-                if (filterData != null) {
-                  setState(() {
-                    activeFilter = filterData;
-                  });
-                }
-              },
-              icon: Stack(
-                children: [
-                  Icon(Icons.tune, color: iconAndTextColor),
-                  if (activeFilter != null &&
-                      (activeFilter!['bulan'] != null ||
-                          (activeFilter!['gangguan'] as List).isNotEmpty))
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-          IconButton(
-            onPressed: () {
-              setState(() {
-                activeFilter = null;
-              });
-              _fetchAdminData();
-              _fetchUnreadCount();
+    // PEMBUNGKUS KONTEN (PULL TO REFRESH)
+    Widget mainContent = _isLoading
+        ? const Center(
+            child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
+          )
+        : RefreshIndicator(
+            onRefresh: () async {
+              await _fetchAdminData();
+              await _fetchTechnicianData();
             },
-            icon: Icon(Icons.refresh, color: iconAndTextColor),
+            child: bodyContent,
+          );
+
+    // APP BAR UNIVERSAL
+    PreferredSizeWidget myAppBar = AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20.0),
+        child: CircleAvatar(
+          backgroundColor: isLightMode
+              ? Colors.grey[200]
+              : const Color(0xFF1E293B),
+          child: Icon(Icons.person, color: iconAndTextColor, size: 24),
+        ),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Good Morning,',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
+          Text(
+            widget.userName,
+            style: TextStyle(
+              color: iconAndTextColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        if (_selectedIndex == 1)
           IconButton(
             onPressed: () async {
-              await Navigator.push(
+              final filterData = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      const NotificationScreen(userId: 'admin'),
+                  builder: (context) => FilterLaporanScreen(role: widget.role),
                 ),
               );
-              _fetchUnreadCount();
+
+              if (filterData != null) {
+                setState(() {
+                  activeFilter = filterData;
+                });
+              }
             },
             icon: Stack(
-              clipBehavior: Clip.none,
               children: [
-                Icon(Icons.notifications, color: iconAndTextColor),
-                if (_unreadNotifCount > 0)
+                Icon(Icons.tune, color: iconAndTextColor),
+                if (activeFilter != null &&
+                    (activeFilter!['bulan'] != null ||
+                        (activeFilter!['gangguan'] as List).isNotEmpty))
                   Positioned(
-                    right: -4,
-                    top: -4,
+                    right: 0,
+                    top: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      width: 10,
+                      height: 10,
                       decoration: const BoxDecoration(
-                        color: Colors.orange,
+                        color: Colors.redAccent,
                         shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$_unreadNotifCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ),
                   ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.logout, color: Colors.redAccent),
+
+        IconButton(
+          onPressed: () {
+            setState(() {
+              activeFilter = null;
+            });
+            _fetchAdminData();
+            _fetchUnreadCount();
+          },
+          icon: Icon(Icons.refresh, color: iconAndTextColor),
+        ),
+        IconButton(
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationScreen(userId: 'admin'),
+              ),
+            );
+            _fetchUnreadCount();
+          },
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(Icons.notifications, color: iconAndTextColor),
+              if (_unreadNotifCount > 0)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_unreadNotifCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 10),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
-            )
-          : RefreshIndicator(
-              onRefresh: () async {
-                await _fetchAdminData();
-                await _fetchTechnicianData();
-              },
-              child: bodyContent,
+        ),
+        IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.logout, color: Colors.redAccent),
+        ),
+        const SizedBox(width: 10),
+      ],
+    );
+
+    // ==========================================
+    // LOGIKA PENENTUAN TATA LETAK
+    // ==========================================
+
+    // 1. TATA LETAK DESKTOP / WINDOWS
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: isLightMode
+            ? const Color(0xFFF8FAFC)
+            : const Color(0xFF0A101D),
+        body: Row(
+          children: [
+            // Memanggil layout Sidebar di sisi kiri
+            _buildSidebar(isLightMode),
+
+            // Konten memanjang mengisi sisa layar di sisi kanan
+            Expanded(
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: myAppBar,
+                body: mainContent,
+              ),
             ),
+          ],
+        ),
+      );
+    }
+
+    // 2. TATA LETAK MOBILE / SMARTPHONE (Standar)
+    return Scaffold(
+      backgroundColor: isLightMode
+          ? const Color(0xFFF8FAFC)
+          : const Color(0xFF0A101D),
+      appBar: myAppBar,
+      body: mainContent,
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: isLightMode ? Colors.white : const Color(0xFF0F1623),
         type: BottomNavigationBarType.fixed,
@@ -932,184 +1071,221 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // --- PEMBAGIAN LAYOUT UNTUK HOMESCREEN ---
   Widget _buildHomeContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800;
 
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00D1F3), Color(0xFF00A3FF)],
-              ),
-              borderRadius: BorderRadius.circular(24),
+    // KOMPONEN SISI KIRI (Banner, Card, Quick Actions)
+    Widget leftSideContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF00D1F3), Color(0xFF00A3FF)],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Total Reports",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                      ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Total Reports",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.insert_chart,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _totalCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 25),
-          Row(
-            children: [
-              _buildSmallStatCard(
-                "Pending",
-                _pendingCount.toString(),
-                Colors.orange,
-                Icons.hourglass_top,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.insert_chart,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 15),
-              _buildSmallStatCard(
-                "Verified",
-                _verifiedCount.toString(),
-                Colors.green,
-                Icons.check_circle_outline,
-              ),
-              const SizedBox(width: 15),
-              _buildSmallStatCard(
-                "Rejected",
-                _rejectedCount.toString(),
-                Colors.red,
-                Icons.cancel_outlined,
-              ),
-            ],
-          ),
-          const SizedBox(height: 35),
-          Text(
-            "Quick Actions",
-            style: TextStyle(
-              color: textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildQuickActionBtn(
-                Icons.folder_shared,
-                "Manage Data",
-                const Color(0xFF3B82F6),
-                () => _onItemTapped(1),
-              ),
-              _buildQuickActionBtn(
-                Icons.analytics,
-                "Analytics",
-                const Color(0xFF8B5CF6),
-                () => _onItemTapped(2),
-              ),
-              _buildQuickActionBtn(
-                Icons.fact_check,
-                "Verification",
-                const Color(0xFF10B981),
-                () {
-                  setState(() => _selectedFilterIndex = 1);
-                  _onItemTapped(1);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 35),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              const SizedBox(height: 10),
               Text(
-                "Recent Activity",
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 20,
+                _totalCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 42,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              TextButton(
-                onPressed: () => _onItemTapped(1),
-                child: const Text(
-                  "See All",
-                  style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (_recentReports.isEmpty)
-            const Center(
+        ),
+        const SizedBox(height: 25),
+        Row(
+          children: [
+            _buildSmallStatCard(
+              "Pending",
+              _pendingCount.toString(),
+              Colors.orange,
+              Icons.hourglass_top,
+            ),
+            const SizedBox(width: 15),
+            _buildSmallStatCard(
+              "Verified",
+              _verifiedCount.toString(),
+              Colors.green,
+              Icons.check_circle_outline,
+            ),
+            const SizedBox(width: 15),
+            _buildSmallStatCard(
+              "Rejected",
+              _rejectedCount.toString(),
+              Colors.red,
+              Icons.cancel_outlined,
+            ),
+          ],
+        ),
+        const SizedBox(height: 35),
+        Text(
+          "Quick Actions",
+          style: TextStyle(
+            color: textColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildQuickActionBtn(
+              Icons.folder_shared,
+              "Manage Data",
+              const Color(0xFF3B82F6),
+              () => _onItemTapped(1),
+            ),
+            _buildQuickActionBtn(
+              Icons.analytics,
+              "Analytics",
+              const Color(0xFF8B5CF6),
+              () => _onItemTapped(2),
+            ),
+            _buildQuickActionBtn(
+              Icons.fact_check,
+              "Verification",
+              const Color(0xFF10B981),
+              () {
+                setState(() => _selectedFilterIndex = 1);
+                _onItemTapped(1);
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+
+    // KOMPONEN SISI KANAN (Recent Activity)
+    Widget rightSideContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Recent Activity",
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton(
+              onPressed: () => _onItemTapped(1),
+              child: const Text(
+                "See All",
+                style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_recentReports.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
               child: Text(
                 "No recent activity.",
                 style: TextStyle(color: Colors.grey, fontSize: 19),
               ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _recentReports.length,
-              itemBuilder: (context, index) {
-                return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AdminDetailLaporanScreen(
-                          reportData: _recentReports[index],
-                        ),
-                      ),
-                    );
-                  },
-                  child: _buildActivityTile(_recentReports[index]),
-                );
-              },
             ),
-          const SizedBox(height: 30),
-        ],
-      ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _recentReports.length,
+            itemBuilder: (context, index) {
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminDetailLaporanScreen(
+                        reportData: _recentReports[index],
+                      ),
+                    ),
+                  );
+                },
+                child: _buildActivityTile(_recentReports[index]),
+              );
+            },
+          ),
+      ],
+    );
+
+    // PENGGABUNGAN LAYOUT
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      child: isDesktop
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 6, child: leftSideContent),
+                const SizedBox(width: 30),
+                Expanded(flex: 4, child: rightSideContent),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leftSideContent,
+                const SizedBox(height: 35),
+                rightSideContent,
+                const SizedBox(height: 30),
+              ],
+            ),
     );
   }
 
+  // --- PEMBAGIAN LAYOUT UNTUK MENU DATA (GRID DI DESKTOP) ---
   Widget _buildDataContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     List<dynamic> currentData = _filteredReports;
+
+    // Deteksi jika Desktop
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800;
 
     return Column(
       children: [
@@ -1218,22 +1394,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         Expanded(
           child: currentData.isEmpty
               ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: currentData.length,
-                  itemBuilder: (context, index) {
-                    return _buildDataCard(currentData[index]);
-                  },
-                ),
+              : (isDesktop
+                    // Jika Desktop, pakai GridView (4 / 5 ke samping)
+                    ? GridView.builder(
+                        padding: const EdgeInsets.all(20),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          // Jika layar sangat lebar (> 1400) jadikan 5, selain itu 4
+                          crossAxisCount: screenWidth > 1400
+                              ? 5
+                              : (screenWidth > 1100 ? 4 : 3),
+                          crossAxisSpacing: 20,
+                          mainAxisSpacing: 20,
+                          mainAxisExtent:
+                              500, // Tinggi setiap card ditetapkan 500
+                        ),
+                        itemCount: currentData.length,
+                        itemBuilder: (context, index) {
+                          return _buildDataCard(currentData[index]);
+                        },
+                      )
+                    // Jika Mobile, pakai ListView (memanjang ke bawah)
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: currentData.length,
+                        itemBuilder: (context, index) {
+                          return _buildDataCard(currentData[index]);
+                        },
+                      )),
         ),
       ],
     );
   }
 
+  // --- PEMBAGIAN LAYOUT UNTUK ANALYTICS ---
   Widget _buildAnalyticsContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
+
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800; // Deteksi Desktop
 
     if (_allReports.isEmpty) {
       return const Center(
@@ -1269,7 +1469,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     String topStoName = top5Sto.isNotEmpty ? top5Sto.first.key : '-';
     int topStoCount = top5Sto.isNotEmpty ? top5Sto.first.value : 0;
-
     String topCatName = sortedCat.isNotEmpty ? sortedCat.first.key : '-';
     int topCatCount = sortedCat.isNotEmpty ? sortedCat.first.value : 0;
 
@@ -1290,185 +1489,149 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         "Lokasi STO yang paling banyak menerima laporan adalah STO $topStoName ($topStoCount laporan), "
         "dengan jenis gangguan yang mendominasi yaitu $topCatName ($topCatCount kasus).";
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      physics: const AlwaysScrollableScrollPhysics(),
+    // Kumpulan Widget untuk Analytics
+    Widget summaryCard = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00D1F3).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00D1F3).withOpacity(0.3)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Descriptive Analytics",
-            style: TextStyle(
-              color: textColor,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            "Overview & performa pemeliharaan",
-            style: TextStyle(color: Colors.grey, fontSize: 19),
-          ),
-          const SizedBox(height: 20),
-
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D1F3).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF00D1F3).withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    Icon(
-                      Icons.lightbulb_outline,
-                      color: Color(0xFF00D1F3),
-                      size: 24,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      "Ringkasan Eksekutif",
-                      style: TextStyle(
-                        color: Color(0xFF00D1F3),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  summaryText,
-                  style: TextStyle(
-                    color: isLightMode ? Colors.black87 : Colors.white70,
-                    fontSize: 19,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 25),
-
           Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    boxShadow: isLightMode
-                        ? [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 5,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.task_alt, color: Colors.green, size: 28),
-                      const SizedBox(height: 10),
-                      Text(
-                        "${completionRate.toStringAsFixed(1)}%",
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text(
-                        "Completion Rate",
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFF00D1F3).withOpacity(0.3),
-                    ),
-                    boxShadow: isLightMode
-                        ? [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 5,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.analytics,
-                        color: Color(0xFF00D1F3),
-                        size: 28,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "$_totalCount",
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text(
-                        "Total Laporan",
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    ],
-                  ),
+            children: const [
+              Icon(Icons.lightbulb_outline, color: Color(0xFF00D1F3), size: 24),
+              SizedBox(width: 8),
+              Text(
+                "Ringkasan Eksekutif",
+                style: TextStyle(
+                  color: Color(0xFF00D1F3),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 10),
+          Text(
+            summaryText,
+            style: TextStyle(
+              color: isLightMode ? Colors.black87 : Colors.white70,
+              fontSize: 16,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
 
+    Widget completionCard = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.task_alt, color: Colors.green, size: 28),
+          const SizedBox(height: 10),
+          Text(
+            "${completionRate.toStringAsFixed(1)}%",
+            style: TextStyle(
+              color: textColor,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Text(
+            "Completion Rate",
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+
+    Widget totalReportCard = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF00D1F3).withOpacity(0.3)),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.analytics, color: Color(0xFF00D1F3), size: 28),
+          const SizedBox(height: 10),
+          Text(
+            "$_totalCount",
+            style: TextStyle(
+              color: textColor,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Text(
+            "Total Laporan",
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+
+    Widget pieChartCard = Container(
+      height: 300,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
             "Distribusi Status Pekerjaan",
             style: TextStyle(
               color: textColor,
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 15),
-          Container(
-            height: 250,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isLightMode
-                  ? [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : [],
-            ),
+          Expanded(
             child: Row(
               children: [
                 Expanded(
@@ -1544,43 +1707,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 30),
+        ],
+      ),
+    );
 
-          Text(
-            "Lokasi Kritis (Top 5 STO)",
-            style: TextStyle(
-              color: textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+    Widget barChartCard = Container(
+      height: 300,
+      padding: const EdgeInsets.only(top: 20, right: 20, left: 10, bottom: 10),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 10.0),
+            child: Text(
+              "Lokasi Kritis (Top 5 STO)",
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(height: 15),
-          Container(
-            height: 250,
-            padding: const EdgeInsets.only(
-              top: 30,
-              right: 20,
-              left: 10,
-              bottom: 10,
-            ),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isLightMode
-                  ? [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : [],
-            ),
+          Expanded(
             child: top5Sto.isEmpty
                 ? const Center(
                     child: Text(
                       "Tidak ada data",
-                      style: TextStyle(color: Colors.grey, fontSize: 19),
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                   )
                 : BarChart(
@@ -1663,35 +1830,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
           ),
-          const SizedBox(height: 30),
+        ],
+      ),
+    );
 
+    Widget categoryListCard = Container(
+      height: 300,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isLightMode
+            ? [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : [],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
             "Distribusi Jenis Gangguan",
             style: TextStyle(
               color: textColor,
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 15),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isLightMode
-                  ? [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : [],
-            ),
+          Expanded(
             child: ListView.separated(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
               itemCount: sortedCat.length,
               separatorBuilder: (context, index) => Divider(
                 color: isLightMode ? Colors.grey[300] : Colors.white10,
@@ -1708,7 +1881,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           color: isLightMode
                               ? Colors.grey[800]
                               : Colors.white70,
-                          fontSize: 19,
+                          fontSize: 15,
                         ),
                       ),
                     ),
@@ -1726,7 +1899,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         style: const TextStyle(
                           color: Color(0xFF00D1F3),
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -1735,6 +1908,75 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               },
             ),
           ),
+        ],
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Descriptive Analytics",
+            style: TextStyle(
+              color: textColor,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            "Overview & performa pemeliharaan",
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+          const SizedBox(height: 20),
+
+          // TATA LETAK DESKTOP: Menyamping agar tidak memakan ruang
+          if (isDesktop) ...[
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 3, child: summaryCard),
+                  const SizedBox(width: 20),
+                  Expanded(flex: 1, child: completionCard),
+                  const SizedBox(width: 20),
+                  Expanded(flex: 1, child: totalReportCard),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 1, child: pieChartCard),
+                const SizedBox(width: 20),
+                Expanded(flex: 1, child: barChartCard),
+                const SizedBox(width: 20),
+                Expanded(flex: 1, child: categoryListCard),
+              ],
+            ),
+          ] else ...[
+            // TATA LETAK MOBILE: Memanjang ke bawah
+            summaryCard,
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: completionCard),
+                const SizedBox(width: 15),
+                Expanded(child: totalReportCard),
+              ],
+            ),
+            const SizedBox(height: 20),
+            pieChartCard,
+            const SizedBox(height: 20),
+            barChartCard,
+            const SizedBox(height: 20),
+            categoryListCard,
+          ],
+
           const SizedBox(height: 40),
         ],
       ),
@@ -1762,198 +2004,248 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // --- PEMBAGIAN LAYOUT UNTUK MENU PROFILE ---
   Widget _buildProfileContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      child: Column(
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF00D1F3), width: 2),
-              color: isLightMode ? Colors.grey[200] : const Color(0xFF161F2E),
-            ),
-            child: Icon(
-              Icons.person,
-              size: 60,
-              color: isLightMode ? Colors.grey : Colors.white,
-            ),
-          ),
-          const SizedBox(height: 15),
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800; // Deteksi Desktop
 
-          Text(
-            widget.userName,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 24,
+    // Kumpulan Komponen Profile
+    Widget userInfoWidget = Column(
+      children: [
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF00D1F3), width: 2),
+            color: isLightMode ? Colors.grey[200] : const Color(0xFF161F2E),
+          ),
+          child: Icon(
+            Icons.person,
+            size: 60,
+            color: isLightMode ? Colors.grey : Colors.white,
+          ),
+        ),
+        const SizedBox(height: 15),
+        Text(
+          widget.userName,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF00D1F3).withOpacity(0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            widget.role,
+            style: const TextStyle(
+              color: Color(0xFF00D1F3),
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D1F3).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              widget.role,
-              style: const TextStyle(
-                color: Color(0xFF00D1F3),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+        ),
+        const SizedBox(height: 30),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isLightMode
+                ? [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [],
           ),
-          const SizedBox(height: 30),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00D1F3).withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.badge,
+                  color: Color(0xFF00D1F3),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "User ID",
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.userId ?? 'ADMIN-PST',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  Clipboard.setData(
+                    ClipboardData(text: widget.userId ?? 'ADMIN-PST'),
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("User ID berhasil disalin!"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.copy, color: Colors.grey, size: 24),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
 
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: isLightMode
-                  ? [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : [],
+    List<Widget> menuButtons = [
+      _buildNewProfileMenuItem(
+        Icons.person_add_alt_1,
+        "Daftarkan Pengguna Baru",
+        () => _showAddUserDialog(context),
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.person_outline,
+        "Edit Profil",
+        () {},
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.calendar_month,
+        "Jadwal & Tim Lapangan (TLA)",
+        () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  JadwalScreen(busyTechIds: _getBusyTechnicians()),
             ),
-            child: Row(
+          );
+        },
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.lock_outline,
+        "Ganti Password",
+        () {},
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.notifications_none,
+        "Notifikasi",
+        () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const NotificationScreen(userId: 'admin'),
+            ),
+          );
+          _fetchUnreadCount();
+        },
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.help_outline,
+        "Bantuan & Support",
+        () {},
+        isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.logout,
+        "Keluar Aplikasi",
+        () {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
+        isDestructive: true,
+        isDesktop,
+      ),
+    ];
+
+    Widget settingsWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Pengaturan Akun & Admin",
+          style: TextStyle(
+            color: Colors.grey,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 15),
+        if (isDesktop)
+          Wrap(
+            spacing: 15,
+            runSpacing: 0,
+            children: menuButtons
+                .map(
+                  (btn) => SizedBox(
+                    width: (screenWidth - 250 - 40 - 50) / 2,
+                    child: btn,
+                  ),
+                )
+                .toList(),
+          )
+        else
+          Column(children: menuButtons),
+      ],
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      child: isDesktop
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00D1F3).withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.badge,
-                    color: Color(0xFF00D1F3),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "User ID",
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.userId ?? 'ADMIN-PST',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    Clipboard.setData(
-                      ClipboardData(text: widget.userId ?? 'ADMIN-PST'),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "User ID berhasil disalin!",
-                          style: TextStyle(fontSize: 19),
-                        ),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.copy, color: Colors.grey, size: 24),
-                ),
+                Expanded(flex: 2, child: userInfoWidget),
+                const SizedBox(width: 40),
+                Expanded(flex: 5, child: settingsWidget),
+              ],
+            )
+          : Column(
+              children: [
+                userInfoWidget,
+                const SizedBox(height: 30),
+                settingsWidget,
               ],
             ),
-          ),
-          const SizedBox(height: 30),
-
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Pengaturan Akun & Admin",
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-
-          _buildNewProfileMenuItem(
-            Icons.person_add_alt_1,
-            "Daftarkan Pengguna Baru",
-            () => _showAddUserDialog(context),
-          ),
-          _buildNewProfileMenuItem(Icons.person_outline, "Edit Profil", () {}),
-
-          _buildNewProfileMenuItem(
-            Icons.calendar_month,
-            "Jadwal & Tim Lapangan (TLA)",
-            () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      JadwalScreen(busyTechIds: _getBusyTechnicians()),
-                ),
-              );
-            },
-          ),
-
-          _buildNewProfileMenuItem(Icons.lock_outline, "Ganti Password", () {}),
-          _buildNewProfileMenuItem(
-            Icons.notifications_none,
-            "Notifikasi",
-            () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const NotificationScreen(userId: 'admin'),
-                ),
-              );
-              _fetchUnreadCount();
-            },
-          ),
-          _buildNewProfileMenuItem(
-            Icons.help_outline,
-            "Bantuan & Support",
-            () {},
-          ),
-
-          const SizedBox(height: 10),
-          _buildNewProfileMenuItem(Icons.logout, "Keluar Aplikasi", () {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          }, isDestructive: true),
-          const SizedBox(height: 40),
-        ],
-      ),
     );
   }
 
   Widget _buildNewProfileMenuItem(
     IconData icon,
     String title,
-    VoidCallback onTap, {
+    VoidCallback onTap,
+    bool isDesktop, {
     bool isDestructive = false,
   }) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
@@ -1987,7 +2279,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            padding: EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: isDesktop ? 14 : 18,
+            ),
             child: Row(
               children: [
                 Icon(
@@ -1995,7 +2290,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: isDestructive
                       ? Colors.redAccent
                       : const Color(0xFF00D1F3),
-                  size: 28,
+                  size: isDesktop ? 24 : 28,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -2003,7 +2298,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     title,
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 19,
+                      fontSize: isDesktop ? 16 : 19,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -2013,7 +2308,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: isDestructive
                       ? Colors.transparent
                       : Colors.grey.withOpacity(0.5),
-                  size: 20,
+                  size: isDesktop ? 16 : 20,
                 ),
               ],
             ),
@@ -2025,6 +2320,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildDataCard(dynamic data) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800; // Cek untuk ukuran Teks
+
     String idStr = "MAINT-${data['id'].toString().padLeft(3, '0')}";
 
     String statusString = (data['status'] ?? '').toString().toLowerCase();
@@ -2072,8 +2370,136 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         : const Color(0xFF1E293B).withOpacity(0.5);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
+    // ISI BAGIAN TENGAH (DIPISAH AGAR BISA DIBERI SCROLL SAAT GRIDVIEW DI DESKTOP)
+    Widget contentBody = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoRow(
+          Icons.person,
+          "Pelapor",
+          data['teknisi'] ?? 'Teknisi Pelapor',
+          isLightMode,
+          isDesktop,
+        ),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.map,
+          "Witel",
+          data['witel'] ?? '-',
+          isLightMode,
+          isDesktop,
+        ),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.location_on,
+          "STO",
+          data['sto'] ?? '-',
+          isLightMode,
+          isDesktop,
+        ),
+        const SizedBox(height: 10),
+        _buildInfoRow(
+          Icons.category,
+          "Kategori",
+          data['kategori_kegiatan'] ?? '-',
+          isLightMode,
+          isDesktop,
+        ),
+        const SizedBox(height: 15),
+        Text(
+          "Uraian Pekerjaan:",
+          style: TextStyle(color: Colors.grey, fontSize: isDesktop ? 14 : 16),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          data['uraian_pekerjaan'] ?? '-',
+          style: TextStyle(color: textColor, fontSize: isDesktop ? 15 : 19),
+        ),
+
+        if (isVerified || isSelesai || isClose) ...[
+          const SizedBox(height: 15),
+          Divider(color: isLightMode ? Colors.grey[300] : Colors.white10),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                Icons.engineering,
+                color: Colors.blueAccent,
+                size: isDesktop ? 16 : 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Teknisi Ditugaskan :",
+                style: TextStyle(
+                  color: Colors.blueAccent,
+                  fontSize: isDesktop ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (assignedTechs.isEmpty)
+            Text(
+              "Belum ada data teknisi tersedia di STO ini.",
+              style: TextStyle(
+                color: Colors.orangeAccent,
+                fontSize: isDesktop ? 14 : 16,
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isLightMode
+                    ? Colors.grey[100]
+                    : Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isLightMode ? Colors.grey[300]! : Colors.white10,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: assignedTechs
+                    .map(
+                      (tech) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.circle,
+                              color: Colors.green,
+                              size: 8,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "${tech['user_id']}  -  ${tech['name']}",
+                                style: TextStyle(
+                                  color: isLightMode
+                                      ? Colors.grey[800]
+                                      : Colors.white70,
+                                  fontSize: isDesktop ? 13 : 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+        ],
+      ],
+    );
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      // Hapus margin bottom saat di desktop agar rata di GridView
+      margin: EdgeInsets.only(bottom: isDesktop ? 0 : 20),
       decoration: BoxDecoration(
         color: cardBgColor,
         borderRadius: BorderRadius.circular(20),
@@ -2112,7 +2538,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(isDesktop ? 12 : 16),
                 decoration: BoxDecoration(
                   color: headerBgColor,
                   borderRadius: const BorderRadius.vertical(
@@ -2123,27 +2549,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          idStr,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            idStr,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: isDesktop ? 16 : 20, // Di PC Dikecilkan
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          data['created_at']?.toString().substring(0, 10) ??
-                              '-',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
+                          const SizedBox(height: 4),
+                          Text(
+                            data['created_at']?.toString().substring(0, 10) ??
+                                '-',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: isDesktop ? 12 : 16,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -2152,7 +2580,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             IconButton(
                               constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.only(right: 8),
+                              padding: EdgeInsets.only(
+                                right: isDesktop ? 4 : 8,
+                              ),
                               onPressed: () async {
                                 final result = await Navigator.push(
                                   context,
@@ -2168,16 +2598,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   _fetchTechnicianData();
                                 }
                               },
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.edit,
                                 color: Colors.blue,
-                                size: 24,
+                                size: isDesktop ? 20 : 24,
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isDesktop ? 8 : 12,
+                                vertical: isDesktop ? 4 : 6,
                               ),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.15),
@@ -2190,7 +2620,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 (data['status'] ?? 'PENDING').toUpperCase(),
                                 style: TextStyle(
                                   color: statusColor,
-                                  fontSize: 14,
+                                  fontSize: isDesktop ? 12 : 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -2224,7 +2654,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       color: isClose
                                           ? Colors.grey
                                           : Colors.blueAccent,
-                                      fontSize: 12,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -2235,14 +2665,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     const Icon(
                                       Icons.group,
                                       color: Colors.grey,
-                                      size: 18,
+                                      size: 14,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       "$currentWorkers/$maxWorkers",
                                       style: const TextStyle(
                                         color: Colors.grey,
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -2256,141 +2686,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow(
-                      Icons.person,
-                      "Pelapor",
-                      data['teknisi'] ?? 'Teknisi Pelapor',
-                      isLightMode,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInfoRow(
-                      Icons.map,
-                      "Witel",
-                      data['witel'] ?? '-',
-                      isLightMode,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInfoRow(
-                      Icons.location_on,
-                      "STO",
-                      data['sto'] ?? '-',
-                      isLightMode,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInfoRow(
-                      Icons.category,
-                      "Kategori",
-                      data['kategori_kegiatan'] ?? '-',
-                      isLightMode,
-                    ),
-                    const SizedBox(height: 15),
-                    const Text(
-                      "Uraian Pekerjaan:",
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      data['uraian_pekerjaan'] ?? '-',
-                      style: TextStyle(color: textColor, fontSize: 19),
-                    ),
 
-                    if (isVerified || isSelesai || isClose) ...[
-                      const SizedBox(height: 15),
-                      Divider(
-                        color: isLightMode ? Colors.grey[300] : Colors.white10,
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.engineering,
-                            color: Colors.blueAccent,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Teknisi Ditugaskan :",
-                            style: TextStyle(
-                              color: Colors.blueAccent,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (assignedTechs.isEmpty)
-                        const Text(
-                          "Belum ada data teknisi tersedia di STO ini.",
-                          style: TextStyle(
-                            color: Colors.orangeAccent,
-                            fontSize: 16,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        )
-                      else
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isLightMode
-                                ? Colors.grey[100]
-                                : Colors.black.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isLightMode
-                                  ? Colors.grey[300]!
-                                  : Colors.white10,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: assignedTechs
-                                .map(
-                                  (tech) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.circle,
-                                          color: Colors.green,
-                                          size: 10,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            "${tech['user_id']}  -  ${tech['name']}",
-                                            style: TextStyle(
-                                              color: isLightMode
-                                                  ? Colors.grey[800]
-                                                  : Colors.white70,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
+              // Jika Desktop (Lebar/GridView), Beri Expander & Scroll agar teks panjang bisa muat
+              if (isDesktop)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SingleChildScrollView(child: contentBody),
+                  ),
+                )
+              else
+                Padding(padding: const EdgeInsets.all(20), child: contentBody),
+
               if (isPending) ...[
                 Divider(
                   color: isLightMode ? Colors.grey[200] : Colors.white10,
                   height: 1,
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(isDesktop ? 12 : 16),
                   child: Row(
                     children: [
                       Expanded(
@@ -2400,28 +2714,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             data['id'],
                             'Rejected',
                           ),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.close,
                             color: Colors.redAccent,
-                            size: 24,
+                            size: isDesktop ? 20 : 24,
                           ),
-                          label: const Text(
-                            "Tolak",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 19,
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "Tolak",
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: isDesktop ? 15 : 19,
+                              ),
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.redAccent),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isDesktop ? 8 : 12,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 15),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _confirmUpdateStatus(
@@ -2429,25 +2748,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             data['id'],
                             'Verified',
                           ),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.check,
                             color: Colors.white,
-                            size: 24,
+                            size: isDesktop ? 20 : 24,
                           ),
-                          label: const FittedBox(
+                          label: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
                               "Verifikasi",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 19,
+                                fontSize: isDesktop ? 15 : 19,
                               ),
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isDesktop ? 8 : 12,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -2463,32 +2784,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   height: 1,
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(isDesktop ? 12 : 16),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 55,
+                    height: isDesktop ? 45 : 55,
                     child: ElevatedButton.icon(
                       onPressed: () =>
                           _confirmUpdateStatus(context, data['id'], 'CLOSE'),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.check_circle,
                         color: Colors.white,
-                        size: 24,
+                        size: isDesktop ? 20 : 24,
                       ),
-                      label: const FittedBox(
+                      label: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           "Tutup Tiket (CLOSE)",
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 20,
+                            fontSize: isDesktop ? 15 : 20,
                           ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          vertical: isDesktop ? 8 : 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -2502,10 +2825,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   height: 1,
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(isDesktop ? 12 : 16),
                   child: SizedBox(
                     width: double.infinity,
-                    height: 55,
+                    height: isDesktop ? 45 : 55,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         final String docUrl =
@@ -2520,34 +2843,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                  "Gagal mengunduh dokumen Word",
-                                  style: TextStyle(fontSize: 19),
-                                ),
+                                content: Text("Gagal mengunduh dokumen Word"),
                               ),
                             );
                           }
                         }
                       },
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.description,
                         color: Colors.white,
-                        size: 24,
+                        size: isDesktop ? 20 : 24,
                       ),
-                      label: const FittedBox(
+                      label: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           "Export Laporan (Word)",
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 20,
+                            fontSize: isDesktop ? 15 : 20,
                           ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          vertical: isDesktop ? 8 : 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -2563,32 +2885,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // --- KOMPONEN BARU: _buildInfoRow RESPONSIVE ---
   Widget _buildInfoRow(
     IconData icon,
     String title,
     String value,
     bool isLightMode,
+    bool isDesktop,
   ) {
+    double fontSize = isDesktop ? 14 : 19; // Ukuran teks mengecil di PC
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF00D1F3), size: 24),
+        Icon(icon, color: const Color(0xFF00D1F3), size: isDesktop ? 20 : 24),
         const SizedBox(width: 10),
         SizedBox(
-          width: 85,
+          width: isDesktop ? 65 : 85,
           child: Text(
             title,
-            style: const TextStyle(color: Colors.grey, fontSize: 19),
+            style: TextStyle(color: Colors.grey, fontSize: fontSize),
           ),
         ),
-        const Text(":", style: TextStyle(color: Colors.grey, fontSize: 19)),
+        Text(
+          ":",
+          style: TextStyle(color: Colors.grey, fontSize: fontSize),
+        ),
         const SizedBox(width: 5),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
               color: isLightMode ? Colors.black : Colors.white,
-              fontSize: 19,
+              fontSize: fontSize,
             ),
           ),
         ),
@@ -2633,9 +2962,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     IconData icon,
   ) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 800;
+
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+        padding: EdgeInsets.symmetric(
+          vertical: isDesktop ? 12 : 20, // Lebih kecil di PC
+          horizontal: 10,
+        ),
         decoration: BoxDecoration(
           color: isLightMode ? Colors.white : const Color(0xFF161F2E),
           borderRadius: BorderRadius.circular(20),
@@ -2654,24 +2989,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 12),
+            Icon(
+              icon,
+              color: color,
+              size: isDesktop ? 24 : 32,
+            ), // Ikon mengecil di PC
+            SizedBox(height: isDesktop ? 8 : 12),
             Text(
               value,
               style: TextStyle(
                 color: isLightMode ? Colors.black : Colors.white,
-                fontSize: 24,
+                fontSize: isDesktop ? 20 : 24, // Angka mengecil di PC
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.grey,
-                fontSize: 14,
+                fontSize: isDesktop ? 12 : 14, // Teks mengecil di PC
                 fontWeight: FontWeight.w500,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -2795,6 +3135,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 }
+
+// ... [Class AdminDetailLaporanScreen, AdminEditLaporanScreen, dll di bawah ini tetap SAMA dan tidak ada yang terhapus]
+// =========================================================================
+// WIDGET SCREEN LAINNYA (TETAP SAMA)
+// =========================================================================
 
 class AdminDetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;

@@ -1,7 +1,9 @@
+import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:camera/camera.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
@@ -31,6 +33,9 @@ class _LoginScreenState extends State<LoginScreen>
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
 
+  // ── Flag apakah kamera benar-benar tersedia di platform ini ──
+  bool _cameraAvailable = false;
+
   bool _isRegisteringFace = false;
   bool _isAutoScanning = false;
 
@@ -38,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  // ─── Color palette untuk Dark Mode (bawaan) ───────────────────────────────
+  // ─── Color palette untuk Dark Mode ────────────────────────────────────────
   static const Color _bgDeepDark = Color(0xFF080E1C);
   static const Color _fieldBgDark = Color(0xFF1A2336);
   static const Color _accent = Color(0xFF3B8BEB);
@@ -67,27 +72,44 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // =========================================================================
-  // INIT KAMERA & PENGECEKAN SESI WAJAH
+  // INIT KAMERA & PENGECEKAN SESI
   // =========================================================================
   Future<void> _initializeCameraAndCheckLogin() async {
     try {
       final cameras = await availableCameras();
+
+      // ── Jika tidak ada kamera sama sekali (Windows/Desktop) ──────────────
+      if (cameras.isEmpty) {
+        debugPrint("Tidak ada kamera ditemukan (Windows/Desktop mode).");
+        if (mounted) setState(() => _cameraAvailable = false);
+        _checkSavedLogin();
+        return;
+      }
+
+      // ── Pilih kamera depan, fallback ke kamera pertama ───────────────────
       final frontCamera = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
+
       _cameraController = CameraController(
         frontCamera,
         ResolutionPreset.medium,
         enableAudio: false,
       );
       await _cameraController!.initialize();
+
       if (!mounted) return;
-      setState(() => _isCameraInitialized = true);
+      setState(() {
+        _isCameraInitialized = true;
+        _cameraAvailable = true;
+      });
 
       _checkSavedLogin();
     } catch (e) {
+      // ── Error kamera (mis. permission ditolak atau tidak didukung) ────────
       debugPrint("Error kamera: $e");
+      if (mounted) setState(() => _cameraAvailable = false);
       _checkSavedLogin();
     }
   }
@@ -95,29 +117,47 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _checkSavedLogin() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedId = prefs.getString('saved_user_id_${widget.roleTitle}');
+
     if (savedId != null && savedId.isNotEmpty) {
       if (!mounted) return;
       setState(() {
         _hasSavedId = true;
         _savedUserId = savedId;
       });
-      _autoScanLogin();
+
+      // ── Jika kamera tidak tersedia, langsung login dengan ID ──────────────
+      if (!_cameraAvailable) {
+        _loginLanjutkan(savedId);
+      } else {
+        _autoScanLogin();
+      }
     }
   }
 
   // =========================================================================
-  // FUNGSI FACE RECOGNITION (REGISTER & LOGIN)
+  // FACE RECOGNITION — REGISTER
   // =========================================================================
   Future<void> _registerFace() async {
-    if (!_isCameraInitialized) return;
     final String userId = _idController.text.trim();
     if (userId.isEmpty) {
       _showSnack("ID tidak boleh kosong!", Colors.red);
       return;
     }
+
+    // ── Fallback: kamera tidak tersedia → login langsung dengan ID ───────────
+    if (!_cameraAvailable ||
+        !_isCameraInitialized ||
+        _cameraController == null) {
+      setState(() => _isLoading = true);
+      await _loginLanjutkan(userId);
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       XFile picture = await _cameraController!.takePicture();
+
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('${ApiConfig.baseUrl}/register-fingerprint'),
@@ -127,11 +167,14 @@ class _LoginScreenState extends State<LoginScreen>
       request.files.add(
         await http.MultipartFile.fromPath('fingerprint_image', picture.path),
       );
+
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+
       if (response.statusCode >= 500) {
         throw "Terjadi kesalahan di server (500)";
       }
+
       var data = json.decode(response.body);
       if (data['success'] == true) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -152,15 +195,27 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  // =========================================================================
+  // FACE RECOGNITION — AUTO SCAN LOGIN
+  // =========================================================================
   Future<void> _autoScanLogin() async {
-    if (!_isCameraInitialized || _cameraController == null) return;
-
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? currentSavedId = prefs.getString(
       'saved_user_id_${widget.roleTitle}',
     );
+
     if (currentSavedId == null || currentSavedId.isEmpty) {
       if (mounted) setState(() => _hasSavedId = false);
+      return;
+    }
+
+    // ── Fallback: kamera tidak tersedia → login langsung dengan saved ID ─────
+    if (!_cameraAvailable ||
+        !_isCameraInitialized ||
+        _cameraController == null) {
+      if (mounted) setState(() => _isLoading = true);
+      await _loginLanjutkan(currentSavedId);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -210,22 +265,63 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  // =========================================================================
+  // LOGIN DENGAN ID SAJA (tanpa face recognition)
+  // =========================================================================
   Future<void> _loginLanjutkan(String userId) async {
     try {
-      String roleYangDikirim = widget.roleTitle.toLowerCase().contains("admin")
-          ? "admin"
-          : "tim_lapangan";
+      final bool isAdmin = widget.roleTitle.toLowerCase().contains("admin");
+      final String roleYangDikirim = isAdmin ? "administrasi" : "lapangan";
+
+      final String loginUrl = '${ApiConfig.baseUrl}/login';
+      debugPrint("LOGIN URL  : $loginUrl");
+      debugPrint("USER ID    : $userId");
+      debugPrint("ROLE KIRIM : $roleYangDikirim");
+
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/login'),
+        Uri.parse(loginUrl),
         headers: {'Accept': 'application/json'},
         body: {'user_id': userId, 'role': roleYangDikirim},
       );
+
+      debugPrint("RESPONSE STATUS : ${response.statusCode}");
+      debugPrint("RESPONSE BODY   : ${response.body}");
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) _routeToDashboard(data);
+        if (data['success'] == true) {
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('saved_user_id_${widget.roleTitle}', userId);
+          _routeToDashboard(data);
+        } else {
+          if (mounted) {
+            _showSnack(
+              data['message'] ?? "Login gagal. Periksa ID Anda.",
+              Colors.red,
+            );
+          }
+        }
+      } else if (response.statusCode == 404) {
+        if (mounted) {
+          _showSnack(
+            "Endpoint tidak ditemukan (404). Cek baseUrl di api_config.dart:\n${ApiConfig.baseUrl}",
+            Colors.red,
+          );
+        }
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          _showSnack("ID atau Role tidak valid (401).", Colors.red);
+        }
+      } else {
+        if (mounted) {
+          _showSnack("Server error: ${response.statusCode}", Colors.red);
+        }
       }
     } catch (e) {
       debugPrint("Error Login Lanjutan: $e");
+      if (mounted) {
+        _showSnack("Gagal terhubung ke server: $e", Colors.red);
+      }
     }
   }
 
@@ -234,15 +330,14 @@ class _LoginScreenState extends State<LoginScreen>
     await prefs.remove('saved_user_id_${widget.roleTitle}');
 
     if (!mounted) return;
-
     setState(() {
       _hasSavedId = false;
       _savedUserId = '';
-      _idController.clear();
       _isRegisteringFace = false;
       _isAutoScanning = false;
       _isLoading = false;
     });
+    _idController.clear();
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -260,11 +355,19 @@ class _LoginScreenState extends State<LoginScreen>
     String userIdStr = data['user']['user_id'].toString();
     String userRole = data['user']['role'].toString().toLowerCase();
 
-    OneSignal.login(userIdStr);
-    OneSignal.User.addTagWithKey("user_id", userIdStr);
+    // Jalankan OneSignal hanya di Mobile (Android/iOS)
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      OneSignal.login(userIdStr);
+      OneSignal.User.addTagWithKey("user_id", userIdStr);
+
+      if (userRole.contains('admin')) {
+        OneSignal.User.addTagWithKey("role", "tim_administrasi");
+      } else {
+        OneSignal.User.addTagWithKey("role", "tim_lapangan");
+      }
+    }
 
     if (userRole.contains('admin')) {
-      OneSignal.User.addTagWithKey("role", "tim_administrasi");
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -276,7 +379,6 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       );
     } else {
-      OneSignal.User.addTagWithKey("role", "tim_lapangan");
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -297,7 +399,7 @@ class _LoginScreenState extends State<LoginScreen>
         content: Text(
           msg,
           style: const TextStyle(color: Colors.white, fontSize: 19),
-        ), // Diubah menjadi 19
+        ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -328,7 +430,7 @@ class _LoginScreenState extends State<LoginScreen>
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // ── Background radial glow ────────────────────────────────────
+          // ── Background radial glow ──────────────────────────────────
           Positioned(
             top: -100,
             left: MediaQuery.of(context).size.width / 2 - 180,
@@ -354,7 +456,7 @@ class _LoginScreenState extends State<LoginScreen>
                 position: _slideAnim,
                 child: Column(
                   children: [
-                    // ── AppBar row ───────────────────────────────────
+                    // ── AppBar row ────────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -366,7 +468,7 @@ class _LoginScreenState extends State<LoginScreen>
                             icon: Icon(
                               Icons.arrow_back_ios_new_rounded,
                               color: iconColor,
-                              size: 24, // Disesuaikan agar seimbang
+                              size: 24,
                             ),
                             onPressed: () => Navigator.pop(context),
                           ),
@@ -377,7 +479,9 @@ class _LoginScreenState extends State<LoginScreen>
                     Expanded(
                       child: _hasSavedId
                           ? _buildAutoScanBody(isLightMode)
-                          : _isRegisteringFace && _isCameraInitialized
+                          : (_isRegisteringFace &&
+                                _cameraAvailable &&
+                                _isCameraInitialized)
                           ? _buildRegisterFaceBody(isLightMode)
                           : _buildMainBody(isLightMode),
                     ),
@@ -391,13 +495,22 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── MAIN BODY (input ID + daftar wajah — hanya untuk user baru) ──────────
+  // ── MAIN BODY ─────────────────────────────────────────────────────────────
   Widget _buildMainBody(bool isLightMode) {
     Color textPrimary = isLightMode ? Colors.black : Colors.white;
     Color textSecondary = isLightMode
         ? Colors.grey[700]!
         : const Color(0xFF94A3B8);
     Color fieldBg = isLightMode ? _fieldBgLight : _fieldBgDark;
+
+    // Label tombol berbeda tergantung ketersediaan kamera
+    String buttonLabel = _cameraAvailable
+        ? 'DAFTARKAN WAJAH SAYA'
+        : 'MASUK DENGAN ID';
+
+    IconData buttonIcon = _cameraAvailable
+        ? Icons.face_retouching_natural_rounded
+        : Icons.login_rounded;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -417,7 +530,7 @@ class _LoginScreenState extends State<LoginScreen>
               widget.roleTitle,
               style: const TextStyle(
                 color: _accentGlow,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
               ),
@@ -456,31 +569,59 @@ class _LoginScreenState extends State<LoginScreen>
             'Operasi Pemeliharaan',
             style: TextStyle(
               color: textPrimary,
-              fontSize: 22, // Judul Utama, tetap >20
+              fontSize: 22,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Masukkan ID untuk mendaftarkan Wajah',
+            _cameraAvailable
+                ? 'Masukkan ID untuk mendaftarkan Wajah'
+                : 'Masukkan ID Anda untuk melanjutkan',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: textSecondary,
-              fontSize: 19, // Diubah menjadi 19
-            ),
+            style: TextStyle(color: textSecondary, fontSize: 19),
           ),
+
+          // ── Banner peringatan jika kamera tidak tersedia ──────────
+          if (!_cameraAvailable) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Kamera tidak tersedia di perangkat ini.\nLogin menggunakan ID saja (mode testing).',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           const Spacer(flex: 1),
 
-          // ── ID Field ────────────────────────────────────────────────
+          // ── ID Field ──────────────────────────────────────────────
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Masukkan ID',
               style: TextStyle(
                 color: textSecondary,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -505,10 +646,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             child: TextField(
               controller: _idController,
-              style: TextStyle(
-                color: textPrimary,
-                fontSize: 19, // Diubah menjadi 19
-              ),
+              style: TextStyle(color: textPrimary, fontSize: 19),
               cursorColor: _accentGlow,
               decoration: InputDecoration(
                 hintText: 'Masukkan ID Anda',
@@ -516,7 +654,7 @@ class _LoginScreenState extends State<LoginScreen>
                   color: isLightMode
                       ? Colors.grey[400]
                       : const Color(0xFF4B5563),
-                  fontSize: 19, // Diubah menjadi 19
+                  fontSize: 19,
                 ),
                 prefixIcon: const Icon(
                   Icons.person_outline_rounded,
@@ -534,7 +672,7 @@ class _LoginScreenState extends State<LoginScreen>
 
           const Spacer(flex: 2),
 
-          // ── Primary button ──────────────────────────────────────────
+          // ── Primary button ────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             height: 60,
@@ -547,7 +685,16 @@ class _LoginScreenState extends State<LoginScreen>
                   );
                   return;
                 }
-                setState(() => _isRegisteringFace = true);
+                if (_cameraAvailable && _isCameraInitialized) {
+                  // Mode normal: tampilkan kamera untuk daftar wajah
+                  setState(() => _isRegisteringFace = true);
+                } else {
+                  // Mode fallback (Windows/Desktop): langsung login dengan ID
+                  setState(() => _isLoading = true);
+                  _loginLanjutkan(_idController.text.trim()).then((_) {
+                    if (mounted) setState(() => _isLoading = false);
+                  });
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
@@ -576,31 +723,36 @@ class _LoginScreenState extends State<LoginScreen>
                 child: Container(
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.face_retouching_natural_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      SizedBox(width: 10),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'DAFTARKAN WAJAH SAYA',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20, // Diubah menjadi 20
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(buttonIcon, color: Colors.white, size: 24),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  buttonLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -609,10 +761,7 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 24),
           const Text(
             '© 2026 Maintenance System',
-            style: TextStyle(
-              color: Color(0xFF374151),
-              fontSize: 19, // Diubah menjadi 19
-            ),
+            style: TextStyle(color: Color(0xFF374151), fontSize: 19),
           ),
           const SizedBox(height: 20),
         ],
@@ -620,7 +769,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── REGISTER FACE BODY ────────────────────────────────────────────────────
+  // ── REGISTER FACE BODY (hanya muncul jika kamera tersedia) ────────────────
   Widget _buildRegisterFaceBody(bool isLightMode) {
     double screenWidth = MediaQuery.of(context).size.width;
     double cameraWidth = screenWidth - 56;
@@ -639,13 +788,13 @@ class _LoginScreenState extends State<LoginScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _orange,
-              fontSize: 20, // Diubah menjadi 20
+              fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 24),
 
-          // Camera Frame Portrait
+          // Camera Frame
           Container(
             width: cameraWidth,
             height: cameraHeight,
@@ -697,7 +846,7 @@ class _LoginScreenState extends State<LoginScreen>
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 20, // Diubah menjadi 20
+                    fontSize: 20,
                     letterSpacing: 0.6,
                   ),
                 ),
@@ -714,29 +863,25 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 14),
 
           TextButton(
-            onPressed: _clearSavedData,
+            onPressed: () => setState(() => _isRegisteringFace = false),
             child: Text(
               'Ganti Akun / Batal',
               style: TextStyle(
                 color: textSecondary,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 decoration: TextDecoration.underline,
               ),
             ),
           ),
-
           const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  // ── AUTO SCAN BODY ────────────────────────────────────────────────────────
+  // ── AUTO SCAN BODY ─────────────────────────────────────────────────────────
+  // ── AUTO SCAN BODY ─────────────────────────────────────────────────────────
   Widget _buildAutoScanBody(bool isLightMode) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double cameraWidth = screenWidth - 56;
-    double cameraHeight = cameraWidth * (4 / 3);
-
     Color textPrimary = isLightMode ? Colors.black : Colors.white;
     Color textSecondary = isLightMode
         ? Colors.grey[700]!
@@ -760,91 +905,67 @@ class _LoginScreenState extends State<LoginScreen>
               widget.roleTitle,
               style: const TextStyle(
                 color: _accentGlow,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const Spacer(flex: 2),
 
-          // Live Camera Preview Portrait
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                width: cameraWidth + 12,
-                height: cameraHeight + 12,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(35),
-                  border: Border.all(
-                    color: _isAutoScanning
-                        ? _accentGlow.withOpacity(0.3)
-                        : Colors.redAccent.withOpacity(0.2),
-                    width: 6,
-                  ),
-                ),
+          // ── Icon wajah animatif (menggantikan CameraPreview) ──────
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF0F2040),
+              border: Border.all(
+                color: _isAutoScanning
+                    ? _accentGlow.withOpacity(0.8)
+                    : Colors.redAccent.withOpacity(0.6),
+                width: 3,
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                width: cameraWidth,
-                height: cameraHeight,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  color: const Color(0xFF0F2040),
-                  border: Border.all(
-                    color: _isAutoScanning
-                        ? _accentGlow.withOpacity(0.8)
-                        : Colors.redAccent.withOpacity(0.6),
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isAutoScanning ? _accent : Colors.redAccent)
-                          .withOpacity(0.3),
-                      blurRadius: 28,
-                      spreadRadius: 4,
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: (_isAutoScanning ? _accent : Colors.redAccent)
+                      .withOpacity(0.35),
+                  blurRadius: 32,
+                  spreadRadius: 6,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(27),
-                  child: _isCameraInitialized && _cameraController != null
-                      ? AspectRatio(
-                          aspectRatio: 3 / 4,
-                          child: CameraPreview(_cameraController!),
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.face_retouching_natural_rounded,
-                            color: Colors.white54,
-                            size: 60,
-                          ),
-                        ),
-                ),
-              ),
-            ],
+              ],
+            ),
+            child: Icon(
+              _isAutoScanning
+                  ? Icons.face_retouching_natural_rounded
+                  : Icons.face_retouching_off_rounded,
+              color: _isAutoScanning
+                  ? _accentGlow
+                  : Colors.redAccent.withOpacity(0.8),
+              size: 72,
+            ),
           ),
-          const SizedBox(height: 25),
+
+          const SizedBox(height: 32),
 
           Text(
             'User ID : $_savedUserId',
             style: TextStyle(
               color: textPrimary,
-              fontSize: 20, // Diubah menjadi 20
+              fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
 
+          // ── Status & tombol aksi ──────────────────────────────────
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: _isAutoScanning
                 ? Column(
                     key: const ValueKey('scanning'),
                     children: [
-                      const SizedBox(height: 10),
                       const SizedBox(
                         width: 36,
                         height: 36,
@@ -855,11 +976,13 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Mengidentifikasi Wajah…\nPosisikan wajah Anda di tengah layar.',
+                        _cameraAvailable
+                            ? 'Mengidentifikasi Wajah…\nMohon tunggu sebentar.'
+                            : 'Sedang masuk…\nMohon tunggu.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: textSecondary,
-                          fontSize: 19, // Diubah menjadi 19
+                          fontSize: 19,
                           height: 1.5,
                         ),
                       ),
@@ -868,11 +991,13 @@ class _LoginScreenState extends State<LoginScreen>
                 : Column(
                     key: const ValueKey('failed'),
                     children: [
-                      const Text(
-                        'Wajah tidak dikenali.',
-                        style: TextStyle(
+                      Text(
+                        _cameraAvailable
+                            ? 'Wajah tidak dikenali.'
+                            : 'Login gagal. Coba lagi.',
+                        style: const TextStyle(
                           color: Colors.redAccent,
-                          fontSize: 19, // Diubah menjadi 19
+                          fontSize: 19,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -922,23 +1047,26 @@ class _LoginScreenState extends State<LoginScreen>
                                     )
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: const [
+                                      children: [
                                         Icon(
-                                          Icons.refresh_rounded,
+                                          _cameraAvailable
+                                              ? Icons.refresh_rounded
+                                              : Icons.login_rounded,
                                           color: Colors.white,
                                           size: 24,
                                         ),
-                                        SizedBox(width: 8),
+                                        const SizedBox(width: 8),
                                         Flexible(
                                           child: FittedBox(
                                             fit: BoxFit.scaleDown,
                                             child: Text(
-                                              'COBA SCAN LAGI',
-                                              style: TextStyle(
+                                              _cameraAvailable
+                                                  ? 'COBA SCAN LAGI'
+                                                  : 'MASUK SEKARANG',
+                                              style: const TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize:
-                                                    20, // Diubah menjadi 20
+                                                fontSize: 20,
                                                 letterSpacing: 0.6,
                                               ),
                                             ),
@@ -962,7 +1090,7 @@ class _LoginScreenState extends State<LoginScreen>
               'Ganti Akun',
               style: TextStyle(
                 color: textSecondary,
-                fontSize: 19, // Diubah menjadi 19
+                fontSize: 19,
                 decoration: TextDecoration.underline,
               ),
             ),

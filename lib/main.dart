@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart'; // Import library OneSignal
 import 'role_selection_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io';
 
-void main() {
-  // Inisialisasi binding Flutter
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Konfigurasi OneSignal menggunakan App ID Anda
-  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("c5e1b4de-5fdf-406e-ab45-7bb5b47ac450");
+  // Hanya jalankan OneSignal jika di Android atau iOS (Bukan di Web atau Windows)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+    OneSignal.initialize("APP_ID_ANDA_DI_SINI");
+    OneSignal.Notifications.requestPermission(true);
+  }
 
-  // Meminta izin notifikasi (Muncul saat aplikasi pertama kali dijalankan)
-  OneSignal.Notifications.requestPermission(true);
-
-  runApp(const MaintenanceApp());
+  runApp(const MyApp());
 }
 
-class MaintenanceApp extends StatelessWidget {
-  const MaintenanceApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +74,7 @@ class MaintenanceApp extends StatelessWidget {
         ),
       ),
 
-      home: RoleSelectionScreen(),
+      home: const RoleSelectionScreen(),
     );
   }
 }
