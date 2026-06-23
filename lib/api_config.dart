@@ -13,6 +13,7 @@ class ApiConfig {
       final response = await http.get(
         url,
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json',
           // Header ini WAJIB ditambahkan untuk melewati halaman peringatan keamanan Ngrok
           'ngrok-skip-browser-warning': 'true',

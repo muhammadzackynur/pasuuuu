@@ -742,7 +742,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- KOMPONEN KHUSUS SIDEBAR DESKTOP ---
   Widget _buildSidebar(bool isLightMode) {
     Color sidebarColor = isLightMode ? Colors.white : const Color(0xFF0F1623);
     Color selectedColor = const Color(0xFF00D1F3);
@@ -842,18 +841,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
-  // ---------------------------------------
 
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color iconAndTextColor = isLightMode ? Colors.black : Colors.white;
 
-    // DETEKSI LEBAR LAYAR UNTUK RESPONSIVE
     double screenWidth = MediaQuery.of(context).size.width;
-    bool isDesktop = screenWidth > 800; // Anggap > 800px adalah Desktop/Windows
+    bool isDesktop = screenWidth > 800;
 
-    // KONTEN UTAMA BEDASARKAN TAB
     Widget bodyContent;
     if (_selectedIndex == 0) {
       bodyContent = _buildHomeContent();
@@ -872,7 +868,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    // PEMBUNGKUS KONTEN (PULL TO REFRESH)
     Widget mainContent = _isLoading
         ? const Center(
             child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
@@ -885,7 +880,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: bodyContent,
           );
 
-    // APP BAR UNIVERSAL
     PreferredSizeWidget myAppBar = AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -925,7 +919,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   builder: (context) => FilterLaporanScreen(role: widget.role),
                 ),
               );
-
               if (filterData != null) {
                 setState(() {
                   activeFilter = filterData;
@@ -953,7 +946,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
           ),
-
         IconButton(
           onPressed: () {
             setState(() {
@@ -1009,11 +1001,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ],
     );
 
-    // ==========================================
-    // LOGIKA PENENTUAN TATA LETAK
-    // ==========================================
-
-    // 1. TATA LETAK DESKTOP / WINDOWS
     if (isDesktop) {
       return Scaffold(
         backgroundColor: isLightMode
@@ -1021,10 +1008,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             : const Color(0xFF0A101D),
         body: Row(
           children: [
-            // Memanggil layout Sidebar di sisi kiri
             _buildSidebar(isLightMode),
-
-            // Konten memanjang mengisi sisa layar di sisi kanan
             Expanded(
               child: Scaffold(
                 backgroundColor: Colors.transparent,
@@ -1037,7 +1021,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    // 2. TATA LETAK MOBILE / SMARTPHONE (Standar)
     return Scaffold(
       backgroundColor: isLightMode
           ? const Color(0xFFF8FAFC)
@@ -1071,14 +1054,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- PEMBAGIAN LAYOUT UNTUK HOMESCREEN ---
   Widget _buildHomeContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
     double screenWidth = MediaQuery.of(context).size.width;
     bool isDesktop = screenWidth > 800;
 
-    // KOMPONEN SISI KIRI (Banner, Card, Quick Actions)
     Widget leftSideContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1194,7 +1175,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ],
     );
 
-    // KOMPONEN SISI KANAN (Recent Activity)
     Widget rightSideContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1253,7 +1233,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ],
     );
 
-    // PENGGABUNGAN LAYOUT
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
@@ -1278,12 +1257,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- PEMBAGIAN LAYOUT UNTUK MENU DATA (GRID DI DESKTOP) ---
   Widget _buildDataContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     List<dynamic> currentData = _filteredReports;
 
-    // Deteksi jika Desktop
     double screenWidth = MediaQuery.of(context).size.width;
     bool isDesktop = screenWidth > 800;
 
@@ -1366,18 +1343,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: const Text(
+                const Expanded(
+                  child: Text(
                     "Filter aktif diterapkan pada daftar laporan",
                     style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
                   ),
                 ),
                 InkWell(
-                  onTap: () {
-                    setState(() {
-                      activeFilter = null;
-                    });
-                  },
+                  onTap: () => setState(() {
+                    activeFilter = null;
+                  }),
                   child: const Text(
                     "Hapus Filter",
                     style: TextStyle(
@@ -1395,25 +1370,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: currentData.isEmpty
               ? _buildEmptyState()
               : (isDesktop
-                    // Jika Desktop, pakai GridView (4 / 5 ke samping)
                     ? GridView.builder(
                         padding: const EdgeInsets.all(20),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          // Jika layar sangat lebar (> 1400) jadikan 5, selain itu 4
                           crossAxisCount: screenWidth > 1400
                               ? 5
                               : (screenWidth > 1100 ? 4 : 3),
                           crossAxisSpacing: 20,
                           mainAxisSpacing: 20,
-                          mainAxisExtent:
-                              500, // Tinggi setiap card ditetapkan 500
+                          mainAxisExtent: 500,
                         ),
                         itemCount: currentData.length,
                         itemBuilder: (context, index) {
                           return _buildDataCard(currentData[index]);
                         },
                       )
-                    // Jika Mobile, pakai ListView (memanjang ke bawah)
                     : ListView.builder(
                         padding: const EdgeInsets.all(20),
                         itemCount: currentData.length,
@@ -1426,14 +1397,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- PEMBAGIAN LAYOUT UNTUK ANALYTICS ---
   Widget _buildAnalyticsContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
 
     double screenWidth = MediaQuery.of(context).size.width;
-    bool isDesktop = screenWidth > 800; // Deteksi Desktop
+    bool isDesktop = screenWidth > 800;
 
     if (_allReports.isEmpty) {
       return const Center(
@@ -1489,7 +1459,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         "Lokasi STO yang paling banyak menerima laporan adalah STO $topStoName ($topStoCount laporan), "
         "dengan jenis gangguan yang mendominasi yaitu $topCatName ($topCatCount kasus).";
 
-    // Kumpulan Widget untuk Analytics
     Widget summaryCard = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1932,8 +1901,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: TextStyle(color: Colors.grey, fontSize: 16),
           ),
           const SizedBox(height: 20),
-
-          // TATA LETAK DESKTOP: Menyamping agar tidak memakan ruang
           if (isDesktop) ...[
             IntrinsicHeight(
               child: Row(
@@ -1959,7 +1926,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
           ] else ...[
-            // TATA LETAK MOBILE: Memanjang ke bawah
             summaryCard,
             const SizedBox(height: 20),
             Row(
@@ -1976,7 +1942,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 20),
             categoryListCard,
           ],
-
           const SizedBox(height: 40),
         ],
       ),
@@ -2004,16 +1969,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- PEMBAGIAN LAYOUT UNTUK MENU PROFILE ---
   Widget _buildProfileContent() {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
 
     double screenWidth = MediaQuery.of(context).size.width;
-    bool isDesktop = screenWidth > 800; // Deteksi Desktop
+    bool isDesktop = screenWidth > 800;
 
-    // Kumpulan Komponen Profile
     Widget userInfoWidget = Column(
       children: [
         Container(
@@ -2126,6 +2089,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ],
     );
 
+    // ===== MENU GANTI PASSWORD DIHAPUS =====
     List<Widget> menuButtons = [
       _buildNewProfileMenuItem(
         Icons.person_add_alt_1,
@@ -2154,12 +2118,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         isDesktop,
       ),
       _buildNewProfileMenuItem(
-        Icons.lock_outline,
-        "Ganti Password",
-        () {},
-        isDesktop,
-      ),
-      _buildNewProfileMenuItem(
         Icons.notifications_none,
         "Notifikasi",
         () async {
@@ -2185,8 +2143,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         () {
           Navigator.of(context).popUntil((route) => route.isFirst);
         },
-        isDestructive: true,
         isDesktop,
+        isDestructive: true,
       ),
     ];
 
@@ -2321,7 +2279,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildDataCard(dynamic data) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
     double screenWidth = MediaQuery.of(context).size.width;
-    bool isDesktop = screenWidth > 800; // Cek untuk ukuran Teks
+    bool isDesktop = screenWidth > 800;
 
     String idStr = "MAINT-${data['id'].toString().padLeft(3, '0')}";
 
@@ -2370,7 +2328,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         : const Color(0xFF1E293B).withOpacity(0.5);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
-    // ISI BAGIAN TENGAH (DIPISAH AGAR BISA DIBERI SCROLL SAAT GRIDVIEW DI DESKTOP)
     Widget contentBody = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2415,7 +2372,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           data['uraian_pekerjaan'] ?? '-',
           style: TextStyle(color: textColor, fontSize: isDesktop ? 15 : 19),
         ),
-
         if (isVerified || isSelesai || isClose) ...[
           const SizedBox(height: 15),
           Divider(color: isLightMode ? Colors.grey[300] : Colors.white10),
@@ -2498,7 +2454,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     return Container(
-      // Hapus margin bottom saat di desktop agar rata di GridView
       margin: EdgeInsets.only(bottom: isDesktop ? 0 : 20),
       decoration: BoxDecoration(
         color: cardBgColor,
@@ -2557,7 +2512,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             idStr,
                             style: TextStyle(
                               color: textColor,
-                              fontSize: isDesktop ? 16 : 20, // Di PC Dikecilkan
+                              fontSize: isDesktop ? 16 : 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2687,7 +2642,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
 
-              // Jika Desktop (Lebar/GridView), Beri Expander & Scroll agar teks panjang bisa muat
               if (isDesktop)
                 Expanded(
                   child: Padding(
@@ -2885,7 +2839,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // --- KOMPONEN BARU: _buildInfoRow RESPONSIVE ---
   Widget _buildInfoRow(
     IconData icon,
     String title,
@@ -2893,8 +2846,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isLightMode,
     bool isDesktop,
   ) {
-    double fontSize = isDesktop ? 14 : 19; // Ukuran teks mengecil di PC
-
+    double fontSize = isDesktop ? 14 : 19;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2968,7 +2920,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Expanded(
       child: Container(
         padding: EdgeInsets.symmetric(
-          vertical: isDesktop ? 12 : 20, // Lebih kecil di PC
+          vertical: isDesktop ? 12 : 20,
           horizontal: 10,
         ),
         decoration: BoxDecoration(
@@ -2989,17 +2941,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: isDesktop ? 24 : 32,
-            ), // Ikon mengecil di PC
+            Icon(icon, color: color, size: isDesktop ? 24 : 32),
             SizedBox(height: isDesktop ? 8 : 12),
             Text(
               value,
               style: TextStyle(
                 color: isLightMode ? Colors.black : Colors.white,
-                fontSize: isDesktop ? 20 : 24, // Angka mengecil di PC
+                fontSize: isDesktop ? 20 : 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -3008,7 +2956,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title,
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: isDesktop ? 12 : 14, // Teks mengecil di PC
+                fontSize: isDesktop ? 12 : 14,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -3136,7 +3084,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// ... [Class AdminDetailLaporanScreen, AdminEditLaporanScreen, dll di bawah ini tetap SAMA dan tidak ada yang terhapus]
 // =========================================================================
 // WIDGET SCREEN LAINNYA (TETAP SAMA)
 // =========================================================================
@@ -3281,7 +3228,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             Text(
               "Informasi Lokasi & Link Maps",
               style: TextStyle(
@@ -3330,15 +3276,12 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                     reportData['sto']?.toString() ?? '-',
                     isLightMode,
                   ),
-
                   Divider(
                     color: isLightMode ? Colors.grey[300] : Colors.white10,
                     height: 30,
                   ),
-
                   _buildDetailRow("Latitude", latStr ?? '-', isLightMode),
                   _buildDetailRow("Longitude", lngStr ?? '-', isLightMode),
-
                   const SizedBox(height: 5),
                   Text(
                     "Link Google Maps:",
@@ -3358,7 +3301,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       decoration: TextDecoration.underline,
                     ),
                   ),
-
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -3407,9 +3349,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
             Text(
               "Rincian Pekerjaan",
               style: TextStyle(
@@ -3456,7 +3396,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-
             _buildPhotoCategory(context, "Before", beforePaths, isLightMode),
             const SizedBox(height: 15),
             _buildPhotoCategory(
@@ -3467,9 +3406,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             _buildPhotoCategory(context, "After", afterPaths, isLightMode),
-
             const SizedBox(height: 40),
-
             Text(
               "Lampiran Evidence",
               style: TextStyle(
@@ -3525,7 +3462,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             if (isClose) ...[
               const SizedBox(height: 20),
               SizedBox(
@@ -3579,7 +3515,6 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 ),
               ),
             ],
-
             const SizedBox(height: 40),
           ],
         ),
@@ -3933,7 +3868,6 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
       setState(() => _isSaving = false);
 
       if (response.statusCode == 200) {
@@ -3987,7 +3921,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
           'Edit Laporan & Upload Bukti',
           style: TextStyle(
             color: textColor,
-            fontSize: 20, // Diubah menjadi 20
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -4038,7 +3972,6 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               ),
             ),
             const SizedBox(height: 15),
-
             _buildFilePicker(
               "Evidence Material Tiba",
               _fileMaterialTiba,
@@ -4057,7 +3990,6 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               () => _pickFile(3),
               isLightMode,
             ),
-
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
@@ -4079,7 +4011,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
-                            fontSize: 20, // Diubah menjadi 20
+                            fontSize: 20,
                           ),
                         ),
                       ),
@@ -4095,7 +4027,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
     label,
     style: const TextStyle(
       color: Colors.grey,
-      fontSize: 19, // Diubah menjadi 19
+      fontSize: 19,
       fontWeight: FontWeight.bold,
     ),
   );
@@ -4230,7 +4162,6 @@ class FullScreenImageScreen extends StatelessWidget {
 
 class JadwalScreen extends StatefulWidget {
   final Set<String> busyTechIds;
-
   const JadwalScreen({super.key, required this.busyTechIds});
 
   @override
@@ -4277,19 +4208,14 @@ class _JadwalScreenState extends State<JadwalScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         List<dynamic> users = data['data'] ?? [];
-
         Map<String, List<dynamic>> tempGroup = {};
 
         for (var user in users) {
           String role = user['role']?.toString() ?? '';
-          if (role != 'Tim Lapangan') {
-            continue;
-          }
+          if (role != 'Tim Lapangan') continue;
 
           String userId = user['user_id']?.toString().toUpperCase() ?? '';
-
           List<String> parts = userId.split('-');
-
           String prefix = '';
 
           if (parts.length >= 3 && parts[0] == 'TLA') {
@@ -4300,19 +4226,15 @@ class _JadwalScreenState extends State<JadwalScreen> {
             continue;
           }
 
-          if (!tempGroup.containsKey(prefix)) {
-            tempGroup[prefix] = [];
-          }
-
+          if (!tempGroup.containsKey(prefix)) tempGroup[prefix] = [];
           tempGroup[prefix]!.add(user);
         }
 
-        if (mounted) {
+        if (mounted)
           setState(() {
             _groupedTlaUsers = tempGroup;
             _isLoading = false;
           });
-        }
       } else {
         if (mounted) setState(() => _isLoading = false);
         _showError("Gagal mengambil data: ${response.statusCode}");
@@ -4391,7 +4313,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -4482,7 +4403,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
                           ],
                           rows: List.generate(usersInGroup.length, (rowIndex) {
                             final user = usersInGroup[rowIndex];
-
                             bool isBusy = widget.busyTechIds.contains(
                               user['user_id'],
                             );

@@ -109,7 +109,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           String statusLower = status.toLowerCase();
 
           if (statusLower == 'close') {
-            // PERBAIKAN: Cek apakah user adalah pelapor atau teknisi yang diutus
             bool isReporter = report['user_id'].toString() == widget.userId;
             bool isAssigned = false;
 
@@ -124,7 +123,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             }
 
-            // HANYA hitung (c++) jika user ini yang melapor atau yang ditugaskan
             if (isReporter || isAssigned) {
               c++;
             }
@@ -185,7 +183,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 2:
         bodyContent = _buildStatusContent(isLightMode);
         break;
-      // ===== CASE 3: HALAMAN HISTORY PEKERJAAN (CLOSE) =====
       case 3:
         bodyContent = _buildHistoryContent(isLightMode);
         break;
@@ -201,7 +198,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bodyContent = _buildHomeContent(isLightMode);
     }
 
-    // AppBar title berdasarkan tab aktif
     String appBarTitle = 'Tim Lapangan';
     if (_selectedIndex == 2) appBarTitle = 'Status Laporan';
     if (_selectedIndex == 3) appBarTitle = 'History Pekerjaan';
@@ -215,7 +211,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
-              leading: Icon(Icons.menu, color: iconAndTextColor),
+              // ===== HAMBURGER DIHAPUS =====
+              leading: const SizedBox.shrink(),
               title: Text(
                 appBarTitle,
                 style: TextStyle(
@@ -226,46 +223,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               centerTitle: true,
               actions: [
-                // Tombol filter hanya tampil di tab Home & Status
-                if (_selectedIndex == 0 || _selectedIndex == 2)
-                  IconButton(
-                    onPressed: () async {
-                      final filterData = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              FilterLaporanScreen(role: widget.role),
-                        ),
-                      );
-
-                      if (filterData != null) {
-                        setState(() {
-                          activeFilter = filterData;
-                        });
-                        _fetchReports();
-                      }
-                    },
-                    icon: Stack(
-                      children: [
-                        Icon(Icons.tune, color: iconAndTextColor),
-                        if (activeFilter != null &&
-                            (activeFilter!['bulan'] != null ||
-                                (activeFilter!['gangguan'] as List).isNotEmpty))
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.redAccent,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
                 IconButton(
                   onPressed: () {
                     setState(() {
@@ -352,7 +309,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.bar_chart),
             label: 'Status',
           ),
-          // ===== TAB HISTORY =====
           BottomNavigationBarItem(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -391,14 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ======================================================================
-  // ===== WIDGET: HALAMAN HISTORY PEKERJAAN (STATUS CLOSE) ===============
-  // ======================================================================
-  // ======================================================================
-  // ===== WIDGET: HALAMAN HISTORY PEKERJAAN (STATUS CLOSE) ===============
-  // ======================================================================
   Widget _buildHistoryContent(bool isLightMode) {
-    // FILTER: Hanya ambil yang status CLOSE dan User terkait dengan laporan
     final closedReports = _reports.where((d) {
       bool isClose = (d['status'] ?? '').toString().toLowerCase() == 'close';
 
@@ -414,7 +363,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
 
-      // Harus CLOSE dan (Harus Pelapor ATAU Teknisi yang ditugaskan)
       return isClose && (isReporter || isAssigned);
     }).toList();
 
@@ -426,9 +374,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Ringkasan Pekerjaan Selesai telah dihapus di sini
-
-          // ===== JUDUL DAFTAR =====
           Row(
             children: [
               const Icon(Icons.list_alt, color: Color(0xFF00D1F3), size: 20),
@@ -445,7 +390,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ===== KONTEN LIST =====
           if (closedReports.isEmpty)
             _buildHistoryEmptyState(isLightMode)
           else
@@ -560,7 +504,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ===== HEADER CARD =====
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -574,7 +517,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ),
-                    // Badge CLOSE
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -611,14 +553,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // ===== GARIS PEMISAH =====
                 Divider(
                   color: isLightMode ? Colors.grey[200] : Colors.white10,
                   height: 1,
                 ),
                 const SizedBox(height: 14),
 
-                // ===== DETAIL INFO =====
                 _buildHistoryInfoRow(
                   Icons.location_city,
                   Colors.blue,
@@ -667,7 +607,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 14),
 
-                // ===== FOOTER TANGGAL + TOMBOL DETAIL =====
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -763,9 +702,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ======================================================================
-  // ===== WIDGET: HALAMAN HOME ============================================
-  // ======================================================================
   Widget _buildHomeContent(bool isLightMode) {
     final recentReports = _reports.take(4).toList();
     Color textColor = isLightMode ? Colors.black : Colors.white;
@@ -816,7 +752,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 )
                 .toList(),
           const SizedBox(height: 12),
-          // ===== SHORTCUT KE HISTORY =====
           if (_closedCount > 0) _buildHistoryShortcut(isLightMode),
           const SizedBox(height: 12),
           _buildTipCard(isLightMode),
@@ -826,7 +761,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Shortcut ke halaman History dari Home
   Widget _buildHistoryShortcut(bool isLightMode) {
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = 3),
@@ -887,9 +821,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ======================================================================
-  // ===== WIDGET: HALAMAN STATUS LAPORAN =================================
-  // ======================================================================
   Widget _buildStatusContent(bool isLightMode) {
     int totalReports = _reports.length;
     int flexP = _pendingCount > 0 ? _pendingCount : 1;
@@ -922,7 +853,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } else if (_selectedStatusFilter == 'Rejected') {
         matchStatus = isRejected;
       } else if (_selectedStatusFilter == 'Semua') {
-        // Semua status KECUALI Close (sudah ada di tab History)
         matchStatus = !isClose;
       }
 
@@ -1117,7 +1047,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ===== BANNER SHORTCUT KE HISTORY dari Status =====
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1996,7 +1925,6 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ===== BANNER CLOSE =====
             if (statusLower == 'close')
               Container(
                 margin: const EdgeInsets.only(bottom: 20),
