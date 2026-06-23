@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 import 'role_selection_screen.dart';
 import 'api_config.dart';
 import 'achievement_widget.dart'; // Sesuaikan path-nya jika perlu
@@ -25,7 +27,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late String currentUserName;
-  bool isLoading = false;
 
   // Variabel untuk Pencapaian (Achievements)
   int totalSubmitted = 0;
@@ -33,10 +34,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int currentStreak = 0;
   bool isLoadingAchievements = true;
 
+  // Variabel untuk Foto Profil
+  File? _profileImage;
+  String? _photoUrl;
+  final ImagePicker _picker = ImagePicker();
+  bool isUploadingPhoto = false;
+
   @override
   void initState() {
     super.initState();
     currentUserName = widget.userName;
+    _fetchUserPhoto();
     if (widget.role == 'Tim Lapangan') {
       _fetchAchievements();
     } else {
@@ -44,7 +52,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- LOGIKA PENENTU RANK PER-BADGE (berdasarkan progress current/target) ---
+  // --- FUNGSI MENGAMBIL URL FOTO PROFIL SAAT INI ---
+  Future<void> _fetchUserPhoto() async {
+    try {
+      final url = Uri.parse('${ApiConfig.baseUrl}/users');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> users = data['data'] ?? [];
+        for (var u in users) {
+          if (u['id'] == widget.databaseId && u['photo'] != null) {
+            if (mounted) {
+              setState(() {
+                String photoPath = u['photo'].toString();
+                if (photoPath.startsWith('http')) {
+                  _photoUrl = photoPath;
+                } else {
+                  // Sesuaikan path storage Laravel
+                  String host = ApiConfig.baseUrl.replaceAll(
+                    RegExp(r'/api$'),
+                    '',
+                  );
+                  _photoUrl = '$host/storage/$photoPath';
+                }
+              });
+            }
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetch photo: $e');
+    }
+  }
+
+  // --- LOGIKA PENENTU RANK PER-BADGE ---
   String _calculateBadgeRank(int current, int target) {
     if (target <= 0) return 'bronze';
     double progress = current / target;
@@ -83,34 +125,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- FUNGSI API UPDATE PROFIL ---
-  Future<void> _updateProfile(String newName) async {
+  // --- FUNGSI API UPDATE FOTO PROFIL ---
+  Future<void> _pickAndUploadPhoto() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    if (pickedFile == null) return;
+
     setState(() {
-      isLoading = true;
+      _profileImage = File(pickedFile.path);
+      isUploadingPhoto = true;
     });
 
-    final url = Uri.parse(
-      '${ApiConfig.baseUrl}/user/update/${widget.databaseId}',
-    );
-
     try {
-      final response = await http.put(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'name': newName}),
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/user/photo/${widget.databaseId}'),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath('photo', pickedFile.path),
       );
 
-      final data = jsonDecode(response.body);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      var data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        setState(() {
-          currentUserName = newName;
-        });
         if (mounted) {
+          setState(() {
+            if (data['photo_url'] != null) {
+              _photoUrl = data['photo_url'];
+            }
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                "Profil Berhasil Diperbarui",
+                "Foto Profil berhasil diperbarui!",
                 style: TextStyle(fontSize: 19),
               ),
               backgroundColor: Colors.green,
@@ -118,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
       } else {
-        throw Exception(data['message'] ?? "Gagal update profil");
+        throw Exception(data['message'] ?? 'Gagal mengunggah foto');
       }
     } catch (e) {
       if (mounted) {
@@ -130,75 +180,211 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isUploadingPhoto = false;
+        });
+      }
     }
   }
 
-  // --- DIALOG EDIT PROFIL ---
-  void _showEditProfileDialog() {
-    bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color dialogBgColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
-    Color textColor = isLightMode ? Colors.black : Colors.white;
-
-    TextEditingController nameController = TextEditingController(
-      text: currentUserName,
-    );
-
-    showDialog(
+  // --- FUNGSI EKSEKUSI HAPUS USER (KHUSUS ADMIN) ---
+  Future<void> _executeAdminDeleteUser(
+    int targetDbId,
+    String targetName,
+  ) async {
+    bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: dialogBgColor,
-        title: Text(
-          "Edit Profil",
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF1E293B),
+        title: const Text(
+          "Hapus Pengguna?",
           style: TextStyle(
-            color: textColor,
-            fontSize: 24, // Diperbesar dari 20 agar lebih terlihat
+            color: Colors.red,
             fontWeight: FontWeight.bold,
+            fontSize: 22,
           ),
         ),
-        content: TextField(
-          controller: nameController,
-          style: TextStyle(color: textColor, fontSize: 19),
-          decoration: InputDecoration(
-            labelText: "Nama Lengkap",
-            labelStyle: const TextStyle(color: Colors.cyan, fontSize: 19),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.cyan),
-            ),
-          ),
+        content: Text(
+          "Seluruh akses, data, dan laporan milik teknisi '$targetName' akan dihapus permanen. Lanjutkan?",
+          style: const TextStyle(fontSize: 18),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text(
               "Batal",
-              style: TextStyle(color: Colors.grey, fontSize: 19),
+              style: TextStyle(color: Colors.grey, fontSize: 18),
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (nameController.text.isNotEmpty) {
-                Navigator.pop(context);
-                _updateProfile(nameController.text);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              "Simpan",
+              "Ya, Hapus Permanen",
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 19,
+                fontSize: 18,
               ),
             ),
           ),
         ],
       ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/user/$targetDbId'),
+      );
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "User '$targetName' berhasil dihapus",
+                style: const TextStyle(fontSize: 19),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context); // Tutup modal BottomSheet
+          _showAdminDeleteUserModal(); // Buka kembali agar list ter-refresh
+        }
+      } else {
+        throw Exception(data['message'] ?? "Gagal menghapus user");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e", style: const TextStyle(fontSize: 19)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // --- MODAL DAFTAR PENGGUNA UNTUK DIHAPUS (KHUSUS ADMIN) ---
+  void _showAdminDeleteUserModal() {
+    bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    Color modalBg = isLightMode ? Colors.white : const Color(0xFF1E293B);
+    Color textColor = isLightMode ? Colors.black : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: modalBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return FutureBuilder<http.Response>(
+              future: http.get(Uri.parse('${ApiConfig.baseUrl}/users')),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.cyan),
+                  );
+                }
+                if (!snapshot.hasData || snapshot.data!.statusCode != 200) {
+                  return Center(
+                    child: Text(
+                      "Gagal menarik data pengguna",
+                      style: TextStyle(color: textColor, fontSize: 18),
+                    ),
+                  );
+                }
+
+                final body = jsonDecode(snapshot.data!.body);
+                final List<dynamic> users = body['data'] ?? [];
+
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Text(
+                        "Pilih Pengguna yang Ingin Dihapus",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, color: Colors.grey),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: users.length,
+                        itemBuilder: (context, index) {
+                          final u = users[index];
+                          // Admin tidak boleh menghapus akunnya sendiri
+                          if (u['id'] == widget.databaseId)
+                            return const SizedBox.shrink();
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.red.withOpacity(0.15),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.red,
+                              ),
+                            ),
+                            title: Text(
+                              u['name'] ?? 'Tanpa Nama',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 19,
+                                color: textColor,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "Role: ${u['role']} | ID: ${u['user_id']}",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.delete_forever,
+                                color: Colors.red,
+                                size: 30,
+                              ),
+                              onPressed: () => _executeAdminDeleteUser(
+                                u['id'],
+                                u['name'] ?? 'User',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -217,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.bold,
-            fontSize: 24, // Diperbesar dari 20
+            fontSize: 24,
           ),
         ),
         content: Text(
@@ -278,42 +464,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             const SizedBox(height: 20),
 
-            // --- HEADER PROFILE ---
+            // --- HEADER PROFILE DENGAN GANTI FOTO ---
             Center(
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.cyan, width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: cardColor,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: isLightMode ? Colors.grey : Colors.white,
-                      ),
+                  GestureDetector(
+                    onTap: isUploadingPhoto ? null : _pickAndUploadPhoto,
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.cyan, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: cardColor,
+                            backgroundImage: _profileImage != null
+                                ? FileImage(_profileImage!) as ImageProvider
+                                : (_photoUrl != null
+                                      ? NetworkImage(_photoUrl!)
+                                      : null),
+                            child: (_profileImage == null && _photoUrl == null)
+                                ? Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: isLightMode
+                                        ? Colors.grey
+                                        : Colors.white,
+                                  )
+                                : null,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.cyan,
+                            shape: BoxShape.circle,
+                          ),
+                          child: isUploadingPhoto
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  isLoading
-                      ? const CircularProgressIndicator(color: Colors.cyan)
-                      : Text(
-                          currentUserName,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize:
-                                32, // DIUBAH: Diperbesar dari 24 agar sangat jelas terbaca
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  Text(
+                    currentUserName,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
 
-                  const SizedBox(height: 8), // Sedikit dinaikkan jaraknya
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -416,20 +637,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 "Pengaturan Akun",
                 style: TextStyle(
                   color: isLightMode ? Colors.grey[700] : Colors.grey,
-                  fontSize:
-                      22, // DIUBAH: Diperbesar dari 20 untuk membedakan section header
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             const SizedBox(height: 15),
 
-            _buildMenuTile(
-              icon: Icons.person_outline,
-              title: "Edit Profil",
-              onTap: _showEditProfileDialog,
-              isLightMode: isLightMode,
-            ),
+            // =========================================================
+            // FITUR MENGHAPUS USER (HANYA MUNCUL UNTUK TIM ADMINISTRASI)
+            // =========================================================
+            if (widget.role == 'Tim Administrasi')
+              _buildMenuTile(
+                icon: Icons.person_remove_alt_1,
+                title: "Hapus Akun Pengguna",
+                onTap: _showAdminDeleteUserModal,
+                isLightMode: isLightMode,
+                iconColor: Colors.red,
+                textColorOverride: Colors.red,
+              ),
 
             _buildMenuTile(
               icon: Icons.calendar_month,
@@ -509,7 +735,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             "Pencapaian Saya",
             style: TextStyle(
               color: isLightMode ? Colors.grey[700] : Colors.grey,
-              fontSize: 22, // DIUBAH: Diperbesar dari 20 agar seimbang
+              fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -519,7 +745,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
             : Column(
                 children: [
-                  // ===== BADGE PROGRESS PER KATEGORI =====
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -595,7 +820,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ===== ANIMASI RANK (BRONZE/SILVER/CROWN) PER KATEGORI =====
           SizedBox(
             height: 72,
             width: 72,
@@ -647,6 +871,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required VoidCallback onTap,
     required bool isLightMode,
+    Color iconColor = Colors.cyan,
+    Color? textColorOverride,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -666,12 +892,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: Icon(icon, color: Colors.cyan, size: 28),
+        leading: Icon(icon, color: iconColor, size: 28),
         title: Text(
           title,
           style: TextStyle(
-            color: isLightMode ? Colors.black : Colors.white,
+            color:
+                textColorOverride ??
+                (isLightMode ? Colors.black : Colors.white),
             fontSize: 19,
+            fontWeight: textColorOverride != null
+                ? FontWeight.bold
+                : FontWeight.normal,
           ),
         ),
         trailing: Icon(
@@ -784,8 +1015,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
           style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.bold,
-            fontSize:
-                26, // DIUBAH: Diperbesar dari 20 agar AppBar title terlihat tegas dan jelas
+            fontSize: 26,
           ),
         ),
       ),
