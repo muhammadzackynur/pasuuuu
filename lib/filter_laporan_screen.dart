@@ -6,7 +6,7 @@ class FilterLaporanScreen extends StatefulWidget {
   const FilterLaporanScreen({Key? key, required this.role}) : super(key: key);
 
   @override
-  _FilterLaporanScreenState createState() => _FilterLaporanScreenState();
+  State<FilterLaporanScreen> createState() => _FilterLaporanScreenState();
 }
 
 class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
@@ -16,7 +16,6 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
   DateTime? dateFrom;
   DateTime? dateTo;
 
-  // Flag: apakah user sudah set tanggal secara manual via date picker
   bool _dateSetManually = false;
 
   static const Color bgColor = Color(0xFF0F1623);
@@ -164,31 +163,22 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
 
   int _monthIndexFromName(String name) => months.indexOf(name) + 1;
 
-  int _daysInMonth(int year, int month) {
-    // Mendapatkan hari terakhir dalam suatu bulan
-    return DateTime(year, month + 1, 0).day;
-  }
+  int _daysInMonth(int year, int month) => DateTime(year, month + 1, 0).day;
 
   void _onMonthTap(String m) {
     setState(() {
       if (selectedMonth == m) {
-        // Jika klik bulan yang sudah terpilih (untuk membatalkan pilihan)
         selectedMonth = null;
         if (!_dateSetManually) {
           dateFrom = null;
           dateTo = null;
         }
       } else {
-        // Jika klik bulan baru
         selectedMonth = m;
-
         bool shouldOverrideDates = true;
 
-        // Cek apakah user sudah mensetting tanggal secara manual
         if (_dateSetManually) {
           final monthNum = _monthIndexFromName(m);
-          // Jika bulan pada tanggal yang diset manual SAMA dengan bulan yang diklik,
-          // maka JANGAN ubah tanggal dari dan sampai (biarkan sesuai settingan user)
           bool fromMatch = dateFrom != null && dateFrom!.month == monthNum;
           bool toMatch = dateTo != null && dateTo!.month == monthNum;
 
@@ -197,7 +187,6 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
           }
         }
 
-        // Jika tidak diset manual atau user memilih bulan yang berbeda dari tanggal manualnya
         if (shouldOverrideDates) {
           final now = DateTime.now();
           final monthNum = _monthIndexFromName(m);
@@ -206,8 +195,6 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
 
           dateFrom = DateTime(year, monthNum, 1);
           dateTo = DateTime(year, monthNum, lastDay);
-
-          // Reset flag manual karena tanggal dioverride otomatis oleh pilihan bulan
           _dateSetManually = false;
         }
       }
@@ -248,7 +235,7 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
     );
     if (picked != null) {
       setState(() {
-        _dateSetManually = true; // Tandai user bahwa tanggal diset manual
+        _dateSetManually = true;
         if (isFrom) {
           dateFrom = picked;
         } else {
@@ -277,8 +264,214 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
     return '${dt.day.toString().padLeft(2, '0')} ${monthNames[dt.month - 1]} ${dt.year}';
   }
 
+  // ===========================================================================
+  // WIDGET TOMBOL AKSI (Dipanggil di bawah bulan saat PC, atau di Dock saat HP)
+  // ===========================================================================
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 1,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                selectedMonth = null;
+                selectedGangguan.clear();
+                dateFrom = null;
+                dateTo = null;
+                _dateSetManually = false;
+              });
+            },
+            icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
+            label: const Text(
+              'Reset',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: cardColor, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: () {
+              final filterData = <String, dynamic>{
+                'bulan': selectedMonth,
+                'gangguan': selectedGangguan,
+                'role': widget.role,
+                'date_from': dateFrom?.toIso8601String(),
+                'date_to': dateTo?.toIso8601String(),
+              };
+              Navigator.pop(context, filterData);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Terapkan Filter',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // 1. KOMPONEN KIRI (PERIODE BULAN + TOMBOL JIKA DESKTOP)
+  // ===========================================================================
+  Widget _buildPeriodeSection({required bool isDesktop}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'PERIODE LAPORAN',
+          style: TextStyle(
+            color: accentColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDateBox('DARI', dateFrom, () => _pickDate(true)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDateBox('SAMPAI', dateTo, () => _pickDate(false)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isDesktop ? 3 : 4,
+            childAspectRatio: isDesktop ? 2.1 : 1.9,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: months.length,
+          itemBuilder: (context, index) {
+            final m = months[index];
+            final isSelected = selectedMonth == m;
+            return GestureDetector(
+              onTap: () => _onMonthTap(m),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? accentColor.withOpacity(0.15) : cardColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? accentColor : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  m,
+                  style: TextStyle(
+                    color: isSelected ? accentColor : Colors.grey,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        // =====================================================================
+        // MAGIC NYA DISINI: Tombol ditaruh langsung di bawah Grid Bulan!
+        // =====================================================================
+        if (isDesktop) ...[
+          const SizedBox(height: 32),
+          _buildActionButtons(), // Muncul di bawah bulan Desember
+        ],
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // 2. KOMPONEN KANAN (JENIS GANGGUAN)
+  // ===========================================================================
+  Widget _buildGangguanSection({required bool isDesktop}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'JENIS GANGGUAN',
+              style: TextStyle(
+                color: accentColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 1.4,
+              ),
+            ),
+            if (selectedGangguan.isNotEmpty)
+              InkWell(
+                onTap: () => setState(() => selectedGangguan.clear()),
+                child: const Text(
+                  'Hapus Pilihan',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isDesktop ? 2 : 1,
+            mainAxisExtent: 66,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: jenisGangguan.length,
+          itemBuilder: (context, index) {
+            final item = jenisGangguan[index];
+            final isSelected = selectedGangguan.contains(item['id']);
+            return _buildGangguanTile(item, isSelected);
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Deteksi ukuran layar di level teratas Build!
+    final bool isDesktop = MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -298,177 +491,52 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'PERIODE LAPORAN',
-              style: TextStyle(
-                color: accentColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDateBox('DARI', dateFrom, () => _pickDate(true)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDateBox(
-                    'SAMPAI',
-                    dateTo,
-                    () => _pickDate(false),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 2.2,
-              ),
-              itemCount: months.length,
-              itemBuilder: (context, index) {
-                final m = months[index];
-                final isSelected = selectedMonth == m;
-                return GestureDetector(
-                  onTap: () => _onMonthTap(m),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? accentColor.withOpacity(0.12)
-                          : cardColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSelected ? accentColor : Colors.transparent,
-                        width: 1.5,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            // Trik Halus: Di PC padding bawah gaperlu 130 lagi karena ga ada bar melayang di bawah
+            padding: EdgeInsets.fromLTRB(24, 10, 24, isDesktop ? 40 : 130),
+            child: isDesktop
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Kiri: Dikunci ketat di angka 320px (tombol Apply ada di dalamnya)
+                      SizedBox(
+                        width: 320,
+                        child: _buildPeriodeSection(isDesktop: true),
                       ),
-                    ),
-                    child: Text(
-                      m,
-                      style: TextStyle(
-                        color: isSelected ? accentColor : Colors.grey,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                    ),
+                      const SizedBox(width: 36),
+                      // Kanan: Mengambil sisa ruang
+                      Expanded(child: _buildGangguanSection(isDesktop: true)),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPeriodeSection(isDesktop: false),
+                      const SizedBox(height: 30),
+                      _buildGangguanSection(isDesktop: false),
+                    ],
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              'JENIS GANGGUAN',
-              style: TextStyle(
-                color: accentColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: jenisGangguan.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final item = jenisGangguan[index];
-                final isSelected = selectedGangguan.contains(item['id']);
-                return _buildGangguanTile(item, isSelected);
-              },
-            ),
-          ],
+          ),
         ),
       ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: const BoxDecoration(
-          color: bgColor,
-          border: Border(top: BorderSide(color: cardColor, width: 1.5)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    selectedMonth = null;
-                    selectedGangguan.clear();
-                    dateFrom = null;
-                    dateTo = null;
-                    _dateSetManually = false;
-                  });
-                },
-                icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                label: const Text(
-                  'Reset',
-                  style: TextStyle(color: Colors.white, fontSize: 15),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  side: const BorderSide(color: cardColor, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
+
+      // =======================================================================
+      // ADAPTIVE BOTTOM BAR
+      // Jika PC -> dimatikan (null), karena tombolnya pindah ke bawah bulan.
+      // Jika HP -> Tetap hidup menempel di dasar layar.
+      // =======================================================================
+      bottomSheet: isDesktop
+          ? null
+          : Container(
+              color: bgColor,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              child: SafeArea(child: _buildActionButtons()),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                onPressed: () {
-                  final filterData = <String, dynamic>{
-                    'bulan': selectedMonth,
-                    'gangguan': selectedGangguan,
-                    'role': widget.role,
-                    'date_from': dateFrom?.toIso8601String(),
-                    'date_to': dateTo?.toIso8601String(),
-                  };
-                  Navigator.pop(context, filterData);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accentColor,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Terapkan Filter',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -476,7 +544,7 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(12),
@@ -493,7 +561,6 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
                       color: Colors.grey,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -501,7 +568,7 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
                     _formatDate(date),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -511,7 +578,7 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
             const Icon(
               Icons.calendar_today_outlined,
               color: accentColor,
-              size: 18,
+              size: 16,
             ),
           ],
         ),
@@ -524,10 +591,10 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
       onTap: () => toggleGangguan(item['id']),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: tileColor,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? accentColor : Colors.transparent,
             width: 1.5,
@@ -536,8 +603,8 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
         child: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: isSelected
                     ? accentColor.withOpacity(0.15)
@@ -547,13 +614,14 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
               child: Icon(
                 item['icon'] as IconData,
                 color: isSelected ? accentColor : Colors.grey,
-                size: 22,
+                size: 18,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     item['title'],
@@ -562,19 +630,19 @@ class _FilterLaporanScreenState extends State<FilterLaporanScreen> {
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     '${item['count']} Laporan',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: accentColor, size: 22)
-            else
-              const SizedBox(width: 22),
+              const Icon(Icons.check_circle, color: accentColor, size: 18),
           ],
         ),
       ),

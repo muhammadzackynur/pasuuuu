@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'role_selection_screen.dart';
 import 'api_config.dart';
-import 'achievement_widget.dart'; // Sesuaikan path-nya jika perlu
+import 'achievement_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -68,7 +70,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (photoPath.startsWith('http')) {
                   _photoUrl = photoPath;
                 } else {
-                  // Sesuaikan path storage Laravel
                   String host = ApiConfig.baseUrl.replaceAll(
                     RegExp(r'/api$'),
                     '',
@@ -125,11 +126,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- FUNGSI API UPDATE FOTO PROFIL ---
+  // ===========================================================================
+  // --- FUNGSI GABUNGAN: MEMILIH & MENGUNGGAH FOTO PROFIL KE SERVER ---
+  // ===========================================================================
   Future<void> _pickAndUploadPhoto() async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final XFile? pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (pickedFile == null) return;
 
     setState(() {
@@ -138,53 +140,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ── PERBAIKAN: Reload dulu sebelum baca, agar data paling fresh ──────
+      await prefs.reload();
+      String? token = prefs.getString('token');
+
+      debugPrint("🔑 DEBUG — Token yang terbaca di HP: $token");
+
+      if (token == null || token.isEmpty) {
+        debugPrint(
+            "⚠️ DEBUG — Semua keys di SharedPreferences: ${prefs.getKeys()}");
+        throw Exception(
+          "Token tidak ditemukan. Silakan logout dan login ulang.",
+        );
+      }
+
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('${ApiConfig.baseUrl}/user/photo/${widget.databaseId}'),
+        Uri.parse(
+          '${ApiConfig.baseUrl}/user/update-photo/${widget.databaseId}',
+        ),
       );
+
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      debugPrint("📡 DEBUG — Mengirim Request ke: ${request.url}");
+      debugPrint(
+        "📡 DEBUG — Header Authorization: ${request.headers['Authorization']}",
+      );
+
       request.files.add(
         await http.MultipartFile.fromPath('photo', pickedFile.path),
       );
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-      var data = jsonDecode(response.body);
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      debugPrint("📩 DEBUG — Response Status: ${response.statusCode}");
+      debugPrint("📩 DEBUG — Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
         if (mounted) {
-          setState(() {
-            if (data['photo_url'] != null) {
-              _photoUrl = data['photo_url'];
-            }
-          });
+          setState(() => _photoUrl = data['photo_url'] ?? _photoUrl);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                "Foto Profil berhasil diperbarui!",
-                style: TextStyle(fontSize: 19),
+                "Foto profil berhasil diperbarui!",
+                style: TextStyle(fontSize: 17),
               ),
               backgroundColor: Colors.green,
             ),
           );
         }
+      } else if (response.statusCode == 401) {
+        throw Exception(
+          "Sesi habis (401). Silakan logout dan login ulang.",
+        );
       } else {
-        throw Exception(data['message'] ?? 'Gagal mengunggah foto');
+        throw Exception(
+          "Server error: ${response.statusCode} — ${response.body}",
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error: $e", style: const TextStyle(fontSize: 19)),
+            content: Text(
+              "Gagal upload foto: $e",
+              style: const TextStyle(fontSize: 16),
+            ),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          isUploadingPhoto = false;
-        });
-      }
+      if (mounted) setState(() => isUploadingPhoto = false);
     }
   }
 
@@ -254,8 +287,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context); // Tutup modal BottomSheet
-          _showAdminDeleteUserModal(); // Buka kembali agar list ter-refresh
+          Navigator.pop(context);
+          _showAdminDeleteUserModal();
         }
       } else {
         throw Exception(data['message'] ?? "Gagal menghapus user");
@@ -332,9 +365,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         itemCount: users.length,
                         itemBuilder: (context, index) {
                           final u = users[index];
-                          // Admin tidak boleh menghapus akunnya sendiri
-                          if (u['id'] == widget.databaseId)
+                          if (u['id'] == widget.databaseId) {
                             return const SizedBox.shrink();
+                          }
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
@@ -423,15 +456,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RoleSelectionScreen(),
-                ),
-                (route) => false,
-              );
+            onPressed: () async {
+              // ── PERBAIKAN: Hapus token saat logout ──────────────────────
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('token');
+              debugPrint("🗑️ Token dihapus saat logout.");
+
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RoleSelectionScreen(),
+                  ),
+                  (route) => false,
+                );
+              }
             },
             child: const Text(
               "Logout",
@@ -450,9 +489,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0D1424);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0D1424);
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
@@ -485,8 +523,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             backgroundImage: _profileImage != null
                                 ? FileImage(_profileImage!) as ImageProvider
                                 : (_photoUrl != null
-                                      ? NetworkImage(_photoUrl!)
-                                      : null),
+                                    ? NetworkImage(_photoUrl!)
+                                    : null),
                             child: (_profileImage == null && _photoUrl == null)
                                 ? Icon(
                                     Icons.person,
@@ -523,7 +561,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   Text(
                     currentUserName,
                     textAlign: TextAlign.center,
@@ -533,7 +570,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -612,8 +648,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const Spacer(),
+                  // ── PERBAIKAN: Tombol copy yang benar-benar berfungsi ──
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: widget.userId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "User ID '${widget.userId}' disalin!",
+                            style: const TextStyle(fontSize: 17),
+                          ),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
                     icon: Icon(
                       Icons.copy,
                       color: isLightMode ? Colors.grey[600] : Colors.grey,
@@ -724,7 +774,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Widget Bagian Pencapaian (gabungan animasi rank Lottie + badge progress)
+  // Widget Bagian Pencapaian
   Widget _buildAchievementsSection(bool isLightMode) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,40 +793,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
         isLoadingAchievements
             ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
-            : Column(
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildBadgeCard(
-                          title: "Kontributor Aktif",
-                          current: totalSubmitted,
-                          target: 25,
-                          activeColor: Colors.blue,
-                          isLightMode: isLightMode,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildBadgeCard(
-                          title: "Bintang Lapangan",
-                          current: totalClosed,
-                          target: 25,
-                          activeColor: Colors.orange,
-                          isLightMode: isLightMode,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildBadgeCard(
-                          title: "Pekerja Tanpa Cacat",
-                          current: currentStreak,
-                          target: 25,
-                          activeColor: Colors.green,
-                          isLightMode: isLightMode,
-                        ),
-                      ],
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildBadgeCard(
+                      title: "Kontributor Aktif",
+                      current: totalSubmitted,
+                      target: 25,
+                      activeColor: Colors.blue,
+                      isLightMode: isLightMode,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    _buildBadgeCard(
+                      title: "Bintang Lapangan",
+                      current: totalClosed,
+                      target: 25,
+                      activeColor: Colors.orange,
+                      isLightMode: isLightMode,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildBadgeCard(
+                      title: "Pekerja Tanpa Cacat",
+                      current: currentStreak,
+                      target: 25,
+                      activeColor: Colors.green,
+                      isLightMode: isLightMode,
+                    ),
+                  ],
+                ),
               ),
         const SizedBox(height: 24),
       ],
@@ -896,13 +941,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Text(
           title,
           style: TextStyle(
-            color:
-                textColorOverride ??
+            color: textColorOverride ??
                 (isLightMode ? Colors.black : Colors.white),
             fontSize: 19,
-            fontWeight: textColorOverride != null
-                ? FontWeight.bold
-                : FontWeight.normal,
+            fontWeight:
+                textColorOverride != null ? FontWeight.bold : FontWeight.normal,
           ),
         ),
         trailing: Icon(
@@ -915,7 +958,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 // ======================================================================
-// --- HALAMAN JADWAL & DAFTAR TIM (BERUPA TABEL PER STO) ---
+// --- HALAMAN JADWAL & DAFTAR TIM ---
 // ======================================================================
 class JadwalScreen extends StatefulWidget {
   const JadwalScreen({super.key});
@@ -947,22 +990,15 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
         for (var user in users) {
           String role = user['role']?.toString() ?? '';
-          if (role != 'Tim Lapangan') {
-            continue;
-          }
+          if (role != 'Tim Lapangan') continue;
 
           String userId = user['user_id']?.toString().toUpperCase() ?? '';
-
-          if (!userId.contains('-')) {
-            continue;
-          }
+          if (!userId.contains('-')) continue;
 
           String prefix = userId.split('-')[0];
-
           if (!tempGroup.containsKey(prefix)) {
             tempGroup[prefix] = [];
           }
-
           tempGroup[prefix]!.add(user);
         }
 
@@ -996,9 +1032,8 @@ class _JadwalScreenState extends State<JadwalScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0D1424);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0D1424);
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
@@ -1022,145 +1057,149 @@ class _JadwalScreenState extends State<JadwalScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
           : _groupedTlaUsers.isEmpty
-          ? Center(
-              child: Text(
-                "Belum ada data tim lapangan",
-                style: TextStyle(
-                  color: isLightMode ? Colors.grey[700] : Colors.grey,
-                  fontSize: 19,
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: groupKeys.length,
-              itemBuilder: (context, index) {
-                String prefix = groupKeys[index];
-                List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
+              ? Center(
+                  child: Text(
+                    "Belum ada data tim lapangan",
+                    style: TextStyle(
+                      color: isLightMode ? Colors.grey[700] : Colors.grey,
+                      fontSize: 19,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: groupKeys.length,
+                  itemBuilder: (context, index) {
+                    String prefix = groupKeys[index];
+                    List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.cyan.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                "STO $prefix",
+                                style: const TextStyle(
+                                  color: Colors.cyan,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              "${usersInGroup.length} Teknisi",
+                              style: TextStyle(
+                                color: isLightMode
+                                    ? Colors.grey[700]
+                                    : Colors.grey,
+                                fontSize: 19,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Colors.cyan.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: isLightMode
+                                  ? Colors.grey[300]!
+                                  : Colors.white10,
+                            ),
+                            boxShadow: isLightMode
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.15),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : [],
                           ),
-                          child: Text(
-                            "STO $prefix",
-                            style: const TextStyle(
-                              color: Colors.cyan,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
+                          clipBehavior: Clip.hardEdge,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              headingRowColor: MaterialStateProperty.all(
+                                isLightMode
+                                    ? Colors.grey[200]
+                                    : const Color(0xFF161F2E),
+                              ),
+                              dataRowMinHeight: 70,
+                              dataRowMaxHeight: 70,
+                              headingTextStyle: const TextStyle(
+                                color: Colors.cyan,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 19,
+                              ),
+                              dataTextStyle: TextStyle(
+                                color: textColor,
+                                fontSize: 19,
+                              ),
+                              columns: const [
+                                DataColumn(label: Text('NO')),
+                                DataColumn(label: Text('KODE UNIK (ID)')),
+                                DataColumn(label: Text('NAMA LENGKAP')),
+                              ],
+                              rows: List.generate(usersInGroup.length,
+                                  (rowIndex) {
+                                final user = usersInGroup[rowIndex];
+                                return DataRow(
+                                  color: MaterialStateProperty.all(
+                                    rowIndex % 2 == 0
+                                        ? Colors.transparent
+                                        : (isLightMode
+                                            ? Colors.grey[50]
+                                            : Colors.black12),
+                                  ),
+                                  cells: [
+                                    DataCell(Text('${rowIndex + 1}')),
+                                    DataCell(
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.cyan.withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          user['user_id'] ?? '-',
+                                          style: const TextStyle(
+                                            color: Colors.cyan,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 19,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(Text(user['name'] ?? '-')),
+                                  ],
+                                );
+                              }),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          "${usersInGroup.length} Teknisi",
-                          style: TextStyle(
-                            color: isLightMode ? Colors.grey[700] : Colors.grey,
-                            fontSize: 19,
-                          ),
-                        ),
+                        const SizedBox(height: 35),
                       ],
-                    ),
-                    const SizedBox(height: 15),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: isLightMode
-                              ? Colors.grey[300]!
-                              : Colors.white10,
-                        ),
-                        boxShadow: isLightMode
-                            ? [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.15),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ]
-                            : [],
-                      ),
-                      clipBehavior: Clip.hardEdge,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          headingRowColor: MaterialStateProperty.all(
-                            isLightMode
-                                ? Colors.grey[200]
-                                : const Color(0xFF161F2E),
-                          ),
-                          dataRowMinHeight: 70,
-                          dataRowMaxHeight: 70,
-                          headingTextStyle: const TextStyle(
-                            color: Colors.cyan,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 19,
-                          ),
-                          dataTextStyle: TextStyle(
-                            color: textColor,
-                            fontSize: 19,
-                          ),
-                          columns: const [
-                            DataColumn(label: Text('NO')),
-                            DataColumn(label: Text('KODE UNIK (ID)')),
-                            DataColumn(label: Text('NAMA LENGKAP')),
-                          ],
-                          rows: List.generate(usersInGroup.length, (rowIndex) {
-                            final user = usersInGroup[rowIndex];
-                            return DataRow(
-                              color: MaterialStateProperty.all(
-                                rowIndex % 2 == 0
-                                    ? Colors.transparent
-                                    : (isLightMode
-                                          ? Colors.grey[50]
-                                          : Colors.black12),
-                              ),
-                              cells: [
-                                DataCell(Text('${rowIndex + 1}')),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.cyan.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      user['user_id'] ?? '-',
-                                      style: const TextStyle(
-                                        color: Colors.cyan,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 19,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(Text(user['name'] ?? '-')),
-                              ],
-                            );
-                          }),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 35),
-                  ],
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
   }
 }

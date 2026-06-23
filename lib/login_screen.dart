@@ -246,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       var data = json.decode(response.body);
       if (data['success'] == true) {
-        _routeToDashboard(data);
+        await _routeToDashboard(data);
       } else {
         if (!mounted) return;
         _showSnack(data['message'] ?? "Kredensial tidak valid", Colors.red);
@@ -292,7 +292,8 @@ class _LoginScreenState extends State<LoginScreen>
         if (data['success'] == true) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_user_id_${widget.roleTitle}', userId);
-          _routeToDashboard(data);
+
+          await _routeToDashboard(data);
         } else {
           if (mounted) {
             _showSnack(
@@ -328,6 +329,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _clearSavedData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('saved_user_id_${widget.roleTitle}');
+    await prefs.remove('token');
 
     if (!mounted) return;
     setState(() {
@@ -349,13 +351,31 @@ class _LoginScreenState extends State<LoginScreen>
   // =========================================================================
   // ROUTING & ONESIGNAL TAGGING
   // =========================================================================
-  void _routeToDashboard(Map<String, dynamic> data) {
+  Future<void> _routeToDashboard(Map<String, dynamic> data) async {
     if (!mounted) return;
 
     String userIdStr = data['user']['user_id'].toString();
     String userRole = data['user']['role'].toString().toLowerCase();
 
-    // Jalankan OneSignal hanya di Mobile (Android/iOS)
+    // ── PERBAIKAN UTAMA: Simpan token Sanctum dari response API ──────────────
+    // Laravel mengembalikan token di field 'token' atau 'access_token'
+    String? tokenSanctum =
+        data['token']?.toString() ?? data['access_token']?.toString();
+
+    if (tokenSanctum != null && tokenSanctum.isNotEmpty) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', tokenSanctum);
+
+      // Reload untuk memastikan token benar-benar tersimpan ke disk
+      await prefs.reload();
+      debugPrint("🔑 TOKEN BERHASIL DISIMPAN: ${prefs.getString('token')}");
+    } else {
+      // Log peringatan jika token tidak ada di response
+      debugPrint("⚠️ PERINGATAN: Token tidak ditemukan di response API!");
+      debugPrint("📦 Isi data response: $data");
+    }
+
+    // ── Jalankan OneSignal hanya di Mobile (Android/iOS) ─────────────────────
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       OneSignal.login(userIdStr);
       OneSignal.User.addTagWithKey("user_id", userIdStr);
@@ -480,10 +500,10 @@ class _LoginScreenState extends State<LoginScreen>
                       child: _hasSavedId
                           ? _buildAutoScanBody(isLightMode)
                           : (_isRegisteringFace &&
-                                _cameraAvailable &&
-                                _isCameraInitialized)
-                          ? _buildRegisterFaceBody(isLightMode)
-                          : _buildMainBody(isLightMode),
+                                  _cameraAvailable &&
+                                  _isCameraInitialized)
+                              ? _buildRegisterFaceBody(isLightMode)
+                              : _buildMainBody(isLightMode),
                     ),
                   ],
                 ),
@@ -498,15 +518,13 @@ class _LoginScreenState extends State<LoginScreen>
   // ── MAIN BODY ─────────────────────────────────────────────────────────────
   Widget _buildMainBody(bool isLightMode) {
     Color textPrimary = isLightMode ? Colors.black : Colors.white;
-    Color textSecondary = isLightMode
-        ? Colors.grey[700]!
-        : const Color(0xFF94A3B8);
+    Color textSecondary =
+        isLightMode ? Colors.grey[700]! : const Color(0xFF94A3B8);
     Color fieldBg = isLightMode ? _fieldBgLight : _fieldBgDark;
 
     // Label tombol berbeda tergantung ketersediaan kamera
-    String buttonLabel = _cameraAvailable
-        ? 'DAFTARKAN WAJAH SAYA'
-        : 'MASUK DENGAN ID';
+    String buttonLabel =
+        _cameraAvailable ? 'DAFTARKAN WAJAH SAYA' : 'MASUK DENGAN ID';
 
     IconData buttonIcon = _cameraAvailable
         ? Icons.face_retouching_natural_rounded
@@ -651,9 +669,8 @@ class _LoginScreenState extends State<LoginScreen>
               decoration: InputDecoration(
                 hintText: 'Masukkan ID Anda',
                 hintStyle: TextStyle(
-                  color: isLightMode
-                      ? Colors.grey[400]
-                      : const Color(0xFF4B5563),
+                  color:
+                      isLightMode ? Colors.grey[400] : const Color(0xFF4B5563),
                   fontSize: 19,
                 ),
                 prefixIcon: const Icon(
@@ -774,9 +791,8 @@ class _LoginScreenState extends State<LoginScreen>
     double screenWidth = MediaQuery.of(context).size.width;
     double cameraWidth = screenWidth - 56;
     double cameraHeight = cameraWidth * (4 / 3);
-    Color textSecondary = isLightMode
-        ? Colors.grey[700]!
-        : const Color(0xFF94A3B8);
+    Color textSecondary =
+        isLightMode ? Colors.grey[700]! : const Color(0xFF94A3B8);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -880,12 +896,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ── AUTO SCAN BODY ─────────────────────────────────────────────────────────
-  // ── AUTO SCAN BODY ─────────────────────────────────────────────────────────
   Widget _buildAutoScanBody(bool isLightMode) {
     Color textPrimary = isLightMode ? Colors.black : Colors.white;
-    Color textSecondary = isLightMode
-        ? Colors.grey[700]!
-        : const Color(0xFF94A3B8);
+    Color textSecondary =
+        isLightMode ? Colors.grey[700]! : const Color(0xFF94A3B8);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -913,7 +927,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const Spacer(flex: 2),
 
-          // ── Icon wajah animatif (menggantikan CameraPreview) ──────
+          // ── Icon wajah animatif ───────────────────────────────────
           AnimatedContainer(
             duration: const Duration(milliseconds: 400),
             width: 140,
@@ -1001,7 +1015,6 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-
                       SizedBox(
                         width: double.infinity,
                         height: 60,

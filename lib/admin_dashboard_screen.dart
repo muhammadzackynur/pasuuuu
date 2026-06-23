@@ -38,6 +38,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Map<String, List<dynamic>> _stoTechnicians = {};
 
+  final TextEditingController _deleteUserIdController = TextEditingController();
+  bool _isDeletingUser = false;
+
   final Map<String, String> _stoFullNames = {
     'KJR': 'KENJERAN',
     'KPS': 'KAPASAN',
@@ -88,6 +91,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void dispose() {
     _notificationTimer?.cancel();
+    _deleteUserIdController.dispose();
     super.dispose();
   }
 
@@ -215,12 +219,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int p = 0, v = 0, r = 0;
     for (var report in newReports) {
       String status = (report['status'] ?? 'Pending').toString().toLowerCase();
-      if (status.contains('verif') || status == 'selesai' || status == 'close')
+      if (status.contains('verif') ||
+          status == 'selesai' ||
+          status == 'close') {
         v++;
-      else if (status.contains('reject'))
+      } else if (status.contains('reject')) {
         r++;
-      else
+      } else {
         p++;
+      }
     }
 
     setState(() {
@@ -276,9 +283,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         int p = 0, v = 0, r = 0;
         for (var report in fetchedReports) {
-          String status = (report['status'] ?? 'Pending')
-              .toString()
-              .toLowerCase();
+          String status =
+              (report['status'] ?? 'Pending').toString().toLowerCase();
           if (status.contains('verif') ||
               status == 'selesai' ||
               status == 'close') {
@@ -314,6 +320,383 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _deleteUserById(String id) async {
+    if (id.isEmpty) return;
+
+    setState(() {
+      _isDeletingUser = true;
+    });
+
+    const String token = "GANTI_TOKEN_BEARER_ANDA_DISINI";
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.deleteUser}/$id'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      final responseData = json.decode(response.body);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                responseData['message'] ?? 'Pengguna berhasil dihapus',
+                style: const TextStyle(fontSize: 19)),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
+        _deleteUserIdController.clear();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(responseData['message'] ?? 'Gagal menghapus pengguna',
+                style: const TextStyle(fontSize: 19)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Terjadi kesalahan koneksi: $e',
+              style: const TextStyle(fontSize: 19)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingUser = false;
+        });
+      }
+    }
+  }
+
+  void _showDeleteDialog() {
+    Map<String, dynamic>? previewUserObj;
+    bool isFetchingPreview = false;
+    Timer? debounceTimer;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool isLightMode = Theme.of(context).brightness == Brightness.light;
+        Color dialogBgColor =
+            isLightMode ? Colors.white : const Color(0xFF161F2E);
+        Color textColor = isLightMode ? Colors.black : Colors.white;
+
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            Future<void> detectUserData(String inputId) async {
+              if (inputId.isEmpty) {
+                setStateDialog(() => previewUserObj = null);
+                return;
+              }
+
+              setStateDialog(() {
+                isFetchingPreview = true;
+                previewUserObj = null;
+              });
+
+              try {
+                final url = Uri.parse('${ApiConfig.baseUrl}/users');
+                final response = await http.get(url);
+
+                if (response.statusCode == 200) {
+                  final data = json.decode(response.body);
+                  final List<dynamic> usersList = data['data'] ?? [];
+
+                  final target = usersList.firstWhere(
+                    (u) =>
+                        u['id']?.toString() == inputId ||
+                        u['user_id']?.toString().toUpperCase() ==
+                            inputId.toUpperCase(),
+                    orElse: () => null,
+                  );
+
+                  if (target != null) {
+                    String detectedRole =
+                        target['role']?.toString() ?? 'Unknown';
+                    int historyCount = 0;
+
+                    if (detectedRole == 'Tim Lapangan') {
+                      String searchUid =
+                          (target['user_id'] ?? target['id']).toString();
+                      List<dynamic> historyData =
+                          await ApiConfig.getHistoryPekerjaan(searchUid);
+                      historyCount = historyData.length;
+                    }
+
+                    if (!ctx.mounted) return;
+                    setStateDialog(() {
+                      previewUserObj = {
+                        'success': true,
+                        'id': target['id'],
+                        'user_id': target['user_id'] ?? inputId,
+                        'name': target['name'] ?? 'Tanpa Nama',
+                        'role': detectedRole,
+                        'history_count': historyCount,
+                      };
+                    });
+                  } else {
+                    if (!ctx.mounted) return;
+                    setStateDialog(() {
+                      previewUserObj = {
+                        'success': false,
+                        'message':
+                            'Pengguna dengan ID "$inputId" tidak ditemukan'
+                      };
+                    });
+                  }
+                }
+              } catch (e) {
+                if (!ctx.mounted) return;
+                setStateDialog(() {
+                  previewUserObj = {
+                    'success': false,
+                    'message': 'Gagal terhubung ke server'
+                  };
+                });
+              } finally {
+                if (ctx.mounted) {
+                  setStateDialog(() {
+                    isFetchingPreview = false;
+                  });
+                }
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: dialogBgColor,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.redAccent),
+                  const SizedBox(width: 8),
+                  Text('Hapus Pengguna',
+                      style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ketik ID Pengguna di bawah ini (Sistem akan melacak profilnya secara otomatis):',
+                    style: TextStyle(
+                        color: isLightMode ? Colors.grey[700] : Colors.white70,
+                        fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _deleteUserIdController,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: textColor, fontSize: 19),
+                    onChanged: (val) {
+                      if (debounceTimer?.isActive ?? false)
+                        debounceTimer!.cancel();
+                      debounceTimer =
+                          Timer(const Duration(milliseconds: 500), () {
+                        detectUserData(val.trim());
+                      });
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'User ID / No. Urut',
+                      hintText: 'Ketik angka ID...',
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                            color: isLightMode
+                                ? Colors.grey[400]!
+                                : Colors.white30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.blueAccent),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      prefixIcon:
+                          const Icon(Icons.badge, color: Colors.blueAccent),
+                      suffixIcon: isFetchingPreview
+                          ? const Padding(
+                              padding: EdgeInsets.all(14.0),
+                              child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
+                            )
+                          : const Icon(Icons.check_circle_outline,
+                              color: Colors.transparent),
+                    ),
+                  ),
+                  if (previewUserObj != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: previewUserObj!['success'] == true
+                            ? (isLightMode
+                                ? Colors.blue[50]
+                                : Colors.blue.withOpacity(0.05))
+                            : (isLightMode
+                                ? Colors.red[50]
+                                : Colors.red.withOpacity(0.05)),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: previewUserObj!['success'] == true
+                              ? Colors.blueAccent.withOpacity(0.3)
+                              : Colors.redAccent.withOpacity(0.3),
+                        ),
+                      ),
+                      child: previewUserObj!['success'] == true
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: Colors.blueAccent,
+                                      child: Icon(Icons.person,
+                                          color: Colors.white),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            previewUserObj!['name'],
+                                            style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            previewUserObj!['role'],
+                                            style: const TextStyle(
+                                                color: Colors.blueAccent,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (previewUserObj!['role'] ==
+                                    'Tim Lapangan') ...[
+                                  const SizedBox(height: 12),
+                                  Divider(
+                                      color: Colors.blueAccent.withOpacity(0.2),
+                                      height: 1),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.work_history,
+                                          color: Colors.orange, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        "Riwayat Pekerjaan: ",
+                                        style: TextStyle(
+                                            color: isLightMode
+                                                ? Colors.grey[700]
+                                                : Colors.white70,
+                                            fontSize: 14),
+                                      ),
+                                      Text(
+                                        "${previewUserObj!['history_count']} Laporan dikerjakan",
+                                        style: const TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15),
+                                      ),
+                                    ],
+                                  ),
+                                ]
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: Colors.redAccent),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    previewUserObj!['message'],
+                                    style: const TextStyle(
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: _isDeletingUser
+                      ? null
+                      : () {
+                          Navigator.of(ctx).pop();
+                          _deleteUserIdController.clear();
+                        },
+                  child: const Text('Batal',
+                      style: TextStyle(color: Colors.grey, fontSize: 19)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: (_isDeletingUser ||
+                          previewUserObj?['success'] != true)
+                      ? null
+                      : () =>
+                          _deleteUserById(_deleteUserIdController.text.trim()),
+                  child: _isDeletingUser
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('Hapus Permanen',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 19)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      debounceTimer?.cancel();
+    });
+  }
+
   Future<void> _updateStatus(int reportId, String newStatus) async {
     showDialog(
       context: context,
@@ -337,7 +720,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         body: jsonEncode({'status': newStatus}),
       );
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context);
 
       if (response.statusCode == 200) {
@@ -365,7 +748,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context);
       debugPrint("KONEKSI ERROR: $e");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -515,9 +898,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (_selectedFilterIndex != 0) {
       result = result.where((report) {
-        String status = (report['status'] ?? 'pending')
-            .toString()
-            .toLowerCase();
+        String status =
+            (report['status'] ?? 'pending').toString().toLowerCase();
         if (_selectedFilterIndex == 1) return status.contains('pending');
         if (_selectedFilterIndex == 2) {
           return status.contains('verif') ||
@@ -543,13 +925,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       barrierDismissible: false,
       builder: (context) {
         bool isLightMode = Theme.of(context).brightness == Brightness.light;
-        Color dialogBgColor = isLightMode
-            ? Colors.white
-            : const Color(0xFF161F2E);
+        Color dialogBgColor =
+            isLightMode ? Colors.white : const Color(0xFF161F2E);
         Color textColor = isLightMode ? Colors.black : Colors.white;
-        Color borderColor = isLightMode
-            ? Colors.grey[400]!
-            : Colors.white.withOpacity(0.3);
+        Color borderColor =
+            isLightMode ? Colors.grey[400]! : Colors.white.withOpacity(0.3);
 
         return StatefulBuilder(
           builder: (context, setStateDialog) {
@@ -602,9 +982,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 25),
                     DropdownButtonFormField<String>(
                       value: selectedRole,
-                      dropdownColor: isLightMode
-                          ? Colors.white
-                          : const Color(0xFF1E293B),
+                      dropdownColor:
+                          isLightMode ? Colors.white : const Color(0xFF1E293B),
                       style: TextStyle(color: textColor, fontSize: 19),
                       decoration: InputDecoration(
                         labelText: "Jabatan / Role",
@@ -679,7 +1058,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 'role': selectedRole,
                               },
                             );
+
+                            if (!context.mounted) return;
                             setStateDialog(() => isSubmitting = false);
+
                             if (response.statusCode == 201 ||
                                 response.statusCode == 200) {
                               Navigator.pop(context);
@@ -704,6 +1086,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               );
                             }
                           } catch (e) {
+                            if (!context.mounted) return;
                             setStateDialog(() => isSubmitting = false);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -886,9 +1269,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       leading: Padding(
         padding: const EdgeInsets.only(left: 20.0),
         child: CircleAvatar(
-          backgroundColor: isLightMode
-              ? Colors.grey[200]
-              : const Color(0xFF1E293B),
+          backgroundColor:
+              isLightMode ? Colors.grey[200] : const Color(0xFF1E293B),
           child: Icon(Icons.person, color: iconAndTextColor, size: 24),
         ),
       ),
@@ -1003,9 +1385,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (isDesktop) {
       return Scaffold(
-        backgroundColor: isLightMode
-            ? const Color(0xFFF8FAFC)
-            : const Color(0xFF0A101D),
+        backgroundColor:
+            isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0A101D),
         body: Row(
           children: [
             _buildSidebar(isLightMode),
@@ -1022,9 +1403,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     return Scaffold(
-      backgroundColor: isLightMode
-          ? const Color(0xFFF8FAFC)
-          : const Color(0xFF0A101D),
+      backgroundColor:
+          isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0A101D),
       appBar: myAppBar,
       body: mainContent,
       bottomNavigationBar: BottomNavigationBar(
@@ -1221,7 +1601,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => AdminDetailLaporanScreen(
-                        reportData: _recentReports[index],
+                        reportData:
+                            _recentReports[index] as Map<String, dynamic>,
                       ),
                     ),
                   );
@@ -1305,8 +1686,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         color: isSelected
                             ? const Color(0xFF00D1F3)
                             : (isLightMode
-                                  ? Colors.grey[100]
-                                  : const Color(0xFF1E293B)),
+                                ? Colors.grey[100]
+                                : const Color(0xFF1E293B)),
                         borderRadius: BorderRadius.circular(20),
                         border: isSelected
                             ? null
@@ -1321,9 +1702,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         style: TextStyle(
                           color: isSelected ? Colors.black : Colors.grey,
                           fontSize: 16,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -1333,7 +1713,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
         ),
-
         if (activeFilter != null &&
             (activeFilter!['bulan'] != null ||
                 (activeFilter!['gangguan'] as List).isNotEmpty))
@@ -1365,33 +1744,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
           ),
-
         Expanded(
           child: currentData.isEmpty
               ? _buildEmptyState()
               : (isDesktop
-                    ? GridView.builder(
-                        padding: const EdgeInsets.all(20),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: screenWidth > 1400
-                              ? 5
-                              : (screenWidth > 1100 ? 4 : 3),
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          mainAxisExtent: 500,
-                        ),
-                        itemCount: currentData.length,
-                        itemBuilder: (context, index) {
-                          return _buildDataCard(currentData[index]);
-                        },
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: currentData.length,
-                        itemBuilder: (context, index) {
-                          return _buildDataCard(currentData[index]);
-                        },
-                      )),
+                  ? GridView.builder(
+                      padding: const EdgeInsets.all(20),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: screenWidth > 1400
+                            ? 5
+                            : (screenWidth > 1100 ? 4 : 3),
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                        mainAxisExtent: 500,
+                      ),
+                      itemCount: currentData.length,
+                      itemBuilder: (context, index) {
+                        return _buildDataCard(currentData[index]);
+                      },
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: currentData.length,
+                      itemBuilder: (context, index) {
+                        return _buildDataCard(currentData[index]);
+                      },
+                    )),
         ),
       ],
     );
@@ -1414,9 +1792,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    double completionRate = _totalCount == 0
-        ? 0
-        : (_verifiedCount / _totalCount) * 100;
+    double completionRate =
+        _totalCount == 0 ? 0 : (_verifiedCount / _totalCount) * 100;
 
     Map<String, int> stoCount = {};
     for (var r in _allReports) {
@@ -1616,8 +1993,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               return;
                             }
                             touchedPieIndex = pieTouchResponse
-                                .touchedSection!
-                                .touchedSectionIndex;
+                                .touchedSection!.touchedSectionIndex;
                           });
                         },
                       ),
@@ -1731,11 +2107,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             showTitles: true,
                             getTitlesWidget: (double value, TitleMeta meta) {
                               if (value.toInt() < 0 ||
-                                  value.toInt() >= top5Sto.length)
+                                  value.toInt() >= top5Sto.length) {
                                 return const SizedBox.shrink();
+                              }
                               String title = top5Sto[value.toInt()].key;
-                              if (title.length > 5)
+                              if (title.length > 5) {
                                 title = title.substring(0, 5);
+                              }
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
@@ -1774,9 +2152,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         drawVerticalLine: false,
                         horizontalInterval: 1,
                         getDrawingHorizontalLine: (value) => FlLine(
-                          color: isLightMode
-                              ? Colors.grey[200]
-                              : Colors.white10,
+                          color:
+                              isLightMode ? Colors.grey[200] : Colors.white10,
                           strokeWidth: 1,
                         ),
                       ),
@@ -1847,9 +2224,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: Text(
                         sortedCat[index].key,
                         style: TextStyle(
-                          color: isLightMode
-                              ? Colors.grey[800]
-                              : Colors.white70,
+                          color:
+                              isLightMode ? Colors.grey[800] : Colors.white70,
                           fontSize: 15,
                         ),
                       ),
@@ -2089,13 +2465,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ],
     );
 
-    // ===== MENU GANTI PASSWORD DIHAPUS =====
     List<Widget> menuButtons = [
       _buildNewProfileMenuItem(
         Icons.person_add_alt_1,
         "Daftarkan Pengguna Baru",
         () => _showAddUserDialog(context),
         isDesktop,
+      ),
+      _buildNewProfileMenuItem(
+        Icons.person_remove,
+        "Hapus Pengguna via ID",
+        _showDeleteDialog,
+        isDesktop,
+        isDestructive: true,
       ),
       _buildNewProfileMenuItem(
         Icons.person_outline,
@@ -2281,7 +2663,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     double screenWidth = MediaQuery.of(context).size.width;
     bool isDesktop = screenWidth > 800;
 
-    String idStr = "MAINT-${data['id'].toString().padLeft(3, '0')}";
+    String idStr = "MAINT-${(data['id'] ?? 0).toString().padLeft(3, '0')}";
 
     String statusString = (data['status'] ?? '').toString().toLowerCase();
     bool isPending = statusString.contains('pending');
@@ -2292,10 +2674,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color statusColor = isClose
         ? Colors.grey
         : (isSelesai
-              ? Colors.redAccent
-              : (isPending
-                    ? Colors.orange
-                    : (isVerified ? Colors.green : Colors.red)));
+            ? Colors.redAccent
+            : (isPending
+                ? Colors.orange
+                : (isVerified ? Colors.green : Colors.red)));
 
     String reportSto = (data['sto'] ?? '').toString().toUpperCase();
     if (_stoFullNames.containsKey(reportSto)) {
@@ -2462,8 +2844,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           color: isSelesai
               ? Colors.red
               : (isLightMode
-                    ? Colors.grey[300]!
-                    : Colors.white.withOpacity(0.05)),
+                  ? Colors.grey[300]!
+                  : Colors.white.withOpacity(0.05)),
           width: isSelesai ? 2.0 : 1.0,
         ),
         boxShadow: [
@@ -2484,8 +2866,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    AdminDetailLaporanScreen(reportData: data),
+                builder: (context) => AdminDetailLaporanScreen(
+                  reportData: data as Map<String, dynamic>,
+                ),
               ),
             );
           },
@@ -2544,8 +2927,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   MaterialPageRoute(
                                     builder: (context) =>
                                         AdminEditLaporanScreen(
-                                          reportData: data,
-                                        ),
+                                      reportData: data as Map<String, dynamic>,
+                                    ),
                                   ),
                                 );
                                 if (result == true) {
@@ -2641,7 +3024,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-
               if (isDesktop)
                 Expanded(
                   child: Padding(
@@ -2651,7 +3033,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 )
               else
                 Padding(padding: const EdgeInsets.all(20), child: contentBody),
-
               if (isPending) ...[
                 Divider(
                   color: isLightMode ? Colors.grey[200] : Colors.white10,
@@ -3008,12 +3389,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Color statusColor = status == 'close'
         ? Colors.grey
         : (status == 'selesai'
-              ? Colors.redAccent
-              : (status.contains('verif')
-                    ? Colors.green
-                    : (status.contains('reject')
-                          ? Colors.red
-                          : Colors.orange)));
+            ? Colors.redAccent
+            : (status.contains('verif')
+                ? Colors.green
+                : (status.contains('reject') ? Colors.red : Colors.orange)));
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -3064,7 +3443,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "Report ID: MAINT-${data['id'].toString().padLeft(3, '0')}",
+                  "Report ID: MAINT-${(data['id'] ?? 0).toString().padLeft(3, '0')}",
                   style: const TextStyle(color: Colors.grey, fontSize: 16),
                 ),
               ],
@@ -3084,10 +3463,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// =========================================================================
-// WIDGET SCREEN LAINNYA (TETAP SAMA)
-// =========================================================================
-
 class AdminDetailLaporanScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
   const AdminDetailLaporanScreen({super.key, required this.reportData});
@@ -3095,16 +3470,14 @@ class AdminDetailLaporanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0A101D);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0A101D);
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     String idData = "MAINT-${reportData['id'].toString().padLeft(3, '0')}";
-    String statusString = (reportData['status'] ?? 'Pending')
-        .toString()
-        .toLowerCase();
+    String statusString =
+        (reportData['status'] ?? 'Pending').toString().toLowerCase();
 
     bool isSelesai = statusString == 'selesai';
     bool isClose = statusString == 'close';
@@ -3113,10 +3486,10 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     Color statusColor = isClose
         ? Colors.grey
         : (isSelesai
-              ? Colors.redAccent
-              : (isVerified
-                    ? Colors.green
-                    : statusString.contains('reject')
+            ? Colors.redAccent
+            : (isVerified
+                ? Colors.green
+                : statusString.contains('reject')
                     ? Colors.red
                     : Colors.orange));
 
@@ -3294,9 +3667,8 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   SelectableText(
                     mapsUrl,
                     style: TextStyle(
-                      color: isLightMode
-                          ? Colors.blue[700]
-                          : Colors.greenAccent,
+                      color:
+                          isLightMode ? Colors.blue[700] : Colors.greenAccent,
                       fontSize: 19,
                       decoration: TextDecoration.underline,
                     ),
@@ -3396,16 +3768,29 @@ class AdminDetailLaporanScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildPhotoCategory(context, "Before", beforePaths, isLightMode),
+            _buildPhotoCategory(
+              context,
+              "Before",
+              beforePaths,
+              isLightMode,
+              reportData['id'],
+            ),
             const SizedBox(height: 15),
             _buildPhotoCategory(
               context,
               "Progress",
               progressPaths,
               isLightMode,
+              reportData['id'],
             ),
             const SizedBox(height: 15),
-            _buildPhotoCategory(context, "After", afterPaths, isLightMode),
+            _buildPhotoCategory(
+              context,
+              "After",
+              afterPaths,
+              isLightMode,
+              reportData['id'],
+            ),
             const SizedBox(height: 40),
             Text(
               "Lampiran Evidence",
@@ -3580,6 +3965,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
     String label,
     List<String> paths,
     bool isLightMode,
+    int? reportId,
   ) {
     String storageBaseUrl = ApiConfig.baseUrl.replaceAll('/api', '/storage/');
     Color boxBg = isLightMode ? Colors.grey[200]! : const Color(0xFF1E293B);
@@ -3624,7 +4010,8 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                 itemCount: paths.length,
                 itemBuilder: (context, index) {
                   String fullUrl = "$storageBaseUrl${paths[index]}";
-                  String heroTag = "admin_image_${label}_$index";
+                  String heroTag =
+                      "admin_image_${reportId ?? 0}_${label}_$index";
                   return GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -3641,9 +4028,8 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isLightMode
-                              ? Colors.grey[300]!
-                              : Colors.white24,
+                          color:
+                              isLightMode ? Colors.grey[300]! : Colors.white24,
                         ),
                       ),
                       child: ClipRRect(
@@ -3711,9 +4097,10 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                   final String fileUrl =
                       '${ApiConfig.baseUrl.replaceAll('/api', '/storage/')}$path';
                   final Uri url = Uri.parse(fileUrl);
-                  if (await canLaunchUrl(url))
+                  if (await canLaunchUrl(url)) {
                     await launchUrl(url, mode: LaunchMode.externalApplication);
-                  else
+                  } else {
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -3723,6 +4110,7 @@ class AdminDetailLaporanScreen extends StatelessWidget {
                         backgroundColor: Colors.red,
                       ),
                     );
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(10),
@@ -3782,19 +4170,22 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
   }
 
   Future<void> _pickFile(int type) async {
+    // KEMBALIKAN KATA '.platform' KE TEMPAT DUDUKNYA:
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['zip', 'rar', 'pdf'],
       withData: true,
     );
+
     if (result != null) {
       setState(() {
-        if (type == 1)
+        if (type == 1) {
           _fileMaterialTiba = result.files.first;
-        else if (type == 2)
+        } else if (type == 2) {
           _fileHasilUkur = result.files.first;
-        else if (type == 3)
+        } else if (type == 3) {
           _filePendukung = result.files.first;
+        }
       });
     }
   }
@@ -3815,7 +4206,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
       request.fields['uraian_pekerjaan'] = _uraianController.text;
 
       if (_fileMaterialTiba != null) {
-        if (_fileMaterialTiba!.bytes != null)
+        if (_fileMaterialTiba!.bytes != null) {
           request.files.add(
             http.MultipartFile.fromBytes(
               'evidence_material',
@@ -3823,16 +4214,17 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               filename: _fileMaterialTiba!.name,
             ),
           );
-        else
+        } else {
           request.files.add(
             await http.MultipartFile.fromPath(
               'evidence_material',
               _fileMaterialTiba!.path!,
             ),
           );
+        }
       }
       if (_fileHasilUkur != null) {
-        if (_fileHasilUkur!.bytes != null)
+        if (_fileHasilUkur!.bytes != null) {
           request.files.add(
             http.MultipartFile.fromBytes(
               'evidence_ukur',
@@ -3840,16 +4232,17 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               filename: _fileHasilUkur!.name,
             ),
           );
-        else
+        } else {
           request.files.add(
             await http.MultipartFile.fromPath(
               'evidence_ukur',
               _fileHasilUkur!.path!,
             ),
           );
+        }
       }
       if (_filePendukung != null) {
-        if (_filePendukung!.bytes != null)
+        if (_filePendukung!.bytes != null) {
           request.files.add(
             http.MultipartFile.fromBytes(
               'evidence_pendukung',
@@ -3857,17 +4250,20 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
               filename: _filePendukung!.name,
             ),
           );
-        else
+        } else {
           request.files.add(
             await http.MultipartFile.fromPath(
               'evidence_pendukung',
               _filePendukung!.path!,
             ),
           );
+        }
       }
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+
+      if (!context.mounted) return;
       setState(() => _isSaving = false);
 
       if (response.statusCode == 200) {
@@ -3893,6 +4289,7 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
         );
       }
     } catch (e) {
+      if (!context.mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3906,9 +4303,8 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0A101D);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0A101D);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return Scaffold(
@@ -4024,13 +4420,13 @@ class _AdminEditLaporanScreenState extends State<AdminEditLaporanScreen> {
   }
 
   Widget _buildFieldLabel(String label) => Text(
-    label,
-    style: const TextStyle(
-      color: Colors.grey,
-      fontSize: 19,
-      fontWeight: FontWeight.bold,
-    ),
-  );
+        label,
+        style: const TextStyle(
+          color: Colors.grey,
+          fontSize: 19,
+          fontWeight: FontWeight.bold,
+        ),
+      );
 
   Widget _buildTextField(TextEditingController controller, bool isLightMode) {
     return Container(
@@ -4230,11 +4626,12 @@ class _JadwalScreenState extends State<JadwalScreen> {
           tempGroup[prefix]!.add(user);
         }
 
-        if (mounted)
+        if (mounted) {
           setState(() {
             _groupedTlaUsers = tempGroup;
             _isLoading = false;
           });
+        }
       } else {
         if (mounted) setState(() => _isLoading = false);
         _showError("Gagal mengambil data: ${response.statusCode}");
@@ -4259,9 +4656,8 @@ class _JadwalScreenState extends State<JadwalScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0A101D);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0A101D);
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
 
@@ -4287,215 +4683,217 @@ class _JadwalScreenState extends State<JadwalScreen> {
               child: CircularProgressIndicator(color: Color(0xFF00D1F3)),
             )
           : _groupedTlaUsers.isEmpty
-          ? Center(
-              child: Text(
-                "Belum ada data tim lapangan",
-                style: TextStyle(color: Colors.grey, fontSize: 19),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: groupKeys.length,
-              itemBuilder: (context, index) {
-                String prefix = groupKeys[index];
-                String fullStoName = _stoFullNames[prefix] ?? prefix;
-                List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
+              ? const Center(
+                  child: Text(
+                    "Belum ada data tim lapangan",
+                    style: TextStyle(color: Colors.grey, fontSize: 19),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: groupKeys.length,
+                  itemBuilder: (context, index) {
+                    String prefix = groupKeys[index];
+                    String fullStoName = _stoFullNames[prefix] ?? prefix;
+                    List<dynamic> usersInGroup = _groupedTlaUsers[prefix]!;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "STO $fullStoName",
-                      style: const TextStyle(
-                        color: Color(0xFF00D1F3),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: isLightMode
-                            ? [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : [],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          headingRowColor: MaterialStateProperty.all(
-                            isLightMode
-                                ? Colors.grey[200]
-                                : const Color(0xFF334155),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "STO $fullStoName",
+                          style: const TextStyle(
+                            color: Color(0xFF00D1F3),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
-                          dataRowMinHeight: 60,
-                          dataRowMaxHeight: 60,
-                          columns: [
-                            DataColumn(
-                              label: Text(
-                                'No',
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.black87
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 19,
-                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: isLightMode
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : [],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(
+                                isLightMode
+                                    ? Colors.grey[200]
+                                    : const Color(0xFF334155),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'STO',
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.black87
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 19,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'ID Tim Lapangan',
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.black87
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 19,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Nama',
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.black87
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 19,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Status',
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.black87
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 19,
-                                ),
-                              ),
-                            ),
-                          ],
-                          rows: List.generate(usersInGroup.length, (rowIndex) {
-                            final user = usersInGroup[rowIndex];
-                            bool isBusy = widget.busyTechIds.contains(
-                              user['user_id'],
-                            );
-
-                            return DataRow(
-                              color: MaterialStateProperty.all(
-                                rowIndex % 2 == 0
-                                    ? Colors.transparent
-                                    : (isLightMode
-                                          ? Colors.grey[50]
-                                          : Colors.black12),
-                              ),
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    '${rowIndex + 1}',
+                              dataRowMinHeight: 60,
+                              dataRowMaxHeight: 60,
+                              columns: [
+                                DataColumn(
+                                  label: Text(
+                                    'No',
                                     style: TextStyle(
-                                      color: textColor,
+                                      color: isLightMode
+                                          ? Colors.black87
+                                          : Colors.white,
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 19,
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    fullStoName,
+                                DataColumn(
+                                  label: Text(
+                                    'STO',
                                     style: TextStyle(
-                                      color: textColor,
+                                      color: isLightMode
+                                          ? Colors.black87
+                                          : Colors.white,
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 19,
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    user['user_id'] ?? '-',
+                                DataColumn(
+                                  label: Text(
+                                    'ID Tim Lapangan',
                                     style: TextStyle(
-                                      color: textColor,
+                                      color: isLightMode
+                                          ? Colors.black87
+                                          : Colors.white,
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 19,
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    user['name'] ?? '-',
+                                DataColumn(
+                                  label: Text(
+                                    'Nama',
                                     style: TextStyle(
-                                      color: textColor,
+                                      color: isLightMode
+                                          ? Colors.black87
+                                          : Colors.white,
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 19,
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isBusy
-                                          ? Colors.orange.withOpacity(0.2)
-                                          : Colors.green.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: isBusy
-                                            ? Colors.orange.withOpacity(0.5)
-                                            : Colors.green.withOpacity(0.5),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isBusy ? "Ditugaskan" : "Tersedia",
-                                      style: TextStyle(
-                                        color: isBusy
-                                            ? (isLightMode
-                                                  ? Colors.orange[800]
-                                                  : Colors.orangeAccent)
-                                            : (isLightMode
-                                                  ? Colors.green[800]
-                                                  : Colors.greenAccent),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                DataColumn(
+                                  label: Text(
+                                    'Status',
+                                    style: TextStyle(
+                                      color: isLightMode
+                                          ? Colors.black87
+                                          : Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 19,
                                     ),
                                   ),
                                 ),
                               ],
-                            );
-                          }),
+                              rows: List.generate(usersInGroup.length,
+                                  (rowIndex) {
+                                final user = usersInGroup[rowIndex];
+                                bool isBusy = widget.busyTechIds.contains(
+                                  user['user_id'],
+                                );
+
+                                return DataRow(
+                                  color: WidgetStateProperty.all(
+                                    rowIndex % 2 == 0
+                                        ? Colors.transparent
+                                        : (isLightMode
+                                            ? Colors.grey[50]
+                                            : Colors.black12),
+                                  ),
+                                  cells: [
+                                    DataCell(
+                                      Text(
+                                        '${rowIndex + 1}',
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 19,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        fullStoName,
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 19,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        user['user_id'] ?? '-',
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 19,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        user['name'] ?? '-',
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 19,
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isBusy
+                                              ? Colors.orange.withOpacity(0.2)
+                                              : Colors.green.withOpacity(0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isBusy
+                                                ? Colors.orange.withOpacity(0.5)
+                                                : Colors.green.withOpacity(0.5),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isBusy ? "Ditugaskan" : "Tersedia",
+                                          style: TextStyle(
+                                            color: isBusy
+                                                ? (isLightMode
+                                                    ? Colors.orange[800]
+                                                    : Colors.orangeAccent)
+                                                : (isLightMode
+                                                    ? Colors.green[800]
+                                                    : Colors.greenAccent),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 35),
-                  ],
-                );
-              },
-            ),
+                        const SizedBox(height: 35),
+                      ],
+                    );
+                  },
+                ),
     );
   }
 }

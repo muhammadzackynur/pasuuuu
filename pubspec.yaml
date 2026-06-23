@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.0-74.0.dev
+  sdk: '>=3.0.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -38,20 +38,21 @@ dependencies:
   url_launcher: ^6.3.2
   geolocator: ^14.0.2
   image_picker: ^1.2.1
-  geocoding: ^3.0.0
+  geocoding: ^4.0.0
   google_maps_flutter: ^2.5.3
-  intl: ^0.18.0
+  intl: ^0.20.2
   google_generative_ai: ^0.4.7
-  file_picker: ^10.3.10
+  file_picker: ^8.0.0
   local_auth: ^2.3.0
   shared_preferences: ^2.5.3
   fl_chart: ^1.2.0
-  device_info_plus: ^10.1.0
+  device_info_plus: ^12.4.0
   camera: ^0.11.2+1
   onesignal_flutter: ^5.1.6
   lottie: ^3.1.0
   cryptography: ^2.7.0
   benchmark_harness: ^2.3.1
+ 
 
 dev_dependencies:
   flutter_test:
