@@ -78,7 +78,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (activeFilter != null) {
         List<String> queryParams = [];
-
         if (activeFilter!['role'] != null) {
           queryParams.add('role=${activeFilter!['role']}');
         }
@@ -111,23 +110,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (statusLower == 'close') {
             bool isReporter = report['user_id'].toString() == widget.userId;
             bool isAssigned = false;
-
             if (report['assigned_technicians'] != null) {
               var assigned = report['assigned_technicians'];
               if (assigned is List) {
-                isAssigned = assigned.any(
-                  (id) => id.toString() == widget.userId,
-                );
+                isAssigned = assigned.any((id) => id.toString() == widget.userId);
               } else if (assigned is String) {
                 isAssigned = assigned.contains(widget.userId);
               }
             }
-
-            if (isReporter || isAssigned) {
-              c++;
-            }
-          } else if (statusLower.contains('verif') ||
-              statusLower == 'selesai') {
+            if (isReporter || isAssigned) c++;
+          } else if (statusLower.contains('verif') || statusLower == 'selesai') {
             v++;
           } else if (statusLower.contains('reject')) {
             r++;
@@ -210,7 +202,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
-              // ===== HAMBURGER DIHAPUS =====
               leading: const SizedBox.shrink(),
               title: Text(
                 appBarTitle,
@@ -224,9 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               actions: [
                 IconButton(
                   onPressed: () {
-                    setState(() {
-                      activeFilter = null;
-                    });
+                    setState(() => activeFilter = null);
                     _fetchReports();
                     _fetchUnreadCount();
                   },
@@ -349,10 +338,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHistoryContent(bool isLightMode) {
     final closedReports = _reports.where((d) {
       bool isClose = (d['status'] ?? '').toString().toLowerCase() == 'close';
-
       bool isReporter = d['user_id'].toString() == widget.userId;
       bool isAssigned = false;
-
       if (d['assigned_technicians'] != null) {
         var assigned = d['assigned_technicians'];
         if (assigned is List) {
@@ -361,7 +348,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           isAssigned = assigned.contains(widget.userId);
         }
       }
-
       return isClose && (isReporter || isAssigned);
     }).toList();
 
@@ -411,40 +397,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(vertical: 60),
         child: Column(
           children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 72,
-              color: isLightMode ? Colors.grey[300] : Colors.grey[700],
-            ),
+            Icon(Icons.inbox_outlined, size: 72,
+                color: isLightMode ? Colors.grey[300] : Colors.grey[700]),
             const SizedBox(height: 16),
-            Text(
-              'Belum Ada Pekerjaan Selesai',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isLightMode ? Colors.grey[500] : Colors.grey[400],
-              ),
-            ),
+            Text('Belum Ada Pekerjaan Selesai',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                    color: isLightMode ? Colors.grey[500] : Colors.grey[400])),
             const SizedBox(height: 8),
-            Text(
-              'Pekerjaan yang telah di-CLOSE\noleh Admin akan muncul di sini.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: isLightMode ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
+            Text('Pekerjaan yang telah di-CLOSE\noleh Admin akan muncul di sini.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14,
+                    color: isLightMode ? Colors.grey[400] : Colors.grey[600])),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHistoryCard(
-    Map<String, dynamic> data,
-    bool isLightMode,
-    int index,
-  ) {
+  Widget _buildHistoryCard(Map<String, dynamic> data, bool isLightMode, int index) {
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color subtleText = isLightMode ? Colors.grey[600]! : Colors.grey[400]!;
@@ -467,18 +437,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.blueAccent.withOpacity(0.25),
-          width: 1.2,
-        ),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.25), width: 1.2),
         boxShadow: isLightMode
-            ? [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.07),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ]
+            ? [BoxShadow(color: Colors.blue.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))]
             : [],
       ),
       child: Material(
@@ -506,125 +467,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(
-                        idData,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
+                      child: Text(idData,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.blueAccent.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.blueAccent.withOpacity(0.4),
-                        ),
+                        border: Border.all(color: Colors.blueAccent.withOpacity(0.4)),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(
-                            Icons.done_all,
-                            size: 13,
-                            color: Colors.blueAccent,
-                          ),
+                        children: [
+                          Icon(Icons.done_all, size: 13, color: Colors.blueAccent),
                           SizedBox(width: 5),
-                          Text(
-                            'CLOSE',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blueAccent,
-                            ),
-                          ),
+                          Text('CLOSE',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                Divider(
-                  color: isLightMode ? Colors.grey[200] : Colors.white10,
-                  height: 1,
-                ),
+                Divider(color: isLightMode ? Colors.grey[200] : Colors.white10, height: 1),
                 const SizedBox(height: 14),
-                _buildHistoryInfoRow(
-                  Icons.location_city,
-                  Colors.blue,
-                  'STO',
-                  sto,
-                  textColor,
-                  subtleText,
-                ),
+                _buildHistoryInfoRow(Icons.location_city, Colors.blue, 'STO', sto, textColor, subtleText),
                 const SizedBox(height: 10),
-                _buildHistoryInfoRow(
-                  Icons.category,
-                  Colors.amber,
-                  'Kategori',
-                  kategori,
-                  textColor,
-                  subtleText,
-                ),
+                _buildHistoryInfoRow(Icons.category, Colors.amber, 'Kategori', kategori, textColor, subtleText),
                 const SizedBox(height: 10),
-                _buildHistoryInfoRow(
-                  Icons.description_outlined,
-                  Colors.teal,
-                  'Uraian',
-                  uraian,
-                  textColor,
-                  subtleText,
-                  maxLines: 2,
-                ),
+                _buildHistoryInfoRow(Icons.description_outlined, Colors.teal, 'Uraian', uraian, textColor, subtleText, maxLines: 2),
                 const SizedBox(height: 10),
-                _buildHistoryInfoRow(
-                  Icons.business,
-                  Colors.purple,
-                  'Mitra',
-                  mitra,
-                  textColor,
-                  subtleText,
-                ),
+                _buildHistoryInfoRow(Icons.business, Colors.purple, 'Mitra', mitra, textColor, subtleText),
                 const SizedBox(height: 10),
-                _buildHistoryInfoRow(
-                  Icons.engineering,
-                  Colors.orange,
-                  'Teknisi',
-                  teknisi,
-                  textColor,
-                  subtleText,
-                ),
+                _buildHistoryInfoRow(Icons.engineering, Colors.orange, 'Teknisi', teknisi, textColor, subtleText),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.event_available,
-                          size: 14,
-                          color: Colors.blueAccent.withOpacity(0.8),
-                        ),
+                        Icon(Icons.event_available, size: 14, color: Colors.blueAccent.withOpacity(0.8)),
                         const SizedBox(width: 5),
                         Text(
-                          tanggal.isNotEmpty
-                              ? 'Selesai: $tanggal'
-                              : 'Tanggal tidak tersedia',
+                          tanggal.isNotEmpty ? 'Selesai: $tanggal' : 'Tanggal tidak tersedia',
                           style: TextStyle(fontSize: 12, color: subtleText),
                         ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFF00D1F3).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -632,20 +524,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'Detail',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF00D1F3),
-                            ),
-                          ),
+                          Text('Detail',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF00D1F3))),
                           SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 10,
-                            color: Color(0xFF00D1F3),
-                          ),
+                          Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF00D1F3)),
                         ],
                       ),
                     ),
@@ -660,36 +542,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHistoryInfoRow(
-    IconData icon,
-    Color iconColor,
-    String label,
-    String value,
-    Color textColor,
-    Color subtleText, {
-    int maxLines = 1,
-  }) {
+    IconData icon, Color iconColor, String label, String value,
+    Color textColor, Color subtleText, {int maxLines = 1}) {
     return Row(
-      crossAxisAlignment:
-          maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Icon(icon, size: 15, color: iconColor),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 60,
-          child: Text(label, style: TextStyle(fontSize: 12, color: subtleText)),
-        ),
+        SizedBox(width: 60, child: Text(label, style: TextStyle(fontSize: 12, color: subtleText))),
         const SizedBox(width: 4),
         Expanded(
-          child: Text(
-            value,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: textColor,
-            ),
-          ),
+          child: Text(value, maxLines: maxLines, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor)),
         ),
       ],
     );
@@ -710,40 +574,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Laporan Terbaru',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('Laporan Terbaru',
+                  style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => setState(() => _selectedIndex = 2),
-                child: const Text(
-                  'Lihat Semua',
-                  style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16),
-                ),
+                child: const Text('Lihat Semua',
+                    style: TextStyle(color: Color(0xFF00D1F3), fontSize: 16)),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (recentReports.isEmpty)
-            Center(
-              child: Text(
-                "Belum ada laporan.",
-                style: TextStyle(color: Colors.grey, fontSize: 19),
-              ),
-            )
+            Center(child: Text("Belum ada laporan.",
+                style: TextStyle(color: Colors.grey, fontSize: 19)))
           else
-            ...recentReports
-                .map(
-                  (data) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildReportItem(data, isLightMode),
-                  ),
-                )
-                .toList(),
+            ...recentReports.map((data) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildReportItem(data, isLightMode),
+            )).toList(),
           const SizedBox(height: 12),
           if (_closedCount > 0) _buildHistoryShortcut(isLightMode),
           const SizedBox(height: 12),
@@ -760,9 +608,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isLightMode
-              ? Colors.blue.withOpacity(0.07)
-              : const Color(0xFF1A2744),
+          color: isLightMode ? Colors.blue.withOpacity(0.07) : const Color(0xFF1A2744),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
         ),
@@ -774,40 +620,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.blueAccent.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.history,
-                color: Colors.blueAccent,
-                size: 20,
-              ),
+              child: const Icon(Icons.history, color: Colors.blueAccent, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'History Pekerjaan',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: isLightMode ? Colors.black : Colors.white,
-                    ),
-                  ),
-                  Text(
-                    '$_closedCount pekerjaan telah selesai & di-CLOSE',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isLightMode ? Colors.grey[600] : Colors.grey,
-                    ),
-                  ),
+                  Text('History Pekerjaan',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15,
+                          color: isLightMode ? Colors.black : Colors.white)),
+                  Text('$_closedCount pekerjaan telah selesai & di-CLOSE',
+                      style: TextStyle(fontSize: 12,
+                          color: isLightMode ? Colors.grey[600] : Colors.grey)),
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: Colors.blueAccent,
-            ),
+            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.blueAccent),
           ],
         ),
       ),
@@ -821,38 +650,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int flexR = _rejectedCount > 0 ? _rejectedCount : 1;
     int flexC = _closedCount > 0 ? _closedCount : 1;
 
-    if (totalReports == 0) {
-      flexP = 1;
-      flexV = 1;
-      flexR = 1;
-      flexC = 1;
-    }
+    if (totalReports == 0) { flexP = 1; flexV = 1; flexR = 1; flexC = 1; }
 
     List<dynamic> displayedReports = _reports.where((data) {
-      bool matchStatus = true;
       String statusStr = data['status'] ?? 'Pending';
       String statusLower = statusStr.toLowerCase();
-
       bool isClose = statusLower == 'close';
-      bool isVerified =
-          statusLower.contains('verif') || statusLower == 'selesai';
+      bool isVerified = statusLower.contains('verif') || statusLower == 'selesai';
       bool isRejected = statusLower.contains('reject');
       bool isPending = !isVerified && !isRejected && !isClose;
 
-      if (_selectedStatusFilter == 'Pending') {
-        matchStatus = isPending;
-      } else if (_selectedStatusFilter == 'Verified') {
-        matchStatus = isVerified;
-      } else if (_selectedStatusFilter == 'Rejected') {
-        matchStatus = isRejected;
-      } else if (_selectedStatusFilter == 'Semua') {
-        matchStatus = !isClose;
-      }
+      bool matchStatus = true;
+      if (_selectedStatusFilter == 'Pending') matchStatus = isPending;
+      else if (_selectedStatusFilter == 'Verified') matchStatus = isVerified;
+      else if (_selectedStatusFilter == 'Rejected') matchStatus = isRejected;
+      else if (_selectedStatusFilter == 'Semua') matchStatus = !isClose;
 
       bool matchOwner = true;
-      if (_showOnlyMyReports) {
-        matchOwner = data['user_id']?.toString() == widget.userId;
-      }
+      if (_showOnlyMyReports) matchOwner = data['user_id']?.toString() == widget.userId;
 
       return matchStatus && matchOwner;
     }).toList();
@@ -870,39 +685,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                FilterChipWidget(
-                  label: "Semua",
-                  isActive: _selectedStatusFilter == 'Semua',
-                  onTap: () => setState(() => _selectedStatusFilter = 'Semua'),
-                  isLightMode: isLightMode,
-                ),
+                FilterChipWidget(label: "Semua", isActive: _selectedStatusFilter == 'Semua',
+                    onTap: () => setState(() => _selectedStatusFilter = 'Semua'), isLightMode: isLightMode),
                 const SizedBox(width: 10),
-                FilterChipWidget(
-                  label: "Pending",
-                  count: _pendingCount,
-                  isActive: _selectedStatusFilter == 'Pending',
-                  onTap: () =>
-                      setState(() => _selectedStatusFilter = 'Pending'),
-                  isLightMode: isLightMode,
-                ),
+                FilterChipWidget(label: "Pending", count: _pendingCount,
+                    isActive: _selectedStatusFilter == 'Pending',
+                    onTap: () => setState(() => _selectedStatusFilter = 'Pending'), isLightMode: isLightMode),
                 const SizedBox(width: 10),
-                FilterChipWidget(
-                  label: "Verified",
-                  count: _verifiedCount,
-                  isActive: _selectedStatusFilter == 'Verified',
-                  onTap: () =>
-                      setState(() => _selectedStatusFilter = 'Verified'),
-                  isLightMode: isLightMode,
-                ),
+                FilterChipWidget(label: "Verified", count: _verifiedCount,
+                    isActive: _selectedStatusFilter == 'Verified',
+                    onTap: () => setState(() => _selectedStatusFilter = 'Verified'), isLightMode: isLightMode),
                 const SizedBox(width: 10),
-                FilterChipWidget(
-                  label: "Rejected",
-                  count: _rejectedCount,
-                  isActive: _selectedStatusFilter == 'Rejected',
-                  onTap: () =>
-                      setState(() => _selectedStatusFilter = 'Rejected'),
-                  isLightMode: isLightMode,
-                ),
+                FilterChipWidget(label: "Rejected", count: _rejectedCount,
+                    isActive: _selectedStatusFilter == 'Rejected',
+                    onTap: () => setState(() => _selectedStatusFilter = 'Rejected'), isLightMode: isLightMode),
               ],
             ),
           ),
@@ -914,47 +710,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: isLightMode
-                      ? Colors.grey.withOpacity(0.2)
-                      : Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
+                  color: isLightMode ? Colors.grey.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                  blurRadius: 10, offset: const Offset(0, 5),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Total Laporan",
-                  style: TextStyle(
-                    color: isLightMode ? Colors.grey[700] : Colors.grey,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text("Total Laporan",
+                    style: TextStyle(color: isLightMode ? Colors.grey[700] : Colors.grey,
+                        fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 5),
                 RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: "$totalReports ",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
-                      const TextSpan(
-                        text: "Total",
-                        style: TextStyle(
-                          fontSize: 19,
-                          color: Color(0xFF00D1F3),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                  text: TextSpan(children: [
+                    TextSpan(text: "$totalReports ",
+                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor)),
+                    const TextSpan(text: "Total",
+                        style: TextStyle(fontSize: 19, color: Color(0xFF00D1F3), fontWeight: FontWeight.w500)),
+                  ]),
                 ),
                 const SizedBox(height: 15),
                 ClipRRect(
@@ -964,28 +738,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Row(
                       children: [
                         if (totalReports > 0) ...[
-                          Expanded(
-                            flex: flexP,
-                            child: Container(color: Colors.amber),
-                          ),
-                          Expanded(
-                            flex: flexV,
-                            child: Container(color: Colors.green),
-                          ),
-                          Expanded(
-                            flex: flexR,
-                            child: Container(color: Colors.red),
-                          ),
-                          Expanded(
-                            flex: flexC,
-                            child: Container(color: Colors.blueAccent),
-                          ),
+                          Expanded(flex: flexP, child: Container(color: Colors.amber)),
+                          Expanded(flex: flexV, child: Container(color: Colors.green)),
+                          Expanded(flex: flexR, child: Container(color: Colors.red)),
+                          Expanded(flex: flexC, child: Container(color: Colors.blueAccent)),
                         ] else
-                          Expanded(
-                            child: Container(
-                              color: Colors.grey.withOpacity(0.2),
-                            ),
-                          ),
+                          Expanded(child: Container(color: Colors.grey.withOpacity(0.2))),
                       ],
                     ),
                   ),
@@ -994,83 +752,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: StatItem(
-                        icon: Icons.more_horiz,
-                        count: _pendingCount.toString(),
-                        label: "PEND",
-                        color: Colors.amber,
-                        isLightMode: isLightMode,
-                      ),
-                    ),
+                    Expanded(child: StatItem(icon: Icons.more_horiz, count: _pendingCount.toString(),
+                        label: "PEND", color: Colors.amber, isLightMode: isLightMode)),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: StatItem(
-                        icon: Icons.check_circle_outline,
-                        count: _verifiedCount.toString(),
-                        label: "VERIF",
-                        color: Colors.green,
-                        isLightMode: isLightMode,
-                      ),
-                    ),
+                    Expanded(child: StatItem(icon: Icons.check_circle_outline, count: _verifiedCount.toString(),
+                        label: "VERIF", color: Colors.green, isLightMode: isLightMode)),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: StatItem(
-                        icon: Icons.cancel_outlined,
-                        count: _rejectedCount.toString(),
-                        label: "REJECT",
-                        color: Colors.red,
-                        isLightMode: isLightMode,
-                      ),
-                    ),
+                    Expanded(child: StatItem(icon: Icons.cancel_outlined, count: _rejectedCount.toString(),
+                        label: "REJECT", color: Colors.red, isLightMode: isLightMode)),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: StatItem(
-                        icon: Icons.done_all,
-                        count: _closedCount.toString(),
-                        label: "CLOSE",
-                        color: Colors.blueAccent,
-                        isLightMode: isLightMode,
-                      ),
-                    ),
+                    Expanded(child: StatItem(icon: Icons.done_all, count: _closedCount.toString(),
+                        label: "CLOSE", color: Colors.blueAccent, isLightMode: isLightMode)),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Daftar Pekerjaan",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isLightMode ? Colors.grey[800] : Colors.grey,
-                ),
-              ),
+              Text("Daftar Pekerjaan",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,
+                      color: isLightMode ? Colors.grey[800] : Colors.grey)),
               Row(
                 children: [
-                  Text(
-                    "Laporan Saya",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: textColor,
-                    ),
-                  ),
+                  Text("Laporan Saya",
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor)),
                   const SizedBox(width: 5),
                   SizedBox(
                     height: 30,
                     child: Switch(
                       value: _showOnlyMyReports,
-                      onChanged: (value) {
-                        setState(() {
-                          _showOnlyMyReports = value;
-                        });
-                      },
+                      onChanged: (value) => setState(() => _showOnlyMyReports = value),
                       activeColor: const Color(0xFF00D1F3),
                       inactiveTrackColor: Colors.grey.withOpacity(0.3),
                     ),
@@ -1081,12 +795,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 15),
           if (displayedReports.isEmpty)
-            Center(
-              child: Text(
-                "Tidak ada aktivitas",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            )
+            Center(child: Text("Tidak ada aktivitas", style: TextStyle(color: Colors.grey, fontSize: 16)))
           else
             ListView.builder(
               shrinkWrap: true,
@@ -1100,17 +809,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Color sColor = Colors.amber;
 
                 if (statusLower == 'close') {
-                  type = StatusType.closed;
-                  sColor = Colors.blueAccent;
-                } else if (statusLower.contains('verif') ||
-                    statusLower == 'selesai') {
+                  type = StatusType.closed; sColor = Colors.blueAccent;
+                } else if (statusLower.contains('verif') || statusLower == 'selesai') {
                   type = StatusType.verified;
-                  sColor = statusLower == 'selesai'
-                      ? Colors.redAccent
-                      : Colors.green;
+                  sColor = statusLower == 'selesai' ? Colors.redAccent : Colors.green;
                 } else if (statusLower.contains('reject')) {
-                  type = StatusType.rejected;
-                  sColor = Colors.red;
+                  type = StatusType.rejected; sColor = Colors.red;
                 }
 
                 return TimelineItem(
@@ -1156,38 +860,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: isLightMode
-            ? [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ]
+            ? [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))]
             : [],
-        border: const Border(
-          left: BorderSide(color: Color(0xFF00D1F3), width: 4),
-        ),
+        border: const Border(left: BorderSide(color: Color(0xFF00D1F3), width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('👋', style: TextStyle(fontSize: 24)),
           const SizedBox(height: 8),
-          Text(
-            'Halo, ${widget.userName}',
-            style: TextStyle(
-              color: textColor,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            'Selamat bekerja hari ini!',
-            style: TextStyle(
-              color: isLightMode ? Colors.grey[700] : Colors.grey,
-              fontSize: 16,
-            ),
-          ),
+          Text('Halo, ${widget.userName}',
+              style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+          Text('Selamat bekerja hari ini!',
+              style: TextStyle(color: isLightMode ? Colors.grey[700] : Colors.grey, fontSize: 16)),
         ],
       ),
     );
@@ -1205,9 +890,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? Colors.redAccent
             : (statusLower.contains('pend')
                 ? Colors.amber
-                : (statusLower.contains('reject')
-                    ? Colors.red
-                    : Colors.green)));
+                : (statusLower.contains('reject') ? Colors.red : Colors.green)));
 
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF1E293B);
     Color textColor = isLightMode ? Colors.black : Colors.white;
@@ -1231,45 +914,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: isLightMode
-              ? [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+              ? [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 2))]
               : [],
         ),
         child: Row(
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
+            Container(width: 8, height: 8,
+                decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    id,
-                    style: TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  Text(
-                    location,
-                    style: TextStyle(
-                      color: isLightMode ? Colors.grey[700] : Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text(id, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text(location,
+                      style: TextStyle(color: isLightMode ? Colors.grey[700] : Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
@@ -1283,9 +942,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isLightMode
-            ? Colors.amber.withOpacity(0.15)
-            : Colors.yellow.withOpacity(0.1),
+        color: isLightMode ? Colors.amber.withOpacity(0.15) : Colors.yellow.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.yellow.withOpacity(0.3)),
       ),
@@ -1294,13 +951,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const Icon(Icons.lightbulb, color: Colors.amber),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Tip: Pastikan GPS aktif saat input laporan.',
-              style: TextStyle(
-                color: isLightMode ? Colors.black87 : Colors.white70,
-                fontSize: 14,
-              ),
-            ),
+            child: Text('Tip: Pastikan GPS aktif saat input laporan.',
+                style: TextStyle(color: isLightMode ? Colors.black87 : Colors.white70, fontSize: 14)),
           ),
         ],
       ),
@@ -1309,7 +961,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ======================================================================
-// ===== WIDGET PENDUKUNG ===============================================
+// WIDGET PENDUKUNG
 // ======================================================================
 
 class FilterChipWidget extends StatelessWidget {
@@ -1330,8 +982,7 @@ class FilterChipWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color inactiveColor =
-        isLightMode ? const Color(0xFFF1F5F9) : const Color(0xFF1E2738);
+    Color inactiveColor = isLightMode ? const Color(0xFFF1F5F9) : const Color(0xFF1E2738);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return GestureDetector(
@@ -1341,41 +992,28 @@ class FilterChipWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFF00D1F3) : inactiveColor,
           borderRadius: BorderRadius.circular(20),
-          border:
-              isActive ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
+          border: isActive ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
         ),
         child: Row(
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isActive
-                    ? (isLightMode ? Colors.white : Colors.black)
-                    : textColor,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 14,
+                    color: isActive ? (isLightMode ? Colors.white : Colors.black) : textColor,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
             if (count != null) ...[
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? Colors.black.withOpacity(0.2)
-                      : Colors.amber.withOpacity(0.2),
+                  color: isActive ? Colors.black.withOpacity(0.2) : Colors.amber.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  count.toString(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isActive
-                        ? (isLightMode ? Colors.white : Colors.black)
-                        : Colors.amber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text(count.toString(),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isActive ? (isLightMode ? Colors.white : Colors.black) : Colors.amber,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ],
@@ -1403,8 +1041,7 @@ class StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color itemColor =
-        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623);
+    Color itemColor = isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return Container(
@@ -1412,31 +1049,17 @@ class StatItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: itemColor,
         borderRadius: BorderRadius.circular(12),
-        border: isLightMode
-            ? Border.all(color: Colors.grey.withOpacity(0.2))
-            : null,
+        border: isLightMode ? Border.all(color: Colors.grey.withOpacity(0.2)) : null,
       ),
       child: Column(
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 8),
-          Text(
-            count,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
+          Text(count, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isLightMode ? Colors.grey[700] : Colors.grey,
-              ),
-            ),
+            child: Text(label,
+                style: TextStyle(fontSize: 12, color: isLightMode ? Colors.grey[700] : Colors.grey)),
           ),
         ],
       ),
@@ -1482,9 +1105,7 @@ class TimelineItem extends StatelessWidget {
             child: Column(
               children: [
                 if (!isFirst)
-                  Expanded(
-                    child: Container(width: 2, color: const Color(0xFF00D1F3)),
-                  ),
+                  Expanded(child: Container(width: 2, color: const Color(0xFF00D1F3))),
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(
@@ -1492,39 +1113,28 @@ class TimelineItem extends StatelessWidget {
                     border: Border.all(
                       color: type == StatusType.rejected
                           ? Colors.red
-                          : (type == StatusType.closed
-                              ? Colors.blueAccent
-                              : const Color(0xFF00D1F3)),
+                          : (type == StatusType.closed ? Colors.blueAccent : const Color(0xFF00D1F3)),
                       width: 2,
                     ),
                   ),
                   child: CircleAvatar(
                     radius: 12,
-                    backgroundColor:
-                        isLightMode ? Colors.white : Colors.transparent,
+                    backgroundColor: isLightMode ? Colors.white : Colors.transparent,
                     child: Icon(
-                      type == StatusType.pending
-                          ? Icons.circle
-                          : type == StatusType.verified
-                              ? Icons.check
-                              : type == StatusType.closed
-                                  ? Icons.done_all
-                                  : Icons.close,
+                      type == StatusType.pending ? Icons.circle
+                          : type == StatusType.verified ? Icons.check
+                          : type == StatusType.closed ? Icons.done_all
+                          : Icons.close,
                       size: 12,
-                      color: type == StatusType.pending
-                          ? Colors.amber
-                          : type == StatusType.verified
-                              ? Colors.green
-                              : type == StatusType.closed
-                                  ? Colors.blueAccent
-                                  : Colors.red,
+                      color: type == StatusType.pending ? Colors.amber
+                          : type == StatusType.verified ? Colors.green
+                          : type == StatusType.closed ? Colors.blueAccent
+                          : Colors.red,
                     ),
                   ),
                 ),
                 if (!isLast)
-                  Expanded(
-                    child: Container(width: 2, color: const Color(0xFF00D1F3)),
-                  )
+                  Expanded(child: Container(width: 2, color: const Color(0xFF00D1F3)))
                 else
                   const Expanded(child: SizedBox()),
               ],
@@ -1538,13 +1148,7 @@ class TimelineItem extends StatelessWidget {
                 color: cardColor,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: isLightMode
-                    ? [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
+                    ? [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))]
                     : [],
               ),
               child: Material(
@@ -1561,120 +1165,53 @@ class TimelineItem extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(
-                                id,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
+                              child: Text(id,
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: statusColor.withOpacity(0.3),
-                                ),
+                                border: Border.all(color: statusColor.withOpacity(0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: statusColor,
-                                  ),
+                                  Icon(Icons.circle, size: 8, color: statusColor),
                                   const SizedBox(width: 5),
-                                  Text(
-                                    statusLabel,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor,
-                                    ),
-                                  ),
+                                  Text(statusLabel,
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
                                 ],
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_city,
-                              size: 16,
-                              color: Color(0xFF00D1F3),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                sto,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        Row(children: [
+                          const Icon(Icons.location_city, size: 16, color: Color(0xFF00D1F3)),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(sto,
+                              style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500))),
+                        ]),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.category,
-                              size: 16,
-                              color: Colors.amber,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                kategori,
-                                style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.grey[700]
-                                      : Colors.white70,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        Row(children: [
+                          const Icon(Icons.category, size: 16, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(kategori,
+                              style: TextStyle(color: isLightMode ? Colors.grey[700] : Colors.white70, fontSize: 13))),
+                        ]),
                         const SizedBox(height: 8),
-                        Divider(
-                          color:
-                              isLightMode ? Colors.grey[300] : Colors.white10,
-                        ),
+                        Divider(color: isLightMode ? Colors.grey[300] : Colors.white10),
                         const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.description,
-                              size: 16,
-                              color:
-                                  isLightMode ? Colors.grey[600] : Colors.grey,
-                            ),
+                            Icon(Icons.description, size: 16,
+                                color: isLightMode ? Colors.grey[600] : Colors.grey),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                uraian,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                            Expanded(child: Text(uraian, maxLines: 2, overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: isLightMode
-                                      ? Colors.grey[600]
-                                      : Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
+                                    color: isLightMode ? Colors.grey[600] : Colors.grey, fontSize: 12))),
                           ],
                         ),
                       ],
@@ -1691,7 +1228,7 @@ class TimelineItem extends StatelessWidget {
 }
 
 // ======================================================================
-// ===== HALAMAN DETAIL LAPORAN =========================================
+// HALAMAN DETAIL LAPORAN
 // ======================================================================
 
 class DetailLaporanScreen extends StatefulWidget {
@@ -1708,18 +1245,15 @@ class DetailLaporanScreen extends StatefulWidget {
 
   @override
   State<DetailLaporanScreen> createState() => _DetailLaporanScreenState();
-
-  
 }
-
 
 class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
 
-  String get storageBaseUrl =>
-      ApiConfig.baseUrl.replaceAll('/api', '/storage/');
+  String get storageBaseUrl => ApiConfig.baseUrl.replaceAll('/api', '/storage/');
 
+  // ── Helper: ambil foto lapangan (before/progress/after) ──────────────
   List<String> _getImagesByType(String type) {
     if (widget.reportData['images'] == null) return [];
     List<dynamic> allImages = widget.reportData['images'];
@@ -1729,29 +1263,45 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
         .toList();
   }
 
+  // ── Helper: ambil evidence images berdasarkan tipe ────────────────────
+  // Mendukung format baru (evidence_images array) dan format lama (string)
+  List<String> _getEvidenceByType(String type) {
+    // Format baru: array dari API
+    if (widget.reportData['evidence_images'] != null) {
+      List<dynamic> all = widget.reportData['evidence_images'];
+      return all
+          .where((img) => img['type'] == type)
+          .map<String>((img) => img['image_path'].toString())
+          .toList();
+    }
+    // Format lama: field string tunggal
+    final fieldMap = {
+      'material': 'evidence_material',
+      'ukur': 'evidence_ukur',
+      'pendukung': 'evidence_pendukung',
+    };
+    final field = fieldMap[type];
+    if (field == null) return [];
+    final val = widget.reportData[field]?.toString() ?? '';
+    return val.isNotEmpty ? [val] : [];
+  }
+
+  // ── Upload multi-foto untuk Before / Progress / After ─────────────────
   Future<void> _uploadPhotosForCategory(String kategori) async {
     try {
-      final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 70,
-      );
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(imageQuality: 70);
       if (pickedFiles.isEmpty) return;
 
       setState(() => _isUploading = true);
 
       String id = widget.reportData['id'].toString();
-      var url = Uri.parse(
-        "${ApiConfig.baseUrl}/maintenance/report/$id/add-photos",
-      );
-
+      var url = Uri.parse("${ApiConfig.baseUrl}/maintenance/report/$id/add-photos");
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({"Accept": "application/json"});
 
       String fieldName = "foto_${kategori.toLowerCase()}[]";
-
       for (var file in pickedFiles) {
-        request.files.add(
-          await http.MultipartFile.fromPath(fieldName, file.path),
-        );
+        request.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
       }
 
       var streamedResponse = await request.send();
@@ -1761,15 +1311,10 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Foto $kategori susulan berhasil dikirim!"),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text("Foto $kategori susulan berhasil dikirim!"),
+              backgroundColor: Colors.green),
         );
-
-        if (widget.onRefresh != null) {
-          widget.onRefresh!();
-        }
+        if (widget.onRefresh != null) widget.onRefresh!();
         Navigator.pop(context);
       } else {
         throw Exception("Gagal upload: ${response.body}");
@@ -1777,217 +1322,48 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
-  Widget _buildEvidenceUploadBox(
-    String label,
-    String fieldName,
-    bool required,
-    bool isLightMode,
-  ) {
-    bool canAddPhoto =
-        widget.currentUserId == widget.reportData['user_id'].toString();
-    String path = widget.reportData[fieldName]?.toString() ?? '';
-    bool hasImage = path.isNotEmpty;
-    String fullUrl = hasImage ? storageBaseUrl + path : '';
-    String heroTag = "evidence_$fieldName";
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.blue,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-          ],
-        ),
-        const SizedBox(height: 10),
-        hasImage
-            ? GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FullScreenImageScreen(
-                        imageUrl: fullUrl,
-                        heroTag: heroTag,
-                      ),
-                    ),
-                  );
-                },
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color:
-                              isLightMode ? Colors.grey[300]! : Colors.white24,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Hero(
-                          tag: heroTag,
-                          child: Image.network(
-                            fullUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                              Icons.broken_image,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (canAddPhoto)
-                      Positioned(
-                        right: 4,
-                        bottom: 4,
-                        child: GestureDetector(
-                          onTap: _isUploading
-                              ? null
-                              : () => _uploadEvidenceImage(fieldName),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Colors.blue,
-                              shape: BoxShape.circle,
-                            ),
-                            child: _isUploading
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.edit,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              )
-            : (canAddPhoto
-                ? InkWell(
-                    onTap: _isUploading
-                        ? null
-                        : () => _uploadEvidenceImage(fieldName),
-                    child: Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue, width: 1.5),
-                      ),
-                      child: _isUploading
-                          ? const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(
-                                  Icons.add_a_photo,
-                                  color: Colors.blue,
-                                  size: 24,
-                                ),
-                                SizedBox(height: 5),
-                                Text(
-                                  "Upload",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  )
-                : Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: isLightMode
-                          ? Colors.grey[200]
-                          : const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color:
-                            isLightMode ? Colors.grey[300]! : Colors.white10,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.image_not_supported,
-                      color: isLightMode ? Colors.grey[400] : Colors.grey,
-                      size: 30,
-                    ),
-                  )),
-      ],
-    );
-  }
-
-  Future<void> _uploadEvidenceImage(String fieldName) async {
+  // ── Upload multi-foto untuk evidence (material/ukur/pendukung) ────────
+  Future<void> _uploadEvidencePhotos(String evidenceType) async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-      );
-      if (pickedFile == null) return;
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(imageQuality: 70);
+      if (pickedFiles.isEmpty) return;
 
       setState(() => _isUploading = true);
 
       String id = widget.reportData['id'].toString();
-      var url = Uri.parse('${ApiConfig.baseUrl}/maintenance/reports/$id');
-
+      var url = Uri.parse("${ApiConfig.baseUrl}/maintenance/report/$id/add-evidence");
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({"Accept": "application/json"});
-      request.fields['_method'] = 'PUT';
-      request.files.add(
-        await http.MultipartFile.fromPath(fieldName, pickedFile.path),
-      );
+      request.fields['type'] = evidenceType;
+
+      for (var file in pickedFiles) {
+        request.files.add(
+          await http.MultipartFile.fromPath('evidence_photos[]', file.path),
+        );
+      }
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        setState(() {
-          if (data['data'] != null && data['data'][fieldName] != null) {
-            widget.reportData[fieldName] = data['data'][fieldName];
-          }
-        });
+        // Update local state dengan data terbaru
+        if (data['data'] != null) {
+          setState(() {
+            widget.reportData['evidence_images'] = data['data']['evidence_images'];
+          });
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Foto evidence berhasil diunggah!"),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text("Foto evidence berhasil diunggah!"),
+              backgroundColor: Colors.green),
         );
         if (widget.onRefresh != null) widget.onRefresh!();
       } else {
@@ -1996,8 +1372,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -2007,41 +1382,25 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     final fotoBefore = _getImagesByType('before');
     final fotoProgress = _getImagesByType('progress');
     final fotoAfter = _getImagesByType('after');
+    final materialPaths = _getEvidenceByType('material');
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
 
-    final materialPath =
-        widget.reportData['evidence_material']?.toString() ?? '';
-
-    if (fotoBefore.isEmpty ||
-        fotoProgress.isEmpty ||
-        fotoAfter.isEmpty ||
-        materialPath.isEmpty) {
+    if (fotoBefore.isEmpty || fotoProgress.isEmpty || fotoAfter.isEmpty || materialPaths.isEmpty) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: isLightMode ? Colors.white : const Color(0xFF1E293B),
-          title: Text(
-            "Peringatan",
-            style: TextStyle(
-              color: isLightMode ? Colors.black : Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
-          ),
+          title: Text("Peringatan",
+              style: TextStyle(color: isLightMode ? Colors.black : Colors.white,
+                  fontWeight: FontWeight.bold, fontSize: 20)),
           content: Text(
             "Data belum lengkap!\n\nAnda harus mengunggah setidaknya 1 foto untuk masing-masing kategori: Before, Progress, After, serta foto Material (wajib), sebelum menekan selesai.",
-            style: TextStyle(
-              color: isLightMode ? Colors.grey[800] : Colors.grey,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: isLightMode ? Colors.grey[800] : Colors.grey, fontSize: 16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "Mengerti",
-                style: TextStyle(color: Colors.blue, fontSize: 16),
-              ),
+              child: const Text("Mengerti", style: TextStyle(color: Colors.blue, fontSize: 16)),
             ),
           ],
         ),
@@ -2052,24 +1411,17 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     setState(() => _isUploading = true);
     try {
       final url = Uri.parse(
-        '${ApiConfig.baseUrl}/maintenance/reports/${widget.reportData['id']}/status',
-      );
+          '${ApiConfig.baseUrl}/maintenance/reports/${widget.reportData['id']}/status');
       final response = await http.put(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: jsonEncode({'status': 'Selesai'}),
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Laporan Pekerjaan Berhasil Diselesaikan!"),
-            backgroundColor: Colors.green,
-          ),
-        );
+            backgroundColor: Colors.green));
         if (widget.onRefresh != null) widget.onRefresh!();
         Navigator.pop(context);
       } else {
@@ -2077,8 +1429,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -2090,8 +1441,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     Color textColor = isLightMode ? Colors.black : Colors.white;
     Color cardColor = isLightMode ? Colors.white : const Color(0xFF161F2E);
 
-    String idData =
-        "MAINT-${widget.reportData['id'].toString().padLeft(3, '0')}";
+    String idData = "MAINT-${widget.reportData['id'].toString().padLeft(3, '0')}";
     String status = widget.reportData['status']?.toString() ?? 'Pending';
     String statusLower = status.toLowerCase();
 
@@ -2101,9 +1451,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
             ? Colors.redAccent
             : (statusLower.contains('pend')
                 ? Colors.amber
-                : (statusLower.contains('reject')
-                    ? Colors.red
-                    : Colors.green)));
+                : (statusLower.contains('reject') ? Colors.red : Colors.green)));
 
     String? latStr = widget.reportData['latitude']?.toString();
     String? lngStr = widget.reportData['longitude']?.toString();
@@ -2112,24 +1460,22 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     final fotoProgress = _getImagesByType('progress');
     final fotoAfter = _getImagesByType('after');
 
-    bool isVerifiedAndNotDone = status.toLowerCase().contains('verif') &&
-        status.toLowerCase() != 'selesai';
+    // Evidence — mendukung multi-foto
+    final evidenceMaterial = _getEvidenceByType('material');
+    final evidenceUkur = _getEvidenceByType('ukur');
+    final evidencePendukung = _getEvidenceByType('pendukung');
+
+    bool canAddPhoto = widget.currentUserId == widget.reportData['user_id'].toString();
+    bool isVerifiedAndNotDone = statusLower.contains('verif') && statusLower != 'selesai';
 
     return Scaffold(
-      backgroundColor:
-          isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623),
+      backgroundColor: isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F1623),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
-        title: Text(
-          'Detail Laporan',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
+        title: Text('Detail Laporan',
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 20)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -2137,6 +1483,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Banner CLOSE
             if (statusLower == 'close')
               Container(
                 margin: const EdgeInsets.only(bottom: 20),
@@ -2144,8 +1491,7 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Colors.blueAccent.shade700, Colors.blue.shade400],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -2154,35 +1500,21 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                     Icon(Icons.done_all, color: Colors.white, size: 22),
                     SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Pekerjaan ini telah selesai dan ditutup oleh Admin.',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
+                      child: Text('Pekerjaan ini telah selesai dan ditutup oleh Admin.',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
                     ),
                   ],
                 ),
               ),
+
+            // ID & Status
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: statusColor.withOpacity(0.5),
-                  width: 1,
-                ),
+                color: cardColor, borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: statusColor.withOpacity(0.5), width: 1),
                 boxShadow: isLightMode
-                    ? [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.15),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
+                    ? [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 3))]
                     : [],
               ),
               child: Row(
@@ -2191,288 +1523,163 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "ID Laporan",
-                        style: TextStyle(
-                          color: isLightMode ? Colors.grey[600] : Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
+                      Text("ID Laporan",
+                          style: TextStyle(color: isLightMode ? Colors.grey[600] : Colors.grey, fontSize: 14)),
                       const SizedBox(height: 4),
-                      Text(
-                        idData,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(idData,
+                          style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      status.toUpperCase(),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                        color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Text(status.toUpperCase(),
+                        style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              "Informasi Lokasi & Link Maps",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+
+            // Lokasi
+            Text("Informasi Lokasi & Link Maps",
+                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(20),
+                color: cardColor, borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.blue.withOpacity(0.2)),
                 boxShadow: isLightMode
-                    ? [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.15),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
+                    ? [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 3))]
                     : [],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow(
-                    "Area",
-                    widget.reportData['area']?.toString() ?? '-',
-                    isLightMode,
-                  ),
-                  _buildDetailRow(
-                    "District",
-                    widget.reportData['district']?.toString() ?? '-',
-                    isLightMode,
-                  ),
-                  _buildDetailRow(
-                    "Witel",
-                    widget.reportData['witel']?.toString() ?? '-',
-                    isLightMode,
-                  ),
-                  _buildDetailRow(
-                    "STO",
-                    widget.reportData['sto']?.toString() ?? '-',
-                    isLightMode,
-                  ),
-                  Divider(
-                    color: isLightMode ? Colors.grey[300] : Colors.white10,
-                    height: 30,
-                  ),
+                  _buildDetailRow("Area", widget.reportData['area']?.toString() ?? '-', isLightMode),
+                  _buildDetailRow("District", widget.reportData['district']?.toString() ?? '-', isLightMode),
+                  _buildDetailRow("Witel", widget.reportData['witel']?.toString() ?? '-', isLightMode),
+                  _buildDetailRow("STO", widget.reportData['sto']?.toString() ?? '-', isLightMode),
+                  Divider(color: isLightMode ? Colors.grey[300] : Colors.white10, height: 30),
                   _buildDetailRow("Latitude", latStr ?? '-', isLightMode),
                   _buildDetailRow("Longitude", lngStr ?? '-', isLightMode),
                   const SizedBox(height: 5),
-                  Text(
-                    "Link Google Maps:",
-                    style: TextStyle(
-                      color: isLightMode ? Colors.grey[600] : Colors.grey,
-                      fontSize: 16,
-                    ),
-                  ),
+                  Text("Link Google Maps:",
+                      style: TextStyle(color: isLightMode ? Colors.grey[600] : Colors.grey, fontSize: 16)),
                   const SizedBox(height: 5),
                   SelectableText(
                     (latStr != null && lngStr != null && latStr.isNotEmpty)
                         ? "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr"
                         : "Koordinat belum tersedia",
                     style: TextStyle(
-                      color:
-                          isLightMode ? Colors.blue[700] : Colors.greenAccent,
-                      fontSize: 14,
-                      decoration: TextDecoration.underline,
-                    ),
+                        color: isLightMode ? Colors.blue[700] : Colors.greenAccent,
+                        fontSize: 14, decoration: TextDecoration.underline),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
-                    width: double.infinity,
-                    height: 50,
+                    width: double.infinity, height: 50,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        if (latStr != null &&
-                            lngStr != null &&
-                            latStr.isNotEmpty) {
-                          final url =
-                              "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr";
-                          await launchUrl(
-                            Uri.parse(url),
-                            mode: LaunchMode.externalApplication,
-                          );
+                        if (latStr != null && lngStr != null && latStr.isNotEmpty) {
+                          final url = "https://www.google.com/maps/search/?api=1&query=$latStr,$lngStr";
+                          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Koordinat tidak ditemukan"),
-                            ),
-                          );
+                              const SnackBar(content: Text("Koordinat tidak ditemukan")));
                         }
                       },
-                      icon: const Icon(
-                        Icons.map,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      label: const Text(
-                        "Buka di Google Maps",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                      icon: const Icon(Icons.map, color: Colors.white, size: 20),
+                      label: const Text("Buka di Google Maps",
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              "Rincian Pekerjaan",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+
+            // Rincian Pekerjaan
+            Text("Rincian Pekerjaan",
+                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildDetailCard([
-              _buildDetailRow(
-                "Kategori Kegiatan",
-                widget.reportData['kategori_kegiatan']?.toString() ?? '-',
-                isLightMode,
-              ),
-              _buildDetailRow(
-                "Uraian Pekerjaan",
-                widget.reportData['uraian_pekerjaan']?.toString() ?? '-',
-                isLightMode,
-              ),
-              _buildDetailRow(
-                "Mitra Pelaksana",
-                widget.reportData['mitra_pelaksana']?.toString() ?? '-',
-                isLightMode,
-              ),
-              _buildDetailRow(
-                "Teknisi",
-                widget.reportData['teknisi']?.toString() ?? '-',
-                isLightMode,
-              ),
-              _buildDetailRow(
-                "Waktu Laporan",
-                widget.reportData['created_at']?.toString().substring(0, 10) ??
-                    '-',
-                isLightMode,
-              ),
+              _buildDetailRow("Kategori Kegiatan",
+                  widget.reportData['kategori_kegiatan']?.toString() ?? '-', isLightMode),
+              _buildDetailRow("Uraian Pekerjaan",
+                  widget.reportData['uraian_pekerjaan']?.toString() ?? '-', isLightMode),
+              _buildDetailRow("Mitra Pelaksana",
+                  widget.reportData['mitra_pelaksana']?.toString() ?? '-', isLightMode),
+              _buildDetailRow("Teknisi", widget.reportData['teknisi']?.toString() ?? '-', isLightMode),
+              _buildDetailRow("Waktu Laporan",
+                  widget.reportData['created_at']?.toString().substring(0, 10) ?? '-', isLightMode),
             ], isLightMode),
             const SizedBox(height: 24),
-            Text(
-              "Bukti Foto Lapangan",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildPhotoCategory("Before", fotoBefore, isLightMode),
-            const SizedBox(height: 15),
-            _buildPhotoCategory("Progress", fotoProgress, isLightMode),
-            const SizedBox(height: 15),
-            _buildPhotoCategory("After", fotoAfter, isLightMode),
 
-            const SizedBox(height: 24),
-            Text(
-              "Upload Evidence Tambahan",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            // ── Bukti Foto Lapangan ────────────────────────────────────────
+            Text("Bukti Foto Lapangan",
+                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                _buildEvidenceUploadBox(
-                  "Foto Material",
-                  "evidence_material",
-                  false,
-                  isLightMode,
-                ),
-                _buildEvidenceUploadBox(
-                  "Foto Hasil Ukur",
-                  "evidence_ukur",
-                  false,
-                  isLightMode,
-                ),
-                _buildEvidenceUploadBox(
-                  "Foto Pendukung/BA",
-                  "evidence_pendukung",
-                  false,
-                  isLightMode,
-                ),
-              ],
+            _buildPhotoCategory("Before", fotoBefore, isLightMode, canAddPhoto),
+            const SizedBox(height: 15),
+            _buildPhotoCategory("Progress", fotoProgress, isLightMode, canAddPhoto),
+            const SizedBox(height: 15),
+            _buildPhotoCategory("After", fotoAfter, isLightMode, canAddPhoto),
+            const SizedBox(height: 24),
+
+            // ── Evidence — grid multi-foto seperti foto lapangan ──────────
+            Text("Upload Evidence Tambahan",
+                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text("Bisa upload lebih dari 1 foto per kategori",
+                style: TextStyle(color: isLightMode ? Colors.grey[600] : Colors.grey, fontSize: 13)),
+            const SizedBox(height: 12),
+
+            _buildEvidenceCategory(
+              label: "Foto Material",
+              evidenceType: "material",
+              paths: evidenceMaterial,
+              isLightMode: isLightMode,
+              canAdd: canAddPhoto,
+            ),
+            const SizedBox(height: 15),
+            _buildEvidenceCategory(
+              label: "Foto Hasil Ukur",
+              evidenceType: "ukur",
+              paths: evidenceUkur,
+              isLightMode: isLightMode,
+              canAdd: canAddPhoto,
+            ),
+            const SizedBox(height: 15),
+            _buildEvidenceCategory(
+              label: "Foto Pendukung/BA",
+              evidenceType: "pendukung",
+              paths: evidencePendukung,
+              isLightMode: isLightMode,
+              canAdd: canAddPhoto,
             ),
 
             const SizedBox(height: 40),
 
+            // Tombol Selesai
             if (isVerifiedAndNotDone)
               SizedBox(
-                width: double.infinity,
-                height: 55,
+                width: double.infinity, height: 55,
                 child: ElevatedButton.icon(
                   onPressed: _isUploading ? null : _markAsDone,
                   icon: const Icon(Icons.check_circle, color: Colors.white),
                   label: _isUploading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          "Pekerjaan Selesai",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
+                      ? const SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Pekerjaan Selesai",
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
               ),
             const SizedBox(height: 30),
@@ -2482,85 +1689,18 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
     );
   }
 
-  Widget _buildDetailCard(List<Widget> children, bool isLightMode) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isLightMode ? Colors.white : const Color(0xFF161F2E),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isLightMode
-            ? [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : [],
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _buildDetailRow(String title, String value, bool isLightMode) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isLightMode ? Colors.grey[700] : Colors.grey,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              style: TextStyle(
-                color: isLightMode ? Colors.black : Colors.white,
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhotoCategory(
-    String label,
-    List<String> paths,
-    bool isLightMode,
-  ) {
-    bool canAddPhoto =
-        widget.currentUserId == widget.reportData['user_id'].toString();
-
+  // ── Widget: foto lapangan (before/progress/after) ─────────────────────
+  Widget _buildPhotoCategory(String label, List<String> paths, bool isLightMode, bool canAddPhoto) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "$label (${paths.length} Foto)",
-          style: const TextStyle(
-            color: Colors.blue,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
+        Text("$label (${paths.length} Foto)",
+            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
         if (paths.isEmpty)
           canAddPhoto
               ? InkWell(
-                  onTap: _isUploading
-                      ? null
-                      : () => _uploadPhotosForCategory(label),
+                  onTap: _isUploading ? null : () => _uploadPhotosForCategory(label),
                   child: Container(
                     height: 100,
                     decoration: BoxDecoration(
@@ -2573,59 +1713,34 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.add_a_photo,
-                                color: Colors.blue,
-                                size: 24,
-                              ),
+                              const Icon(Icons.add_a_photo, color: Colors.blue, size: 24),
                               const SizedBox(height: 5),
-                              Text(
-                                "Tambah Foto $label",
-                                style: const TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
+                              Text("Tambah Foto $label",
+                                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
                             ],
                           ),
                   ),
                 )
               : Container(
-                  width: 90,
-                  height: 90,
+                  width: 90, height: 90,
                   decoration: BoxDecoration(
-                    color: isLightMode
-                        ? Colors.grey[200]
-                        : const Color(0xFF1E293B),
+                    color: isLightMode ? Colors.grey[200] : const Color(0xFF1E293B),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isLightMode ? Colors.grey[300]! : Colors.white10,
-                    ),
+                    border: Border.all(color: isLightMode ? Colors.grey[300]! : Colors.white10),
                   ),
-                  child: Icon(
-                    Icons.image_not_supported,
-                    color: isLightMode ? Colors.grey[400] : Colors.grey,
-                    size: 30,
-                  ),
-                )
+                  child: Icon(Icons.image_not_supported,
+                      color: isLightMode ? Colors.grey[400] : Colors.grey, size: 30))
         else
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1,
-            ),
+                crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1),
             itemCount: canAddPhoto ? paths.length + 1 : paths.length,
             itemBuilder: (context, index) {
               if (canAddPhoto && index == paths.length) {
                 return InkWell(
-                  onTap: _isUploading
-                      ? null
-                      : () => _uploadPhotosForCategory(label),
+                  onTap: _isUploading ? null : () => _uploadPhotosForCategory(label),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.blue.withOpacity(0.1),
@@ -2633,83 +1748,201 @@ class _DetailLaporanScreenState extends State<DetailLaporanScreen> {
                       border: Border.all(color: Colors.blue, width: 1.5),
                     ),
                     child: _isUploading
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(10.0),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
+                        ? const Center(child: Padding(padding: EdgeInsets.all(10.0),
+                            child: CircularProgressIndicator(strokeWidth: 2)))
                         : const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.add_a_photo,
-                                color: Colors.blue,
-                                size: 24,
-                              ),
+                              Icon(Icons.add_a_photo, color: Colors.blue, size: 24),
                               SizedBox(height: 4),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  "Tambah",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                              FittedBox(fit: BoxFit.scaleDown,
+                                  child: Text("Tambah",
+                                      style: TextStyle(color: Colors.blue, fontSize: 14, fontWeight: FontWeight.bold))),
                             ],
                           ),
                   ),
                 );
               }
-
               String fullUrl = storageBaseUrl + paths[index];
               String heroTag = "image_${label}_$index";
-
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FullScreenImageScreen(
-                        imageUrl: fullUrl,
-                        heroTag: heroTag,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isLightMode ? Colors.grey[300]! : Colors.white24,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Hero(
-                      tag: heroTag,
-                      child: Image.network(
-                        fullUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                ),
-              );
+              return _buildImageTile(fullUrl, heroTag, isLightMode);
             },
           ),
       ],
     );
   }
+
+  // ── Widget: evidence grid multi-foto ──────────────────────────────────
+  Widget _buildEvidenceCategory({
+    required String label,
+    required String evidenceType,
+    required List<String> paths,
+    required bool isLightMode,
+    required bool canAdd,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header: label + jumlah foto
+        Row(
+          children: [
+            Text("$label (${paths.length} Foto)",
+                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (paths.isEmpty)
+          // Belum ada foto
+          canAdd
+              ? InkWell(
+                  onTap: _isUploading ? null : () => _uploadEvidencePhotos(evidenceType),
+                  child: Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue, width: 1.5),
+                    ),
+                    child: _isUploading
+                        ? const Center(child: CircularProgressIndicator())
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add_a_photo, color: Colors.blue, size: 24),
+                              const SizedBox(height: 5),
+                              Text("Tambah $label",
+                                  style: const TextStyle(
+                                      color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                  ),
+                )
+              : Container(
+                  width: 90, height: 90,
+                  decoration: BoxDecoration(
+                    color: isLightMode ? Colors.grey[200] : const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isLightMode ? Colors.grey[300]! : Colors.white10),
+                  ),
+                  child: Icon(Icons.image_not_supported,
+                      color: isLightMode ? Colors.grey[400] : Colors.grey, size: 30))
+        else
+          // Grid foto
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1),
+            itemCount: canAdd ? paths.length + 1 : paths.length,
+            itemBuilder: (context, index) {
+              // Tombol tambah (sel terakhir jika canAdd)
+              if (canAdd && index == paths.length) {
+                return InkWell(
+                  onTap: _isUploading ? null : () => _uploadEvidencePhotos(evidenceType),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue, width: 1.5),
+                    ),
+                    child: _isUploading
+                        ? const Center(child: Padding(padding: EdgeInsets.all(10.0),
+                            child: CircularProgressIndicator(strokeWidth: 2)))
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo, color: Colors.blue, size: 24),
+                              SizedBox(height: 4),
+                              FittedBox(fit: BoxFit.scaleDown,
+                                  child: Text("Tambah",
+                                      style: TextStyle(
+                                          color: Colors.blue, fontSize: 14, fontWeight: FontWeight.bold))),
+                            ],
+                          ),
+                  ),
+                );
+              }
+              // Tile foto
+              final fullUrl = paths[index].startsWith('http')
+                  ? paths[index]
+                  : storageBaseUrl + paths[index];
+              final heroTag = "evidence_${evidenceType}_$index";
+              return _buildImageTile(fullUrl, heroTag, isLightMode);
+            },
+          ),
+      ],
+    );
+  }
+
+  // ── Tile gambar tunggal (dipakai oleh foto lapangan & evidence) ───────
+  Widget _buildImageTile(String fullUrl, String heroTag, bool isLightMode) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenImageScreen(imageUrl: fullUrl, heroTag: heroTag),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isLightMode ? Colors.grey[300]! : Colors.white24),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Hero(
+            tag: heroTag,
+            child: Image.network(
+              fullUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.broken_image, color: Colors.grey),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailCard(List<Widget> children, bool isLightMode) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isLightMode ? Colors.white : const Color(0xFF161F2E),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isLightMode
+            ? [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 3))]
+            : [],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDetailRow(String title, String value, bool isLightMode) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 2,
+              child: Text(title,
+                  style: TextStyle(color: isLightMode ? Colors.grey[700] : Colors.grey, fontSize: 16))),
+          Expanded(flex: 3,
+              child: Text(value,
+                  style: TextStyle(color: isLightMode ? Colors.black : Colors.white,
+                      fontWeight: FontWeight.w500, fontSize: 16),
+                  textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
 }
 
 // ======================================================================
-// ===== FULLSCREEN IMAGE ===============================================
+// FULLSCREEN IMAGE
 // ======================================================================
 
 class FullScreenImageScreen extends StatelessWidget {

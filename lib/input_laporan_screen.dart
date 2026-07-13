@@ -307,7 +307,7 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     setState(() => _isPredictingKategori = true);
 
     try {
-      const apiKey = 'AQ.Ab8RN6KLeiI-2js7ksv-UbV8y6Yh68YU0WyJSasj0oA-pnOW2A';
+      const apiKey = 'AQ.Ab8RN6LGWeLmremOvDOeS6e4FTMDr6blj379vyXzwNZptviyhw';
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
       final prompt =
           '''Berdasarkan uraian pekerjaan: "$uraian", pilih satu kategori paling tepat dari daftar: ${_kategoriOptions.join(', ')}. Cukup balas nama kategorinya saja.''';
@@ -355,9 +355,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
   @override
   Widget build(BuildContext context) {
     bool isLightMode = Theme.of(context).brightness == Brightness.light;
-    Color bgColor = isLightMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF0D1424);
+    Color bgColor =
+        isLightMode ? const Color(0xFFF8FAFC) : const Color(0xFF0D1424);
     Color textColor = isLightMode ? Colors.black : Colors.white;
 
     return Scaffold(
@@ -469,9 +468,8 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
-                  onPressed: _isPredictingKategori
-                      ? null
-                      : _predictKategoriByAI,
+                  onPressed:
+                      _isPredictingKategori ? null : _predictKategoriByAI,
                   icon: _isPredictingKategori
                       ? const SizedBox(
                           width: 16,
@@ -587,15 +585,12 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
                           latitude: _latitude,
                           longitude: _longitude,
                           mapsLink: _mapsLink,
-                          fotoBeforePaths: _fotoBefore
-                              .map((e) => e.path)
-                              .toList(),
-                          fotoProgressPaths: _fotoProgress
-                              .map((e) => e.path)
-                              .toList(),
-                          fotoAfterPaths: _fotoAfter
-                              .map((e) => e.path)
-                              .toList(),
+                          fotoBeforePaths:
+                              _fotoBefore.map((e) => e.path).toList(),
+                          fotoProgressPaths:
+                              _fotoProgress.map((e) => e.path).toList(),
+                          fotoAfterPaths:
+                              _fotoAfter.map((e) => e.path).toList(),
                         ),
                       ),
                     );
@@ -632,16 +627,16 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
 
   // Widget Helper
   Widget _buildFieldLabel(String label, bool isLightMode) => FittedBox(
-    fit: BoxFit.scaleDown,
-    child: Text(
-      label,
-      style: TextStyle(
-        color: isLightMode ? Colors.grey[700] : Colors.grey,
-        fontSize: 19, // Diubah menjadi 19
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  );
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isLightMode ? Colors.grey[700] : Colors.grey,
+            fontSize: 19, // Diubah menjadi 19
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
 
   Widget _buildGPSBox(String title, String value, bool isLightMode) =>
       Container(
@@ -697,153 +692,156 @@ class _InputLaporanScreenState extends State<InputLaporanScreen> {
     List<String> i,
     Function(String?) o,
     bool isLightMode,
-  ) => Container(
-    margin: const EdgeInsets.only(top: 5),
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(
-      color: isLightMode ? Colors.white : const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(12),
-      border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
-    ),
-    child: DropdownButtonFormField<String>(
-      dropdownColor: isLightMode ? Colors.white : const Color(0xFF1E293B),
-      value: v,
-      isExpanded: true,
-      hint: Text(
-        h,
-        style: TextStyle(
-          color: isLightMode ? Colors.grey[500] : Colors.grey,
-          fontSize: 19, // Diubah menjadi 19
+  ) =>
+      Container(
+        margin: const EdgeInsets.only(top: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: isLightMode ? Colors.white : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(12),
+          border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
         ),
-      ),
-      style: TextStyle(
-        color: isLightMode ? Colors.black : Colors.white,
-        fontSize: 19, // Diubah menjadi 19
-      ),
-      items: i
-          .map(
-            (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e, overflow: TextOverflow.ellipsis),
+        child: DropdownButtonFormField<String>(
+          dropdownColor: isLightMode ? Colors.white : const Color(0xFF1E293B),
+          value: v,
+          isExpanded: true,
+          hint: Text(
+            h,
+            style: TextStyle(
+              color: isLightMode ? Colors.grey[500] : Colors.grey,
+              fontSize: 19, // Diubah menjadi 19
             ),
-          )
-          .toList(),
-      onChanged: o,
-      decoration: const InputDecoration(border: InputBorder.none),
-    ),
-  );
+          ),
+          style: TextStyle(
+            color: isLightMode ? Colors.black : Colors.white,
+            fontSize: 19, // Diubah menjadi 19
+          ),
+          items: i
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(e, overflow: TextOverflow.ellipsis),
+                ),
+              )
+              .toList(),
+          onChanged: o,
+          decoration: const InputDecoration(border: InputBorder.none),
+        ),
+      );
 
   Widget _buildTextArea({
     required String hint,
     required TextEditingController controller,
     required bool isLightMode,
-  }) => Container(
-    margin: const EdgeInsets.only(top: 5),
-    decoration: BoxDecoration(
-      color: isLightMode ? Colors.white : const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(12),
-      border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
-    ),
-    child: TextField(
-      controller: controller,
-      maxLines: 4,
-      style: TextStyle(
-        color: isLightMode ? Colors.black : Colors.white,
-        fontSize: 19, // Diubah menjadi 19
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: isLightMode ? Colors.grey[400] : Colors.grey,
-          fontSize: 19, // Diubah menjadi 19
+  }) =>
+      Container(
+        margin: const EdgeInsets.only(top: 5),
+        decoration: BoxDecoration(
+          color: isLightMode ? Colors.white : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(12),
+          border: isLightMode ? Border.all(color: Colors.grey[300]!) : null,
         ),
-        contentPadding: const EdgeInsets.all(15),
-        border: InputBorder.none,
-      ),
-    ),
-  );
+        child: TextField(
+          controller: controller,
+          maxLines: 4,
+          style: TextStyle(
+            color: isLightMode ? Colors.black : Colors.white,
+            fontSize: 19, // Diubah menjadi 19
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              color: isLightMode ? Colors.grey[400] : Colors.grey,
+              fontSize: 19, // Diubah menjadi 19
+            ),
+            contentPadding: const EdgeInsets.all(15),
+            border: InputBorder.none,
+          ),
+        ),
+      );
 
   Widget _buildPhotoPickerBox(
     String label,
     List<XFile> files,
     bool isLightMode,
-  ) => GestureDetector(
-    onTap: () => _showPickerOptions(label),
-    child: Column(
-      children: [
-        Container(
-          width: 100, // Diperbesar sedikit
-          height: 100, // Diperbesar sedikit
-          decoration: BoxDecoration(
-            color: isLightMode ? Colors.white : const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: files.isNotEmpty
-                  ? Colors.blue
-                  : (isLightMode
-                        ? Colors.grey[300]!
-                        : Colors.grey.withOpacity(0.5)),
-              width: 1.5,
-            ),
-          ),
-          child: files.isNotEmpty
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.file(
-                        File(files.last.path),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "+${files.length}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24, // Diperbesar untuk visibilitas
-                            fontWeight: FontWeight.bold,
+  ) =>
+      GestureDetector(
+        onTap: () => _showPickerOptions(label),
+        child: Column(
+          children: [
+            Container(
+              width: 100, // Diperbesar sedikit
+              height: 100, // Diperbesar sedikit
+              decoration: BoxDecoration(
+                color: isLightMode ? Colors.white : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: files.isNotEmpty
+                      ? Colors.blue
+                      : (isLightMode
+                          ? Colors.grey[300]!
+                          : Colors.grey.withOpacity(0.5)),
+                  width: 1.5,
+                ),
+              ),
+              child: files.isNotEmpty
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            File(files.last.path),
+                            fit: BoxFit.cover,
                           ),
                         ),
-                      ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: Text(
+                              "+${files.length}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24, // Diperbesar untuk visibilitas
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_a_photo,
+                          color: isLightMode ? Colors.grey[400] : Colors.grey,
+                          size: 36, // Ikon diperbesar
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          "Upload",
+                          style: TextStyle(
+                            color: isLightMode ? Colors.grey[500] : Colors.grey,
+                            fontSize: 14, // Teks dalam box menyesuaikan
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.add_a_photo,
-                      color: isLightMode ? Colors.grey[400] : Colors.grey,
-                      size: 36, // Ikon diperbesar
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Upload",
-                      style: TextStyle(
-                        color: isLightMode ? Colors.grey[500] : Colors.grey,
-                        fontSize: 14, // Teks dalam box menyesuaikan
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isLightMode ? Colors.black : Colors.white,
+                fontSize: 19, // Diubah menjadi 19
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: isLightMode ? Colors.black : Colors.white,
-            fontSize: 19, // Diubah menjadi 19
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 }
